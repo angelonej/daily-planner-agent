@@ -407,7 +407,16 @@ export async function coordinatorAgent(message, userId = "default", assistantNam
         return "Conversation history cleared.";
     }
     // All other messages → chat agent with briefing context
-    const briefing = briefingCache.get(userId);
+    // Use per-user briefing if available; fall back to shared dashboard briefing cache
+    let briefing = briefingCache.get(userId);
+    if (!briefing) {
+        try {
+            briefing = await getCachedBriefing();
+        }
+        catch {
+            // no briefing available — chat will still work, just without briefing context
+        }
+    }
     try {
         return await chatAgent(userId, message, briefing, assistantName);
     }
