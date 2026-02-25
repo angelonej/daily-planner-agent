@@ -488,6 +488,11 @@
           <div class="card-title">✅ Tasks Due</div>
           <div id="overview-tasks"></div>
         </div>
+        <!-- Packages arriving today -->
+        <div class="card" id="packages-today-card">
+          <div class="card-title">📦 Arriving Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
+          <div id="overview-packages"></div>
+        </div>
         <!-- LLM Usage -->
         <div class="card">
           <div class="card-title">🤖 LLM Usage Today</div>
@@ -1018,14 +1023,23 @@ function renderWidgets() {
     banner.style.display = 'none';
   }
 
-  // ── Packages badge ──
+  // ── Packages arriving today (overview card) ──
+  const pkgCard = document.getElementById('packages-today-card');
+  const pkgEl   = document.getElementById('overview-packages');
   if (packages && packages.length > 0) {
-    document.getElementById('packages-list').innerHTML = packages.map(p => `
+    pkgCard.style.display = '';
+    pkgEl.innerHTML = packages.map(p => `
       <div class="pkg-item">
-        <div class="pkg-carrier">${escapeHtml(p.carrier)}</div>
-        <div class="pkg-number"><a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener">${escapeHtml(p.trackingNumber)}</a></div>
-        <div class="pkg-subject">${escapeHtml(p.emailSubject)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent);color:#fff">${escapeHtml(p.carrier)}</span>
+          <a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600">${escapeHtml(p.trackingNumber)} ↗</a>
+        </div>
+        <div class="pkg-subject" style="margin-top:3px">${escapeHtml(p.emailSubject)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px">${escapeHtml(p.emailFrom)}</div>
       </div>`).join('');
+  } else {
+    // Hide card entirely when no packages arriving today
+    pkgCard.style.display = 'none';
   }
 
   // ── Weather ──

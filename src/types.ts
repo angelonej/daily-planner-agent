@@ -74,6 +74,7 @@ export interface PackageInfo {
   emailSubject: string;
   emailFrom: string;
   emailDate: string;
+  arrivingToday?: boolean;  // true when email strongly suggests delivery today
 }
 
 export interface NewsArticle {

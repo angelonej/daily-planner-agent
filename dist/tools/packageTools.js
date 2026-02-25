@@ -35,6 +35,30 @@ const SHIPPING_KEYWORDS = [
     "out for delivery", "on its way", "order shipped", "order update",
     "ups", "fedex", "usps", "amazon", "dhl", "arriving",
 ];
+// Keywords that strongly suggest the package arrives TODAY
+const TODAY_KEYWORDS = [
+    "out for delivery",
+    "arriving today",
+    "delivery today",
+    "arriving now",
+    "will be delivered today",
+    "expected today",
+    "delivered today",
+    "your delivery is today",
+    "scheduled for today",
+];
+/** Returns true if the email text strongly suggests delivery today */
+function isArrivingToday(subject, snippet, emailDate) {
+    const combined = `${subject} ${snippet}`.toLowerCase();
+    if (TODAY_KEYWORDS.some((kw) => combined.includes(kw)))
+        return true;
+    // Also flag emails received today that say "out for delivery" or "on its way"
+    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const isToday = emailDate.startsWith(today) || emailDate.includes(new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+    if (isToday && (combined.includes("out for delivery") || combined.includes("on its way")))
+        return true;
+    return false;
+}
 function looksLikeShippingEmail(subject, snippet) {
     const combined = `${subject} ${snippet}`.toLowerCase();
     return SHIPPING_KEYWORDS.some((kw) => combined.includes(kw));
@@ -81,6 +105,7 @@ export async function getTrackedPackages(prefetchedEmails) {
                 emailSubject: email.subject,
                 emailFrom: email.from,
                 emailDate: email.date,
+                arrivingToday: isArrivingToday(email.subject, email.snippet, email.date),
             });
         }
     }

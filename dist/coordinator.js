@@ -6,6 +6,7 @@ import { criticAgent } from "./agents/criticAgent.js";
 import { chatAgent } from "./agents/chatAgent.js";
 import { getWeather, formatWeatherSummary } from "./tools/weatherTools.js";
 import { listTasks } from "./tools/tasksTools.js";
+import { getTrackedPackages } from "./tools/packageTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { pushNotification, startNotificationPolling } from "./tools/notificationTools.js";
 import { getUsageToday } from "./tools/usageTracker.js";
@@ -224,6 +225,15 @@ export async function buildMorningBriefing() {
     if (googleTasks.status === "rejected")
         console.error("Google Tasks error:", googleTasks.reason);
     const importantEmails = filterImportant(emailsData);
+    // Scan emails for packages arriving today — reuse already-fetched emails, zero extra API calls
+    let packagesToday = [];
+    try {
+        const allPackages = await getTrackedPackages(emailsData.length ? emailsData : undefined);
+        packagesToday = allPackages.filter((p) => p.arrivingToday);
+    }
+    catch (err) {
+        console.warn("Package scan error:", err instanceof Error ? err.message : err);
+    }
     // Proactive analysis is synchronous — zero extra latency
     const suggestions = proactiveAnalysis({
         calendar: calendarData, emails: emailsData, importantEmails,
@@ -240,7 +250,7 @@ export async function buildMorningBriefing() {
         llmUsage: getUsageToday(),
         generatedAt: new Date().toISOString(),
         suggestions,
-        packages: [], // loaded lazily via /api/packages — not blocking briefing
+        packages: packagesToday, // today's arriving packages shown in overview
     };
     console.log(`✅ Morning briefing built in ${Date.now() - t0}ms`);
     return briefing;
