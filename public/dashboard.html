@@ -693,6 +693,27 @@ const USER_ID = 'web-user';
 let briefingData = null;
 let tasksData = [];
 
+// ── Auth token: capture from URL after login, persist to localStorage ─────
+(function() {
+  const params = new URLSearchParams(location.search);
+  const tok = params.get('tok');
+  if (tok) {
+    localStorage.setItem('authToken', tok);
+    // Clean the token out of the URL bar without a page reload
+    history.replaceState({}, '', location.pathname);
+  }
+})();
+
+// ── Patch fetch to always send the auth token header ─────────────────────
+const _origFetch = window.fetch.bind(window);
+window.fetch = function(input, init = {}) {
+  const tok = localStorage.getItem('authToken');
+  if (tok) {
+    init.headers = Object.assign({ 'X-Auth-Token': tok }, init.headers || {});
+  }
+  return _origFetch(input, init);
+};
+
 // ── Clock ────────────────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -970,7 +991,8 @@ document.getElementById('digestBtn').addEventListener('click', async () => {
 // ── SSE notifications ─────────────────────────────────────────────────────
 let unread = 0;
 function connectSSE() {
-  const es = new EventSource('/notifications');
+  const tok = localStorage.getItem('authToken');
+  const es = new EventSource('/notifications' + (tok ? `?tok=${encodeURIComponent(tok)}` : ''));
   es.addEventListener('notification', e => {
     try {
       const n = JSON.parse(e.data);

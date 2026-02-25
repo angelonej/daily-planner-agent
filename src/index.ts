@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import FileStore from "session-file-store";
+import crypto from "crypto";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 import readline from "readline";
@@ -65,14 +66,29 @@ if (process.argv.includes("--cli")) {
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    rolling: true,   // reset expiry on every request — keeps active users logged in
+    rolling: true,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,  // set to true only behind HTTPS termination
+      sameSite: false,  // omit SameSite — broadest mobile compatibility on plain HTTP
+      secure: false,
     }
   }));
+
+  // ─── Token store: fallback for mobile browsers that drop cookies on HTTP IPs ─
+  const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+  const validTokens = new Map<string, number>(); // token → expiry timestamp
+  function issueToken(): string {
+    const tok = crypto.randomBytes(32).toString('hex');
+    validTokens.set(tok, Date.now() + TOKEN_TTL_MS);
+    return tok;
+  }
+  function checkToken(tok: string | undefined): boolean {
+    if (!tok) return false;
+    const exp = validTokens.get(tok);
+    if (!exp || Date.now() > exp) { if (tok) validTokens.delete(tok); return false; }
+    return true;
+  }
 
   // Login page
   app.get("/login", (_req: Request, res: Response) => {
@@ -110,7 +126,8 @@ if (process.argv.includes("--cli")) {
     const { password } = req.body as { password: string };
     if (!APP_PASSWORD || password === APP_PASSWORD) {
       (req.session as any).authenticated = true;
-      return req.session.save(() => res.redirect("/"));
+      const tok = issueToken();
+      return req.session.save(() => res.redirect(`/?tok=${tok}`));
     }
     res.send(`<!DOCTYPE html><html lang="en">
 <head>
@@ -150,10 +167,16 @@ if (process.argv.includes("--cli")) {
   // Auth guard — skip for Twilio webhooks and health check
   const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key"]);
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (!APP_PASSWORD) return next();                          // no password set = open
-    if (OPEN_PATHS.has(req.path)) return next();              // public endpoints
-    if ((req.session as any).authenticated) return next();    // logged in
-    // API / fetch calls → return 401 JSON so the client can handle it gracefully
+    if (!APP_PASSWORD) return next();
+    if (OPEN_PATHS.has(req.path)) return next();
+    if ((req.session as any).authenticated) return next();
+    // Token fallback: check X-Auth-Token header or tok query param
+    const headerTok = req.headers['x-auth-token'] as string | undefined;
+    const queryTok  = req.query['tok'] as string | undefined;
+    if (checkToken(headerTok) || checkToken(queryTok)) {
+      (req.session as any).authenticated = true; // re-hydrate cookie session
+      return next();
+    }
     const isApiCall = req.xhr || (req.headers.accept ?? "").includes("application/json") || req.path.startsWith("/voice-chat") || req.path.startsWith("/send-digest") || req.path.startsWith("/notifications");
     if (isApiCall) return res.status(401).json({ error: "Session expired. Please log in again.", redirect: "/login" });
     return res.redirect("/login");
