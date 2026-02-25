@@ -201,30 +201,41 @@ export async function searchEmails(
 // ─── Mark messages as read for a given account ──────────────────────────────
 export async function markEmailsAsRead(
   accountAlias: string,
-  query = "is:unread newer_than:1d"
+  query = "is:unread"
 ): Promise<{ marked: number }> {
   const auth = buildOAuth2Client();
   await loadTokens(accountAlias, auth);
   const gmail = google.gmail({ version: "v1", auth });
 
-  const listRes = await gmail.users.messages.list({
-    userId: "me",
-    q: query,
-    maxResults: 50,
-  });
+  let totalMarked = 0;
+  let pageToken: string | undefined;
 
-  const messages = listRes.data.messages ?? [];
-  if (messages.length === 0) return { marked: 0 };
+  // Loop through all pages — batchModify max is 1000 ids but list max is 500
+  do {
+    const listRes = await gmail.users.messages.list({
+      userId: "me",
+      q: query,
+      maxResults: 500,
+      pageToken,
+    });
 
-  await gmail.users.messages.batchModify({
-    userId: "me",
-    requestBody: {
-      ids: messages.map((m) => m.id!),
-      removeLabelIds: ["UNREAD"],
-    },
-  });
+    const messages = listRes.data.messages ?? [];
+    if (messages.length === 0) break;
 
-  return { marked: messages.length };
+    // batchModify accepts up to 1000 ids per call
+    await gmail.users.messages.batchModify({
+      userId: "me",
+      requestBody: {
+        ids: messages.map((m) => m.id!),
+        removeLabelIds: ["UNREAD"],
+      },
+    });
+
+    totalMarked += messages.length;
+    pageToken = listRes.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return { marked: totalMarked };
 }
 
 // ─── Fetch from BOTH configured Gmail accounts ───────────────────────────────

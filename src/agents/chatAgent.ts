@@ -286,7 +286,7 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
         type: "object",
         properties: {
           account: { type: "string", description: "Which account to mark: 'personal', 'work', or omit for both." },
-          query:   { type: "string", description: "Gmail query to select which emails to mark as read. Default: 'is:unread newer_than:1d' (today\'s unread). Use 'is:unread' for all unread." },
+          query:   { type: "string", description: "Gmail query to select which emails to mark as read. Default: 'is:unread' (all unread). Use 'is:unread newer_than:1d' for today only." },
         },
         required: [],
       },
@@ -410,7 +410,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
               process.env.GMAIL_ACCOUNT_1_ALIAS ?? "personal",
               process.env.GMAIL_ACCOUNT_2_ALIAS ?? "work",
             ];
-        const query = args.query ? String(args.query) : "is:unread newer_than:1d";
+        const query = args.query ? String(args.query) : "is:unread";
         let totalMarked = 0;
         const details: string[] = [];
         for (const alias of accounts) {
