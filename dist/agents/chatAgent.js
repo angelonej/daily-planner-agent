@@ -39,6 +39,7 @@ When the user asks to find a free time slot, schedule something, when am I free,
 When the user asks about packages, shipments, tracking, deliveries, "where is my package", "any packages coming", "packages coming soon", "expecting a package", "what packages", "when will my order", or anything about orders being shipped or delivered, ALWAYS call track_packages.
 When the user asks for suggestions, tips, what should I know about today, or proactive advice, ALWAYS call get_suggestions.
 When the user asks about AWS costs, cloud spend, monthly bill, EC2 charges, or how much AWS is costing, ALWAYS call get_aws_cost.
+When the user asks about commute time, drive time, traffic, how long to get home or to work, or how's the traffic, ALWAYS call get_traffic.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
@@ -386,6 +387,21 @@ const CALENDAR_TOOLS = [
             parameters: { type: "object", properties: {}, required: [] },
         },
     },
+    {
+        type: "function",
+        function: {
+            name: "get_traffic",
+            description: "Get live drive time and traffic conditions between two locations using Google Maps. Use when the user asks about commute time, drive time, traffic, 'how long to get home', 'traffic on the way to work', 'how's my commute', etc. If origin or destination is not specified, use HOME_ADDRESS and WORK_ADDRESS from env.",
+            parameters: {
+                type: "object",
+                properties: {
+                    origin: { type: "string", description: "Starting address or location, e.g. '123 Main St, Orlando FL' or 'work'" },
+                    destination: { type: "string", description: "Destination address or location, e.g. '456 Oak Ave, Orlando FL' or 'home'" },
+                },
+                required: [],
+            },
+        },
+    },
 ];
 // ─── Execute a tool call returned by the model ────────────────────────────
 async function executeTool(name, args) {
@@ -648,6 +664,30 @@ async function executeTool(name, args) {
             case "get_aws_cost": {
                 const costData = await getAwsCostSummary();
                 return formatAwsCostSummary(costData);
+            }
+            case "get_traffic": {
+                const home = process.env.HOME_ADDRESS;
+                const work = process.env.WORK_ADDRESS;
+                let origin = args.origin ? String(args.origin) : null;
+                let destination = args.destination ? String(args.destination) : null;
+                // Resolve "home" / "work" keywords
+                if (!origin || origin.toLowerCase() === "work")
+                    origin = work ?? null;
+                if (!destination || destination.toLowerCase() === "home")
+                    destination = home ?? null;
+                if (!origin || !destination) {
+                    if (!home && !work)
+                        return JSON.stringify({ error: "HOME_ADDRESS and WORK_ADDRESS are not set. Please configure them in Settings." });
+                    if (!origin)
+                        return JSON.stringify({ error: "Could not determine origin. Please specify a starting address." });
+                    if (!destination)
+                        return JSON.stringify({ error: "Could not determine destination. Please specify a destination address." });
+                }
+                const { getTrafficDuration } = await import("../tools/trafficTools.js");
+                const result = await getTrafficDuration(origin, destination);
+                if (!result)
+                    return JSON.stringify({ error: "Traffic data unavailable. Check that GOOGLE_MAPS_API_KEY is set." });
+                return JSON.stringify(result);
             }
             default:
                 return JSON.stringify({ error: `Unknown tool: ${name}` });
