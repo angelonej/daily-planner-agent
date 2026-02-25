@@ -616,6 +616,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: msg, userId: USER_ID }),
       });
+      if (res.status === 401) {
+        thinking.remove();
+        addBubble('agent', '🔒 Session expired — redirecting to login…');
+        setTimeout(() => { window.location.href = '/login'; }, 1500);
+        return;
+      }
       const data = await res.json();
       thinking.remove();
       const reply = data.reply || data.error || 'No response';
