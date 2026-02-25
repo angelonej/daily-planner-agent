@@ -49,7 +49,13 @@ async function buildCalendarClient() {
 function toGoogleDateTime(iso: string): { dateTime?: string; date?: string; timeZone?: string } {
   const tz = process.env.TIMEZONE ?? "America/New_York";
   if (iso.includes("T")) {
-    return { dateTime: iso.includes("Z") || iso.includes("+") ? iso : `${iso}:00`, timeZone: tz };
+    if (iso.includes("Z") || iso.includes("+")) return { dateTime: iso, timeZone: tz };
+    // Count colons after the T to determine if seconds are already present
+    const timePart = iso.split("T")[1] ?? "";
+    const colonCount = (timePart.match(/:/g) ?? []).length;
+    // HH:MM → 1 colon, needs :00; HH:MM:SS → 2 colons, already complete
+    const dateTime = colonCount >= 2 ? iso : `${iso}:00`;
+    return { dateTime, timeZone: tz };
   }
   return { date: iso };
 }
