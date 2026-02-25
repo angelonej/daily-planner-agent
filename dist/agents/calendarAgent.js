@@ -1,6 +1,9 @@
-import { getCalendarEvents, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, findEventsByTitle, } from "../tools/calendarTools.js";
+import { getCalendarEvents, getCalendarEventsByRange, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, findEventsByTitle, } from "../tools/calendarTools.js";
 export async function calendarAgent(daysAhead = 1) {
     return getCalendarEvents(daysAhead);
+}
+export async function listEventsByRange(startIso, endIso) {
+    return getCalendarEventsByRange(startIso, endIso);
 }
 export async function createEvent(params) {
     return createCalendarEvent(params);

@@ -90,6 +90,42 @@ function fmtEventTime(iso: string): string {
     : "All Day";
 }
 
+export async function getCalendarEventsByRange(startIso: string, endIso: string): Promise<CalendarEvent[]> {
+  const calendar = await buildCalendarClient();
+  const calendarIds = await getAllCalendarIds(calendar);
+  const allEvents: CalendarEvent[] = [];
+
+  await Promise.all(
+    calendarIds.map(async ({ id }) => {
+      try {
+        const res = await calendar.events.list({
+          calendarId: id,
+          timeMin: new Date(startIso).toISOString(),
+          timeMax: new Date(endIso).toISOString(),
+          singleEvents: true,
+          orderBy: "startTime",
+          maxResults: 100,
+        });
+        for (const event of res.data.items ?? []) {
+          const start = event.start?.dateTime ?? event.start?.date ?? "";
+          const end   = event.end?.dateTime   ?? event.end?.date   ?? "";
+          allEvents.push({
+            start:       fmtEventTime(start),
+            end:         fmtEventTime(end),
+            title:       event.summary ?? "(no title)",
+            location:    event.location    ?? undefined,
+            description: event.description ?? undefined,
+            eventId:     event.id          ?? undefined,
+          });
+        }
+      } catch {}
+    })
+  );
+
+  allEvents.sort((a, b) => a.start.localeCompare(b.start));
+  return allEvents;
+}
+
 export async function getCalendarEvents(daysAhead = 1): Promise<CalendarEvent[]> {
   const calendar = await buildCalendarClient();
 

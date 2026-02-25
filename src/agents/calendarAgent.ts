@@ -1,5 +1,6 @@
 import {
   getCalendarEvents,
+  getCalendarEventsByRange,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
@@ -11,6 +12,10 @@ import { CalendarEvent } from "../types.js";
 
 export async function calendarAgent(daysAhead = 1): Promise<CalendarEvent[]> {
   return getCalendarEvents(daysAhead);
+}
+
+export async function listEventsByRange(startIso: string, endIso: string): Promise<CalendarEvent[]> {
+  return getCalendarEventsByRange(startIso, endIso);
 }
 
 export async function createEvent(params: CreateEventParams) {

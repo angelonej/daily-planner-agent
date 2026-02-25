@@ -5,6 +5,7 @@ import {
   updateEvent,
   deleteEvent,
   searchEvents,
+  listEventsByRange,
 } from "./calendarAgent.js";
 import {
   listTasks,
@@ -86,6 +87,21 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
           eventId: { type: "string", description: "Google Calendar event ID to delete" },
         },
         required: ["eventId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_calendar_events",
+      description: "List calendar events between two dates. Use for: 'show this week', 'what's on my calendar', 'events this week/month/tomorrow/next week', or any request to VIEW events for a date range. Always call this for calendar viewing requests.",
+      parameters: {
+        type: "object",
+        properties: {
+          startIso: { type: "string", description: "Start of range in ISO 8601, e.g. 2026-02-24T00:00:00" },
+          endIso:   { type: "string", description: "End of range in ISO 8601, e.g. 2026-03-02T23:59:59" },
+        },
+        required: ["startIso", "endIso"],
       },
     },
   },
@@ -239,6 +255,11 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
       case "delete_calendar_event": {
         await deleteEvent(String(args.eventId));
         return JSON.stringify({ success: true });
+      }
+      case "list_calendar_events": {
+        const events = await listEventsByRange(String(args.startIso), String(args.endIso));
+        if (events.length === 0) return JSON.stringify({ message: "No events found in that date range." });
+        return JSON.stringify(events);
       }
       case "search_calendar_events": {
         const events = await searchEvents(String(args.query), Number(args.daysToSearch ?? 14));
