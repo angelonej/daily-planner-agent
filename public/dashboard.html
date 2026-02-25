@@ -1260,7 +1260,7 @@ async function deleteReminder(id) {
   } catch(e) { showToast('❌ Error', e.message); }
 }
 
-
+async function completeTask(taskId, listId, el) {
   el.classList.add('done');
   try {
     const res = await fetch('/api/complete-task', {
