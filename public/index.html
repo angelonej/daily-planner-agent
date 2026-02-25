@@ -71,6 +71,12 @@
       max-width: 90%;
       text-align: center;
     }
+    .bubble a {
+      color: #58a6ff;
+      text-decoration: underline;
+    }
+    .bubble a:hover { color: #79c0ff; }
+
     .bubble.thinking {
       background: #21262d;
       border: 1px solid #30363d;
@@ -537,6 +543,34 @@
   });
 
   // ── helpers ────────────────────────────────────────────────────────────
+
+  // Convert a small subset of markdown to HTML (links, bold, code)
+  function renderMarkdown(text) {
+    // Escape HTML first
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // [label](url) → <a>
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    // **bold**
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // `code`
+    html = html.replace(/`([^`]+)`/g, '<code style="background:#161b22;padding:1px 5px;border-radius:4px;font-size:0.9em">$1</code>');
+    // newlines → <br>
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }
+
+  // Strip markdown for TTS (remove links, bold markers, etc.)
+  function stripMarkdown(text) {
+    return text
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [label](url) → label
+      .replace(/\*\*([^*]+)\*\*/g, '$1')        // **bold** → bold
+      .replace(/`([^`]+)`/g, '$1');              // `code` → code
+  }
+
   function addBubble(role, text) {
     const wrap = document.createElement('div');
 
@@ -547,7 +581,11 @@
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble ' + role;
-    bubble.textContent = text;
+    if (role === 'agent') {
+      bubble.innerHTML = renderMarkdown(text);
+    } else {
+      bubble.textContent = text;
+    }
     wrap.appendChild(bubble);
 
     chat.appendChild(wrap);
@@ -626,7 +664,7 @@
       thinking.remove();
       const reply = data.reply || data.error || 'No response';
       addBubble('agent', reply);
-      speakText(reply);
+      speakText(stripMarkdown(reply));
     } catch (e) {
       thinking.remove();
       addBubble('agent', '⚠️ Network error: ' + e.message);
