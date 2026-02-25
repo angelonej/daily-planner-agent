@@ -449,7 +449,7 @@
     </div>
     <div class="drawer-row">
       <button id="notifBtn" class="drawer-row-btn">🔔 Notifications<span id="notifBadge"></span></button>
-      <button id="stopBtn" class="drawer-row-btn">⏹ Stop Speaking</button>
+      <button id="muteBtn" class="drawer-row-btn">🔊 Voice On</button>
     </div>
   </div>
 
@@ -527,19 +527,38 @@
   const clearBtn    = document.getElementById('clearBtn');
   const notifBtn    = document.getElementById('notifBtn');
   const notifBadge  = document.getElementById('notifBadge');
+  const muteBtn     = document.getElementById('muteBtn');
   const micBtn      = document.getElementById('micBtn');
-  const stopBtn     = document.getElementById('stopBtn');
   const voiceStatus = document.getElementById('voiceStatus');
   const toastContainer = document.getElementById('toastContainer');
   const drawer      = document.getElementById('drawer');
   const drawerOverlay = document.getElementById('drawer-overlay');
 
+  // ── TTS mute state ─────────────────────────────────────────────────────
+  let ttsEnabled = localStorage.getItem('ttsMuted') !== 'true';
+  function updateMuteBtn() {
+    if (ttsEnabled) {
+      muteBtn.textContent = '🔊 Voice On';
+      muteBtn.classList.remove('active');
+    } else {
+      muteBtn.textContent = '🔇 Muted';
+      muteBtn.classList.add('active');
+    }
+  }
+  updateMuteBtn();
+  muteBtn.addEventListener('click', () => {
+    ttsEnabled = !ttsEnabled;
+    localStorage.setItem('ttsMuted', !ttsEnabled);
+    if (!ttsEnabled) window.speechSynthesis?.cancel();
+    updateMuteBtn();
+  });
+
   function openDrawer()  { drawer.classList.add('open'); drawerOverlay.classList.add('open'); menuBtn.classList.add('open'); }
   function closeDrawer() { drawer.classList.remove('open'); drawerOverlay.classList.remove('open'); menuBtn.classList.remove('open'); }
   menuBtn.addEventListener('click', () => drawer.classList.contains('open') ? closeDrawer() : openDrawer());
   drawerOverlay.addEventListener('click', closeDrawer);
-  // Close drawer when any drawer button is tapped
-  drawer.querySelectorAll('button').forEach(b => b.addEventListener('click', () => setTimeout(closeDrawer, 150)));
+  // Close drawer only when action buttons are tapped (not tab-switcher buttons)
+  drawer.querySelectorAll('button:not(.dtab)').forEach(b => b.addEventListener('click', () => setTimeout(closeDrawer, 150)));
 
   const USER_ID = 'web-user';
   let unreadNotifs = 0;
@@ -659,18 +678,6 @@
     micBtn.title = 'Microphone requires HTTPS';
   }
 
-  // ── Stop button: cancel TTS and mic ───────────────────────────────────
-  stopBtn.addEventListener('click', () => {
-    window.speechSynthesis?.cancel();
-    if (isListening && recognition) {
-      recognition.stop();
-      isListening = false;
-      micBtn.classList.remove('recording');
-    }
-    voiceStatus.textContent = 'Stopped.';
-    setTimeout(() => { voiceStatus.textContent = 'Click the mic button to speak'; }, 1500);
-  });
-
   // ── helpers ────────────────────────────────────────────────────────────
 
   // Convert a small subset of markdown to HTML (links, bold, code)
@@ -757,7 +764,7 @@
 
   // ── Browser TTS (free, no API) ─────────────────────────────────────────
   function speakText(text) {
-    if (!window.speechSynthesis) return;
+    if (!ttsEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel(); // stop any current speech
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'en-US';
