@@ -360,6 +360,7 @@
     <div class="nav-section">
       <div class="nav-label">Chat</div>
       <button class="nav-btn active" onclick="sendQuick('/morning')"><span class="icon">☀️</span> Morning Briefing</button>
+      <button class="nav-btn" onclick="sendQuick('/evening')"><span class="icon">🌙</span> Evening Briefing</button>
       <button class="nav-btn" onclick="sendQuick('Check my emails')"><span class="icon">📧</span> Check Emails <span class="badge" id="emailBadge" style="display:none">0</span></button>
       <button class="nav-btn" onclick="sendQuick('Show my tasks')"><span class="icon">✅</span> My Tasks <span class="badge green" id="taskBadge" style="display:none">0</span></button>
       <button class="nav-btn" onclick="sendQuick('What is on my calendar today?')"><span class="icon">📅</span> Today's Calendar</button>
@@ -373,7 +374,6 @@
       <button class="nav-btn" onclick="focusInput('Schedule ')"><span class="icon">➕</span> Add Event</button>
       <button class="nav-btn" onclick="focusInput('Add a task: ')"><span class="icon">📝</span> Add Task</button>
       <button class="nav-btn" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
-      <button class="nav-btn" onclick="sendQuick('Analyze my calendar for recurring patterns')"><span class="icon">🔄</span> Recurring Events</button>
     </div>
     <div class="nav-divider"></div>
     <div class="nav-section">
@@ -403,7 +403,7 @@
       <div class="chip" onclick="sendQuick('Show my tasks')">✅ Tasks</div>
       <div class="chip" onclick="sendQuick('What is the weather today?')">🌤 Weather</div>
       <div class="chip" onclick="sendQuick('What is in the news today?')">📰 News</div>
-      <div class="chip" onclick="sendQuick('Analyze my calendar for recurring patterns')">🔄 Patterns</div>
+      <div class="chip" onclick="sendQuick('/evening')">🌙 Evening</div>
     </div>
 
     <div id="chat">

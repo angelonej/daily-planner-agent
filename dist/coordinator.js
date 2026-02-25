@@ -9,6 +9,7 @@ import { listTasks } from "./tools/tasksTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { pushNotification, startNotificationPolling } from "./tools/notificationTools.js";
 import { getUsageToday } from "./tools/usageTracker.js";
+import { getTrafficDuration } from "./tools/trafficTools.js";
 import cron from "node-cron";
 // Cache the morning briefing per user so chat can reference it all day
 const briefingCache = new Map();
@@ -38,6 +39,24 @@ export function startScheduledJobs() {
         }
     }, { timezone: tz });
     console.log(`⏰ Cron jobs scheduled (tz: ${tz}): digest email at 7:00 AM daily`);
+    // 5:00 PM daily: push evening briefing notification
+    cron.schedule("0 17 * * *", async () => {
+        console.log("⏰ Cron: sending evening briefing notification...");
+        try {
+            const briefing = await buildMorningBriefing();
+            const text = await formatEveningBriefingText(briefing);
+            pushNotification({
+                type: "digest_ready",
+                title: "🌙 Evening Briefing Ready",
+                body: "Tap to see your evening summary",
+            });
+            briefingCache.set("cron-user-evening", briefing);
+            console.log("Evening briefing cached");
+        }
+        catch (err) {
+            console.error("Cron evening job error:", err);
+        }
+    }, { timezone: tz });
     // Start SSE notification polling (calendar event reminders)
     startNotificationPolling();
 }
@@ -148,6 +167,57 @@ ${usageSection}
 💬 Chat with me anytime — ask about your emails, schedule, tasks, or anything else!
 `.trim();
 }
+// ─── Evening Briefing ─────────────────────────────────────────────────────
+const EVENING_TRIGGERS = ["/evening", "evening briefing", "end of day", "evening summary", "wrap up my day", "end my day"];
+async function formatEveningBriefingText(briefing) {
+    const home = process.env.HOME_ADDRESS;
+    const work = process.env.WORK_ADDRESS;
+    // Tomorrow's calendar events
+    const tmrStart = new Date();
+    tmrStart.setDate(tmrStart.getDate() + 1);
+    tmrStart.setHours(0, 0, 0, 0);
+    const tmrEnd = new Date(tmrStart);
+    tmrEnd.setHours(23, 59, 59, 999);
+    const tomorrowStr = tmrStart.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    let tomorrowEvents;
+    try {
+        const { getCalendarEventsByRange } = await import("./tools/calendarTools.js");
+        const events = await getCalendarEventsByRange(tmrStart.toISOString(), tmrEnd.toISOString());
+        tomorrowEvents = events.length > 0
+            ? events.map((e) => `  ${e.start}–${e.end}  ${e.title}${e.location ? ` @ ${e.location}` : ""}`).join("\n")
+            : "  Nothing scheduled.";
+    }
+    catch {
+        tomorrowEvents = "  Unable to load tomorrow's calendar.";
+    }
+    // Live commute home traffic (work → home)
+    let commuteSection = "";
+    if (work && home) {
+        try {
+            const traffic = await getTrafficDuration(work, home);
+            if (traffic) {
+                const icon = traffic.heavyTraffic ? "🔴" : "🟢";
+                commuteSection = `\n🚗 COMMUTE HOME\n  ${icon} ${traffic.summary}\n  Drive: ${traffic.durationTrafficMin} min${traffic.trafficDelayMin > 0 ? ` (+${traffic.trafficDelayMin} min delay)` : ""}`;
+            }
+        }
+        catch { /* Maps unavailable */ }
+    }
+    const openTasks = briefing.googleTasks.filter((t) => t.status !== "completed");
+    const taskSection = openTasks.length > 0
+        ? openTasks.map((t) => `  • ${t.title}${t.due ? ` (due ${new Date(t.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })})` : ""}`).join("\n")
+        : "  All tasks complete! 🎉";
+    const usageSection = briefing.llmUsage
+        ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(4)}`
+        : "  No usage data.";
+    return [
+        `Good evening! Here's your end-of-day summary for ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
+        commuteSection,
+        `\n📅 TOMORROW — ${tomorrowStr}\n${tomorrowEvents}`,
+        `\n✅ OPEN TASKS\n${taskSection}`,
+        `\n🤖 LLM USAGE TODAY\n${usageSection}`,
+        `\n💬 Ask me anything before you wrap up!`,
+    ].join("\n").trim();
+}
 // ─── Main coordinator ──────────────────────────────────────────────────────
 const MORNING_TRIGGERS = ["/morning", "good morning", "morning briefing", "daily briefing", "start my day"];
 export async function coordinatorAgent(message, userId = "default") {
@@ -162,6 +232,18 @@ export async function coordinatorAgent(message, userId = "default") {
         catch (err) {
             console.error("Morning briefing error:", err);
             return "Sorry, I ran into an error building your morning briefing. Check your Google credentials and API keys.";
+        }
+    }
+    // Evening briefing request
+    if (EVENING_TRIGGERS.some((t) => lower.includes(t))) {
+        try {
+            const briefing = await buildMorningBriefing();
+            briefingCache.set(userId, briefing);
+            return await formatEveningBriefingText(briefing);
+        }
+        catch (err) {
+            console.error("Evening briefing error:", err);
+            return "Sorry, I ran into an error building your evening briefing.";
         }
     }
     // Clear history command

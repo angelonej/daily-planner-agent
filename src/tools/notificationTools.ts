@@ -267,13 +267,14 @@ export function startNotificationPolling(): void {
   if (pollingStarted) return;
   pollingStarted = true;
 
-  // Check calendar every 60 seconds
-  setInterval(checkUpcomingEvents, 60_000);
+  // Configurable via NOTIFICATION_POLL_SECONDS env var (default: 60, min: 15)
+  const pollSec = Math.max(15, Number(process.env.NOTIFICATION_POLL_SECONDS ?? 60));
+  setInterval(checkUpcomingEvents, pollSec * 1_000);
 
   // Heartbeat every 30 seconds (keeps SSE alive through proxies/nginx)
   setInterval(sendHeartbeat, 30_000);
 
-  console.log("🔔 Notification polling started (calendar: every 60s)");
+  console.log(`🔔 Notification polling started (calendar: every ${pollSec}s)`);
 }
 
 /**
