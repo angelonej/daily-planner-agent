@@ -12,9 +12,15 @@
       background: #0f1117;
       color: #e1e4e8;
       height: 100vh;
+      height: 100dvh; /* mobile: excludes browser chrome */
+      max-height: 100vh;
+      max-height: 100dvh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
     }
+
+    html { height: 100%; overflow: hidden; }
 
     header {
       padding: 14px 20px;
