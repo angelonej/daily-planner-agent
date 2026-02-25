@@ -891,11 +891,17 @@
       const lines = [`You have ${emails.length} unread email${emails.length !== 1 ? 's' : ''}.`];
       if (important.length) {
         lines.push(`${important.length} important:`);
-        for (const e of important.slice(0, 3)) lines.push(`From ${e.from.split('<')[0].trim()}: ${e.subject}`);
+        for (const e of important.slice(0, 3)) {
+          const sender = (e.from || 'Unknown').split('<')[0].trim() || 'Unknown';
+          lines.push(`From ${sender}: ${e.subject || '(no subject)'}`);
+        }
       }
       if (emails.length) {
         lines.push('Other emails:');
-        for (const e of emails.slice(0, 5)) lines.push(`From ${e.from.split('<')[0].trim()}: ${e.subject}`);
+        for (const e of emails.slice(0, 5)) {
+          const sender = (e.from || 'Unknown').split('<')[0].trim() || 'Unknown';
+          lines.push(`From ${sender}: ${e.subject || '(no subject)'}`);
+        }
       }
       speakText(lines.join('\n'));
       showToast('📧 Reading emails aloud');
@@ -907,8 +913,10 @@
   window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
 
   // ── text send ──────────────────────────────────────────────────────────
-  async function sendText(msg) {
+  let _sendFromInput = false; // true only when triggered by the text input
+  async function sendText(msg, fromInput = false) {
     if (!msg.trim()) return;
+    _sendFromInput = fromInput;
     textInput.value = '';
     addBubble('user', msg);
     const thinking = addThinking();
@@ -937,12 +945,14 @@
     } finally {
       setButtons(false);
       voiceStatus.textContent = 'Click the mic button to speak';
-      textInput.focus();
+      // Only re-focus the input if the user typed in it — prevents keyboard
+      // popping up on mobile when chip/action buttons trigger sends
+      if (_sendFromInput) textInput.focus();
     }
   }
 
-  sendBtn.addEventListener('click', () => sendText(textInput.value));
-  textInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) sendText(textInput.value); });
+  sendBtn.addEventListener('click', () => sendText(textInput.value, true));
+  textInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) sendText(textInput.value, true); });
   morningBtn.addEventListener('click', () => sendText('/morning'));
   eveningBtn.addEventListener('click', () => sendText('/evening'));
   digestBtn.addEventListener('click', async () => {
