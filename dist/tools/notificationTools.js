@@ -376,6 +376,37 @@ async function checkVipEmails() {
         console.error("VIP email check error:", err instanceof Error ? err.message : err);
     }
 }
+// ─── AWS cost alert (daily check) ────────────────────────────────────────
+let lastCostAlertDay = "";
+async function checkAwsCostAlert() {
+    const today = new Date().toISOString().slice(0, 10);
+    if (lastCostAlertDay === today)
+        return; // only alert once per day
+    try {
+        const { getAwsCostSummary, getCostThreshold } = await import("./awsCostTools.js");
+        const summary = await getAwsCostSummary();
+        const threshold = getCostThreshold();
+        const relevant = summary.forecastTotalUSD ?? summary.mtdTotalUSD;
+        if (relevant >= threshold) {
+            lastCostAlertDay = today;
+            const isForecast = summary.forecastTotalUSD !== null;
+            broadcast({
+                id: randomUUID(),
+                type: "aws_cost_alert",
+                title: `💸 AWS Cost Alert`,
+                body: isForecast
+                    ? `Projected ${new Date().toLocaleDateString("en-US", { month: "short" })} spend $${summary.forecastTotalUSD.toFixed(2)} exceeds your $${threshold} threshold`
+                    : `Month-to-date spend $${summary.mtdTotalUSD.toFixed(2)} exceeds your $${threshold} threshold`,
+                timestamp: new Date().toISOString(),
+            });
+            console.log(`💸 AWS cost alert fired: $${relevant.toFixed(2)} >= threshold $${threshold}`);
+        }
+    }
+    catch (err) {
+        // Non-fatal — Cost Explorer may not be configured
+        console.warn("AWS cost check skipped:", err instanceof Error ? err.message : err);
+    }
+}
 // ─── Heartbeat to keep SSE connections alive ───────────────────────────────
 function sendHeartbeat() {
     if (sseClients.size === 0)
@@ -410,7 +441,10 @@ export function startNotificationPolling() {
     setTimeout(checkVipEmails, 10_000); // initial check 10s after startup
     // Heartbeat every 30 seconds (keeps SSE alive through proxies/nginx)
     setInterval(sendHeartbeat, 30_000);
-    console.log(`🔔 Notification polling started (calendar: every ${pollSec}s, tasks: every 15min, reminders: every 1min, VIP email: every 5min)`);
+    // AWS cost alert — check once daily (at startup + every 24h)
+    setTimeout(() => checkAwsCostAlert(), 60_000); // 1 min after startup
+    setInterval(checkAwsCostAlert, 24 * 60 * 60_000);
+    console.log(`🔔 Notification polling started (calendar: every ${pollSec}s, tasks: every 15min, reminders: every 1min, VIP email: every 5min, AWS cost: daily)`);
 }
 /**
  * Manually push a notification — used by digestEmail.ts when the digest is sent

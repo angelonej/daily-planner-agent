@@ -7,7 +7,7 @@ import { chatAgent } from "./agents/chatAgent.js";
 import { getWeather, formatWeatherSummary } from "./tools/weatherTools.js";
 import { listTasks } from "./tools/tasksTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
-import { sendDailyDigestEmail } from "./tools/digestEmail.js";
+import { sendDailyDigestEmail, sendWeeklyDigestEmail } from "./tools/digestEmail.js";
 import { pushNotification, startNotificationPolling } from "./tools/notificationTools.js";
 import { getUsageToday } from "./tools/usageTracker.js";
 import { getTrafficDuration } from "./tools/trafficTools.js";
@@ -60,6 +60,7 @@ function timeToCron(envVar, defaultHour, defaultMin = 0) {
 // Hold references so we can stop/restart them
 let morningTask = null;
 let eveningTask = null;
+let weeklyTask = null;
 function scheduleMorningJob(tz) {
     morningTask?.stop();
     const morningCron = timeToCron("MORNING_BRIEFING_TIME", 7, 0);
@@ -107,17 +108,45 @@ function scheduleEveningJob(tz) {
     }, { timezone: tz });
     console.log(`⏰ Evening briefing scheduled: ${eveningCron} (${tz})`);
 }
+function scheduleWeeklyJob(tz) {
+    weeklyTask?.stop();
+    // Every Monday at 7:00 AM (or WEEKLY_DIGEST_TIME env var)
+    const weeklyTime = timeToCron("WEEKLY_DIGEST_TIME", 7, 0);
+    const weeklyCron = `${weeklyTime.split(" ")[0]} ${weeklyTime.split(" ")[1]} * * 1`; // day-of-week=1 (Monday)
+    weeklyTask = cron.schedule(weeklyCron, async () => {
+        console.log("⏰ Cron: sending weekly digest email...");
+        try {
+            const result = await sendWeeklyDigestEmail();
+            if (result.success) {
+                pushNotification({
+                    type: "digest_ready",
+                    title: "📅 Weekly Briefing Sent!",
+                    body: `Your week-ahead digest has been emailed to ${process.env.DIGEST_EMAIL_TO ?? "you"}.`,
+                });
+            }
+            else {
+                console.error("Weekly digest email failed:", result.error);
+            }
+        }
+        catch (err) {
+            console.error("Cron weekly job error:", err);
+        }
+    }, { timezone: tz });
+    console.log(`⏰ Weekly digest scheduled: Mondays at ${weeklyTime} (${tz})`);
+}
 // ─── Reschedule cron jobs at runtime (called by /api/settings) ───────────────
 export function rescheduleBriefingJobs() {
     const tz = process.env.TIMEZONE ?? "America/New_York";
     scheduleMorningJob(tz);
     scheduleEveningJob(tz);
+    scheduleWeeklyJob(tz);
 }
 // ─── Scheduled jobs ────────────────────────────────────────────────────────
 export function startScheduledJobs() {
     const tz = process.env.TIMEZONE ?? "America/New_York";
     scheduleMorningJob(tz);
     scheduleEveningJob(tz);
+    scheduleWeeklyJob(tz);
     // Start SSE notification polling (calendar event reminders)
     startNotificationPolling();
     // Pre-warm the briefing cache 5 seconds after startup so the first

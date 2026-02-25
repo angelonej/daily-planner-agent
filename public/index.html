@@ -459,6 +459,14 @@
     <div class="drawer-row">
       <button id="muteBtn" class="drawer-row-btn">🔊 Voice On</button>
     </div>
+    <div class="drawer-grid" style="margin-top:8px">
+      <button class="drawer-btn" onclick="readNewsAloud()">
+        <span class="btn-icon">📰</span><span class="btn-label">Read News</span>
+      </button>
+      <button class="drawer-btn" onclick="readEmailsAloud()">
+        <span class="btn-icon">📧</span><span class="btn-label">Read Emails</span>
+      </button>
+    </div>
   </div>
 
   <!-- Quick Ask panel -->
@@ -848,6 +856,56 @@
       if (preferred) utt.voice = preferred;
       window.speechSynthesis.speak(utt);
     });
+  }
+
+  // ── TTS voice shortcut: read news headlines aloud ─────────────────────
+  async function readNewsAloud() {
+    closeDrawer();
+    showToast('📰 Loading news...');
+    try {
+      const r = await fetch('/api/briefing', { headers: { Authorization: 'Bearer ' + (localStorage.getItem('authToken') || '') } });
+      if (!r.ok) throw new Error('Failed to load briefing');
+      const data = await r.json();
+      const news = data.news ?? [];
+      if (!news.length || news.every(n => !n.articles?.length)) {
+        showToast('No news loaded yet'); return;
+      }
+      const lines = ['Here are today\'s top headlines.'];
+      for (const section of news) {
+        if (!section.articles?.length) continue;
+        lines.push(section.topic + ':');
+        for (const a of section.articles.slice(0, 3)) lines.push(a.title);
+      }
+      speakText(lines.join('\n'));
+      showToast('📰 Reading news aloud');
+    } catch (e) { showToast('Could not load news'); }
+  }
+
+  // ── TTS voice shortcut: read today\'s emails aloud ──────────────────────
+  async function readEmailsAloud() {
+    closeDrawer();
+    showToast('📧 Loading emails...');
+    try {
+      const r = await fetch('/api/briefing', { headers: { Authorization: 'Bearer ' + (localStorage.getItem('authToken') || '') } });
+      if (!r.ok) throw new Error('Failed to load briefing');
+      const data = await r.json();
+      const emails = data.emails ?? [];
+      const important = data.importantEmails ?? [];
+      if (!emails.length && !important.length) {
+        speakText('Your inbox is clear. No unread emails.'); return;
+      }
+      const lines = [`You have ${emails.length} unread email${emails.length !== 1 ? 's' : ''}.`];
+      if (important.length) {
+        lines.push(`${important.length} important:`);
+        for (const e of important.slice(0, 3)) lines.push(`From ${e.from.split('<')[0].trim()}: ${e.subject}`);
+      }
+      if (emails.length) {
+        lines.push('Other emails:');
+        for (const e of emails.slice(0, 5)) lines.push(`From ${e.from.split('<')[0].trim()}: ${e.subject}`);
+      }
+      speakText(lines.join('\n'));
+      showToast('📧 Reading emails aloud');
+    } catch (e) { showToast('Could not load emails'); }
   }
 
   // Voices load async — preload them
