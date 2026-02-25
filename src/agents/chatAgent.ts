@@ -18,7 +18,7 @@ import {
 import { suggestRecurringEvents, formatRecurringSuggestions } from "../tools/recurringTools.js";
 import { sendDailyDigestEmail } from "../tools/digestEmail.js";
 import { getWeatherForecast } from "../tools/weatherTools.js";
-import { recordUsage } from "../tools/usageTracker.js";
+import { recordUsage, getUsageToday, getUsageHistory } from "../tools/usageTracker.js";
 
 const openai = new OpenAI({
   apiKey: process.env.XAI_API_KEY,
@@ -42,6 +42,7 @@ When the user asks about weather (today, tomorrow, this week, will it rain, fore
 When the user asks to check emails, show today's emails, list unread emails, or get recent emails, ALWAYS call list_emails.
 When the user asks for the last email from someone, emails about a topic, or to search emails, ALWAYS call search_emails with the appropriate Gmail query.
 When the user asks to mark emails as read, clear unread, or mark today's emails as read, ALWAYS call mark_emails_read.
+When the user asks about token usage, LLM usage, API cost, how many tokens used, or AI usage stats, ALWAYS call get_llm_usage.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
@@ -280,6 +281,20 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "get_llm_usage",
+      description: "Get LLM token usage and estimated API cost. Use when the user asks about token usage, AI usage, how many tokens used, API cost, or LLM stats.",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Number of days of history to return (default 1 = today only, max 7)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "mark_emails_read",
       description: "Mark emails as read in Gmail. Use when the user asks to 'mark emails as read', 'mark today\'s emails as read', 'clear my unread', or 'mark all as read'. Can target a specific account or all accounts.",
       parameters: {
@@ -402,6 +417,16 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           account: e.account,
           isImportant: e.isImportant,
         })));
+      }
+      case "get_llm_usage": {
+        const days = args.days ? Number(args.days) : 1;
+        if (days <= 1) {
+          const usage = getUsageToday();
+          return JSON.stringify(usage);
+        } else {
+          const history = getUsageHistory(Math.min(days, 7));
+          return JSON.stringify(history);
+        }
       }
       case "mark_emails_read": {
         const accounts = args.account
