@@ -695,7 +695,44 @@ document.getElementById('muteBtn').addEventListener('click', () => {
 });
 updateMuteBtn();
 
-function getVoices() { return window.speechSynthesis?.getVoices() ?? []; }
+// Female-first preference order for default voice selection
+const FEMALE_VOICE_PREFS = [
+  'Google US English',       // Chrome on desktop (female by default)
+  'Microsoft Aria',          // Edge – female
+  'Microsoft Jenny',         // Edge – female
+  'Microsoft Zira',          // Windows – female
+  'Samantha',                // macOS/iOS – female
+  'Karen',                   // macOS/iOS – female
+  'Victoria',                // macOS – female
+  'Moira',                   // macOS – female
+];
+
+let _voicesReady = false;
+let _voicesCache = [];
+
+function getVoices() {
+  if (_voicesCache.length) return _voicesCache;
+  _voicesCache = window.speechSynthesis?.getVoices() ?? [];
+  return _voicesCache;
+}
+
+function pickDefaultVoice(voices) {
+  for (const pref of FEMALE_VOICE_PREFS) {
+    const v = voices.find(v => v.name.includes(pref));
+    if (v) return v;
+  }
+  // Fallback: any en-US voice
+  return voices.find(v => v.lang === 'en-US') ?? null;
+}
+
+if (window.speechSynthesis) {
+  const load = () => {
+    _voicesCache = window.speechSynthesis.getVoices();
+    _voicesReady = _voicesCache.length > 0;
+  };
+  load();
+  window.speechSynthesis.addEventListener('voiceschanged', load);
+}
 
 function speakText(text) {
   if (!ttsEnabled || !window.speechSynthesis) return;
@@ -707,13 +744,11 @@ function speakText(text) {
   const savedVoice = localStorage.getItem('ttsVoice');
   const voices = getVoices();
   const v = savedVoice
-    ? voices.find(v => v.name === savedVoice)
-    : voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha') || (v.lang === 'en-US' && v.localService));
+    ? (voices.find(v => v.name === savedVoice) ?? pickDefaultVoice(voices))
+    : pickDefaultVoice(voices);
   if (v) utt.voice = v;
   window.speechSynthesis.speak(utt);
 }
-window.speechSynthesis?.getVoices();
-window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
 
 function previewVoice() {
   const name = localStorage.getItem('assistantName') || 'Assistant';
@@ -1019,15 +1054,26 @@ async function openSettings() {
   // Assistant name
   document.getElementById('assistant-name-input').value = localStorage.getItem('assistantName') ?? '';
 
-  // Voice picker
+  // Voice picker — wait for voices to be ready
   const sel = document.getElementById('voice-select');
-  const voices = getVoices();
-  const savedVoice = localStorage.getItem('ttsVoice') ?? '';
-  sel.innerHTML = voices.length === 0
-    ? '<option value="">No voices found — try Chrome/Edge</option>'
-    : voices.map(v =>
-        `<option value="${escapeHtml(v.name)}" ${v.name === savedVoice ? 'selected' : ''}>${escapeHtml(v.name)} (${v.lang})</option>`
-      ).join('');
+  const savedVoice = localStorage.getItem('ttsVoice');
+  const populateVoices = () => {
+    const voices = getVoices();
+    if (voices.length === 0) {
+      sel.innerHTML = '<option value="">No voices found — try Chrome or Edge</option>';
+      return;
+    }
+    const defaultVoice = savedVoice ?? (pickDefaultVoice(voices)?.name ?? '');
+    sel.innerHTML = voices.map(v =>
+      `<option value="${escapeHtml(v.name)}" ${v.name === defaultVoice ? 'selected' : ''}>${escapeHtml(v.name)} (${v.lang})</option>`
+    ).join('');
+    // If nothing was explicitly saved, persist the female default
+    if (!savedVoice && defaultVoice) localStorage.setItem('ttsVoice', defaultVoice);
+  };
+  populateVoices();
+  if (!_voicesReady) {
+    window.speechSynthesis?.addEventListener('voiceschanged', populateVoices, { once: true });
+  }
 
   // Speed slider
   const rateSlider = document.getElementById('voice-rate');
