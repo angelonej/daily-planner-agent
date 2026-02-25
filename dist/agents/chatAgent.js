@@ -34,7 +34,7 @@ When the user asks to add a reminder, set a recurring reminder, remind me about,
 When the user asks to see, list, or show reminders, ALWAYS call list_reminders.
 When the user asks to delete, remove, or cancel a reminder, ALWAYS call delete_reminder.
 When the user asks to find a free time slot, schedule something, when am I free, or find open time, ALWAYS call find_free_slot with the date and duration.
-When the user asks about packages, shipments, tracking, deliveries, or "where is my package", ALWAYS call track_packages.
+When the user asks about packages, shipments, tracking, deliveries, "where is my package", "any packages coming", "packages coming soon", "expecting a package", "what packages", "when will my order", or anything about orders being shipped or delivered, ALWAYS call track_packages.
 When the user asks for suggestions, tips, what should I know about today, or proactive advice, ALWAYS call get_suggestions.
 When the user asks about AWS costs, cloud spend, monthly bill, EC2 charges, or how much AWS is costing, ALWAYS call get_aws_cost.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
@@ -608,7 +608,7 @@ async function executeTool(name, args) {
             case "track_packages": {
                 const packages = await getTrackedPackages();
                 if (packages.length === 0)
-                    return JSON.stringify({ message: "No tracking numbers found in recent emails." });
+                    return JSON.stringify({ message: "No shipping emails found in recent emails. Either nothing is currently in transit, or orders haven't shipped yet." });
                 return JSON.stringify(packages.map(p => ({
                     carrier: p.carrier,
                     tracking: p.trackingNumber,
@@ -616,6 +616,7 @@ async function executeTool(name, args) {
                     subject: p.emailSubject,
                     from: p.emailFrom,
                     date: p.emailDate,
+                    status: p.arrivingToday ? "arriving/delivered today" : "in transit / coming soon",
                 })));
             }
             case "get_suggestions": {

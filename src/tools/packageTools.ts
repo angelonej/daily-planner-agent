@@ -46,6 +46,8 @@ const SHIPPING_KEYWORDS = [
   "tracking", "shipped", "shipment", "package", "delivery", "delivered",
   "out for delivery", "on its way", "order shipped", "order update",
   "ups", "fedex", "usps", "amazon", "dhl", "arriving",
+  "order", "dispatched", "is on the way", "has been shipped", "expected delivery",
+  "estimated delivery", "will arrive", "preparing for shipment", "order confirmation",
 ];
 
 // Keywords that strongly suggest the package arrives or arrived TODAY
