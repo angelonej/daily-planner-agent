@@ -134,7 +134,7 @@ function formatMorningBriefingText(briefing: MorningBriefing): string {
             (n) =>
               `\n  ${n.topic}:\n` +
               (n.articles.length > 0
-                ? n.articles.map((a) => `  • ${a.title}\n    ${a.url}`).join("\n")
+                ? n.articles.map((a) => `  • ${a.title}`).join("\n")
                 : "  No articles found.")
           )
           .join("\n")
