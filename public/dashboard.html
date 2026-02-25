@@ -982,14 +982,6 @@ function connectSSE() {
 connectSSE();
 
 let unreadNotifs = 0;
-document.getElementById('notifBtn').addEventListener('click', () => {
-  unreadNotifs = 0;
-  const badge = document.getElementById('notifBadge');
-  badge.style.display = 'none';
-  if (Notification.permission !== 'granted') {
-    Notification.requestPermission().then(p => { if(p==='granted') showToast('🔔 Enabled','Browser notifications on!'); });
-  }
-});
 
 function showToast(title, body, urgent=false) {
   const t = document.createElement('div');
@@ -1850,20 +1842,33 @@ document.getElementById('settings-overlay').addEventListener('click', e => {
 // ─── Service Worker + Web Push ────────────────────────────────────────────
 async function registerPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  // Only prompt / subscribe once — never pester the user on repeat page loads
+  if (Notification.permission === 'denied') return;
   try {
     const reg = await navigator.serviceWorker.register('/service-worker.js');
     const keyRes = await fetch('/vapid-public-key');
     if (!keyRes.ok) return;
     const { key } = await keyRes.json();
     let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return;
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: key,
+    if (sub) {
+      // Already subscribed — only re-send to server if endpoint changed
+      const stored = localStorage.getItem('pushEndpoint');
+      if (stored === sub.endpoint) return;  // nothing to do
+      localStorage.setItem('pushEndpoint', sub.endpoint);
+      await fetch('/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub),
       });
+      return;
     }
+    // No subscription yet — only ask if already granted (don't auto-prompt on load)
+    if (Notification.permission !== 'granted') return;
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: key,
+    });
+    localStorage.setItem('pushEndpoint', sub.endpoint);
     await fetch('/push-subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1874,6 +1879,25 @@ async function registerPush() {
     console.warn('Push registration failed:', e);
   }
 }
+// Wire the 🔔 bell button to explicitly request permission then subscribe
+document.getElementById('notifBtn').addEventListener('click', async () => {
+  unreadNotifs = 0;
+  const badge = document.getElementById('notifBadge');
+  badge.style.display = 'none';
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    // Already enabled — just re-run push registration silently
+    await registerPush();
+    return;
+  }
+  if (Notification.permission !== 'denied') {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      showToast('🔔 Enabled', 'Browser notifications on!');
+      await registerPush();
+    }
+  }
+});
 registerPush();
 </script>
 </body>
