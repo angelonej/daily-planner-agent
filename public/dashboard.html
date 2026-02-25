@@ -254,6 +254,10 @@
     .email-from { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
     .email-from .imp { color: var(--yellow); font-size: 10px; }
     .email-from .acct { background: var(--surface2); border-radius: 4px; padding: 1px 5px; font-size: 10px; }
+    .email-from .vip-badge { background: #b58900; color: #fff; border-radius: 4px; padding: 1px 5px; font-size: 10px; font-weight: 600; }
+    .email-from .hl-badge  { background: #1a3a1a; color: #3fb950; border-radius: 4px; padding: 1px 5px; font-size: 10px; }
+    .email-item.email-vip  { border-left: 3px solid #b58900; padding-left: 8px; }
+    .email-item.email-hl   { border-left: 3px solid #3fb950; padding-left: 8px; }
     .email-subject { font-size: 13px; font-weight: 500; }
     .email-snippet { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -275,6 +279,27 @@
       transition: background .15s, color .15s, border-color .15s;
     }
     .chip:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+
+    /* Proactive Suggestions Banner */
+    #suggestions-banner {
+      display: none;
+      background: #1c2012;
+      border: 1px solid #3a5a1a;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    #suggestions-banner .sug-title { font-size: 11px; font-weight: 700; color: #7ee787; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    #suggestions-banner .sug-item { font-size: 12px; color: #cae8a0; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+    #suggestions-banner .sug-item:last-child { border-bottom: none; }
+    #suggestions-dismiss { float: right; background: none; border: none; color: #7ee787; cursor: pointer; font-size: 14px; padding: 0 2px; }
+
+    /* Package tracking */
+    .pkg-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .pkg-item:last-child { border-bottom: none; }
+    .pkg-carrier { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 2px; }
+    .pkg-number  { font-size: 13px; font-family: monospace; color: var(--accent2); }
+    .pkg-subject { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* ── Settings Modal ── */
     #settings-overlay {
@@ -431,11 +456,18 @@
       <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')">🔔</button>
       <button class="rtab" data-panel="email" onclick="switchTab('email')">Email</button>
       <button class="rtab" data-panel="news" onclick="switchTab('news')">News</button>
+      <button class="rtab" data-panel="packages" onclick="switchTab('packages')">📦</button>
     </div>
     <div id="right-content">
 
       <!-- Overview Tab -->
       <div class="panel active" id="panel-overview">
+        <!-- Proactive suggestions banner -->
+        <div id="suggestions-banner">
+          <button id="suggestions-dismiss" onclick="dismissSuggestions()" title="Dismiss">✕</button>
+          <div class="sug-title">💡 Smart Suggestions</div>
+          <div id="suggestions-list"></div>
+        </div>
         <!-- Weather widget -->
         <div class="card" id="weather-card">
           <div class="card-title">🌤 Weather <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
@@ -545,6 +577,14 @@
         </div>
       </div>
 
+      <!-- Packages Tab -->
+      <div class="panel" id="panel-packages">
+        <div class="card">
+          <div class="card-title">📦 Package Tracking <button class="refresh-btn" onclick="loadPackages()">⟳</button></div>
+          <div id="packages-list"><div class="empty-state">Click ⟳ to scan emails for tracking numbers</div></div>
+        </div>
+      </div>
+
     </div>
   </aside>
 </div><!-- #app -->
@@ -583,7 +623,7 @@
     </div>
 
     <div class="setting-section">
-      <div class="setting-label">⏰ Briefing Schedule</div>
+      <div class="setting-label">📈 Briefing Schedule</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
         <div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:4px">☀️ Morning Briefing</div>
@@ -595,6 +635,20 @@
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">Times are in your local timezone (America/New_York).</div>
+    </div>
+
+    <div class="setting-section">
+      <div class="setting-label">⭐ VIP Senders</div>
+      <div class="topic-list" id="vip-list"></div>
+      <button class="add-topic-btn" onclick="addVipRow()">+ Add VIP sender</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Enter email addresses or domains (e.g. boss@company.com or @company.com). You’ll get a push notification when they email you.</div>
+    </div>
+
+    <div class="setting-section">
+      <div class="setting-label">🔍 Highlight Keywords</div>
+      <div class="topic-list" id="keyword-list"></div>
+      <button class="add-topic-btn" onclick="addKeywordRow()">+ Add keyword</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Emails matching these keywords in subject or body will be highlighted with a green 🟢 badge.</div>
     </div>
 
     <div class="setting-section">
@@ -629,6 +683,7 @@ function switchTab(name) {
   document.querySelectorAll('.rtab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
   if (name === 'reminders') loadReminders();
+  if (name === 'packages') loadPackages();
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────
@@ -936,7 +991,27 @@ function weatherIcon(condition) {
 
 function renderWidgets() {
   if (!briefingData) return;
-  const { weather, calendar, emails, importantEmails, googleTasks, news, llmUsage } = briefingData;
+  const { weather, calendar, emails, importantEmails, googleTasks, news, llmUsage, suggestions, packages } = briefingData;
+
+  // ── Proactive Suggestions Banner ──
+  const banner = document.getElementById('suggestions-banner');
+  const sugList = document.getElementById('suggestions-list');
+  if (suggestions && suggestions.length > 0 && !banner.dataset.dismissed) {
+    sugList.innerHTML = suggestions.map(s => `<div class="sug-item">${escapeHtml(s)}</div>`).join('');
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // ── Packages badge ──
+  if (packages && packages.length > 0) {
+    document.getElementById('packages-list').innerHTML = packages.map(p => `
+      <div class="pkg-item">
+        <div class="pkg-carrier">${escapeHtml(p.carrier)}</div>
+        <div class="pkg-number"><a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener">${escapeHtml(p.trackingNumber)}</a></div>
+        <div class="pkg-subject">${escapeHtml(p.emailSubject)}</div>
+      </div>`).join('');
+  }
 
   // ── Weather ──
   const wb = document.getElementById('weather-body');
@@ -993,9 +1068,10 @@ function renderWidgets() {
   const emailHtml = (emails) => {
     if (!emails || emails.length === 0) return '<div class="empty-state">Inbox clear ✅</div>';
     return emails.slice(0,15).map(e => `
-      <div class="email-item" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
+      <div class="email-item${e.isVip ? ' email-vip' : e.isHighlighted ? ' email-hl' : ''}" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
         <div class="email-from">
           ${e.isImportant ? '<span class="imp">⚠️</span>' : ''}
+          ${e.isVip ? '<span class="vip-badge">⭐ VIP</span>' : e.isHighlighted ? '<span class="hl-badge">🟢</span>' : ''}
           <span class="acct">${escapeHtml(e.account)}</span>
           ${escapeHtml(e.from)}
         </div>
@@ -1399,6 +1475,36 @@ function renderNews(news) {
     }`).join('');
 }
 
+// ── Package tracking ──────────────────────────────────────────────────────
+async function loadPackages() {
+  const el = document.getElementById('packages-list');
+  el.innerHTML = '<div class="spinner"></div>';
+  try {
+    const res = await fetch('/api/packages');
+    const data = await res.json();
+    const pkgs = data.packages || [];
+    if (pkgs.length === 0) {
+      el.innerHTML = '<div class="empty-state">📦 No tracking numbers found in recent emails.<br><small style="color:var(--muted)">Tracking numbers are scanned from UPS, FedEx, USPS, and Amazon shipping emails.</small></div>';
+      return;
+    }
+    el.innerHTML = pkgs.map(p => `
+      <div class="pkg-item">
+        <div class="pkg-carrier">${escapeHtml(p.carrier)}</div>
+        <div class="pkg-number"><a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener">${escapeHtml(p.trackingNumber)} ↗</a></div>
+        <div class="pkg-subject">${escapeHtml(p.emailSubject)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${escapeHtml(p.emailFrom)} · ${escapeHtml(p.emailDate)}</div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state" style="color:var(--red)">Error loading packages</div>';
+  }
+}
+
+function dismissSuggestions() {
+  const banner = document.getElementById('suggestions-banner');
+  banner.style.display = 'none';
+  banner.dataset.dismissed = '1';
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
@@ -1444,6 +1550,16 @@ async function openSettings() {
   tl.innerHTML = '';
   settings.newsTopics.forEach(t => addTopicRow(t));
 
+  // VIP senders
+  const vl = document.getElementById('vip-list');
+  vl.innerHTML = '';
+  (settings.vipSenders || []).forEach(v => addVipRow(v));
+
+  // Filter keywords
+  const kl = document.getElementById('keyword-list');
+  kl.innerHTML = '';
+  (settings.filterKeywords || []).forEach(k => addKeywordRow(k));
+
   // Briefing times
   if (settings.morningBriefingTime) document.getElementById('morning-time-input').value = settings.morningBriefingTime;
   if (settings.eveningBriefingTime) document.getElementById('evening-time-input').value = settings.eveningBriefingTime;
@@ -1466,6 +1582,24 @@ function addTopicRow(value='') {
   row.innerHTML = `<input class="topic-input" placeholder="e.g. Artificial Intelligence" value="${escapeHtml(value)}" />
     <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>`;
   document.getElementById('topic-list').appendChild(row);
+  if (!value) row.querySelector('input').focus();
+}
+
+function addVipRow(value='') {
+  const row = document.createElement('div');
+  row.className = 'topic-row';
+  row.innerHTML = `<input class="topic-input" placeholder="e.g. boss@company.com" value="${escapeHtml(value)}" />
+    <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('vip-list').appendChild(row);
+  if (!value) row.querySelector('input').focus();
+}
+
+function addKeywordRow(value='') {
+  const row = document.createElement('div');
+  row.className = 'topic-row';
+  row.innerHTML = `<input class="topic-input" placeholder="e.g. invoice, urgent, contract" value="${escapeHtml(value)}" />
+    <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('keyword-list').appendChild(row);
   if (!value) row.querySelector('input').focus();
 }
 
@@ -1495,11 +1629,15 @@ async function saveSettings() {
   // Save news topics
   const topics = Array.from(document.querySelectorAll('#topic-list .topic-input'))
     .map(i => i.value.trim()).filter(Boolean);
+  const vipSenders = Array.from(document.querySelectorAll('#vip-list .topic-input'))
+    .map(i => i.value.trim()).filter(Boolean);
+  const filterKeywords = Array.from(document.querySelectorAll('#keyword-list .topic-input'))
+    .map(i => i.value.trim()).filter(Boolean);
   const morningTime = document.getElementById('morning-time-input').value;
   const eveningTime = document.getElementById('evening-time-input').value;
   const res = await fetch('/api/settings', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime }),
+    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime, vipSenders, filterKeywords }),
   });
   const data = await res.json();
   if (data.ok) {

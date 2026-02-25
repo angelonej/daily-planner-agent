@@ -17,6 +17,7 @@ import { getCalendarEvents } from "./calendarTools.js";
 import { getTrafficDuration } from "./trafficTools.js";
 import { listTasks } from "./tasksTools.js";
 import { getDueReminders, markFired } from "./remindersTools.js";
+import { fetchAllAccountEmails } from "./gmailTools.js";
 import { NotificationAlert } from "../types.js";
 import { randomUUID } from "crypto";
 import webpush from "web-push";
@@ -61,8 +62,8 @@ function initVapid(): void {
 }
 initVapid();
 
-// ─── Last known GPS location from mobile client ─────────────────────────
-let lastGpsLocation: { lat: number; lng: number; timestamp: number } | null = null;
+// ─── Last known GPS location from mobile client ───────────────────────
+ let lastGpsLocation: { lat: number; lng: number; timestamp: number } | null = null;
 
 export function updateUserLocation(lat: number, lng: number): void {
   lastGpsLocation = { lat, lng, timestamp: Date.now() };
@@ -75,6 +76,18 @@ function getFreshGpsOrigin(): string | null {
   if (ageMs > 2 * 60 * 60 * 1000) return null; // stale
   return `${lastGpsLocation.lat},${lastGpsLocation.lng}`;
 }
+
+// ─── VIP senders & filter keywords (set from settings API) ─────────────────
+let runtimeVipSenders: string[] = (process.env.VIP_SENDERS ?? "")
+  .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+
+let runtimeFilterKeywords: string[] = (process.env.FILTER_KEYWORDS ?? "")
+  .split(",").map(k => k.trim().toLowerCase()).filter(Boolean);
+
+export function getVipSenders(): string[] { return [...runtimeVipSenders]; }
+export function setVipSenders(senders: string[]): void { runtimeVipSenders = senders; }
+export function getFilterKeywords(): string[] { return [...runtimeFilterKeywords]; }
+export function setFilterKeywords(keywords: string[]): void { runtimeFilterKeywords = keywords; }
 
 // ─── SSE client registry ───────────────────────────────────────────────────
 const sseClients = new Set<Response>();
@@ -338,6 +351,48 @@ function describeReminderFreq(
   return "Daily reminder";
 }
 
+// ─── VIP email polling ─────────────────────────────────────────────────────
+// Track the latest email id seen to avoid re-alerting
+let lastSeenEmailId: string | null = null;
+
+async function checkVipEmails(): Promise<void> {
+  if (runtimeVipSenders.length === 0) return; // no VIPs configured
+  try {
+    const emails = await fetchAllAccountEmails();
+    if (emails.length === 0) return;
+
+    // Find the first email we haven’t seen yet
+    const firstNewIndex = lastSeenEmailId
+      ? emails.findIndex((e) => e.id === lastSeenEmailId)
+      : emails.length;
+    const newEmails = firstNewIndex > 0 ? emails.slice(0, firstNewIndex) : [];
+
+    // Update the watermark
+    if (emails[0]) lastSeenEmailId = emails[0].id;
+
+    for (const email of newEmails) {
+      const fromLower = email.from.toLowerCase();
+      const isVip = runtimeVipSenders.some((v) => fromLower.includes(v));
+      if (!isVip) continue;
+
+      const alertKey = `vip-email-${email.id}`;
+      if (firedAlerts.has(alertKey)) continue;
+      firedAlerts.add(alertKey);
+
+      broadcast({
+        id:        randomUUID(),
+        type:      "vip_email",
+        title:     `⭐ VIP email from ${email.from.split("<")[0].trim()}`,
+        body:      email.subject,
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`⭐ VIP email alert: ${email.from} - ${email.subject}`);
+    }
+  } catch (err) {
+    console.error("VIP email check error:", err instanceof Error ? err.message : err);
+  }
+}
+
 // ─── Heartbeat to keep SSE connections alive ───────────────────────────────
 function sendHeartbeat(): void {
   if (sseClients.size === 0) return;
@@ -366,10 +421,14 @@ export function startNotificationPolling(): void {
   // Recurring reminders — check every minute (they fire on the exact minute)
   setInterval(checkRecurringReminders, 60_000);
 
+  // VIP email alerts — poll every 5 minutes
+  setInterval(checkVipEmails, 5 * 60_000);
+  setTimeout(checkVipEmails, 10_000); // initial check 10s after startup
+
   // Heartbeat every 30 seconds (keeps SSE alive through proxies/nginx)
   setInterval(sendHeartbeat, 30_000);
 
-  console.log(`🔔 Notification polling started (calendar: every ${pollSec}s, tasks: every 15min, reminders: every 1min)`);
+  console.log(`🔔 Notification polling started (calendar: every ${pollSec}s, tasks: every 15min, reminders: every 1min, VIP email: every 5min)`);
 }
 
 /**

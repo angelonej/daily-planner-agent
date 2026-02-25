@@ -7,6 +7,7 @@ import { sendDailyDigestEmail } from "../tools/digestEmail.js";
 import { getWeatherForecast } from "../tools/weatherTools.js";
 import { recordUsage, getUsageToday, getUsageHistory } from "../tools/usageTracker.js";
 import { getReminders, addReminder, deleteReminder, describeReminder } from "../tools/remindersTools.js";
+import { getTrackedPackages } from "../tools/packageTools.js";
 const openai = new OpenAI({
     apiKey: process.env.XAI_API_KEY,
     baseURL: "https://api.x.ai/v1",
@@ -31,6 +32,9 @@ When the user asks about token usage, LLM usage, API cost, how many tokens used,
 When the user asks to add a reminder, set a recurring reminder, remind me about, or schedule a recurring alert (e.g. "remind me to pay my Amex bill on the 15th every month"), ALWAYS call add_reminder.
 When the user asks to see, list, or show reminders, ALWAYS call list_reminders.
 When the user asks to delete, remove, or cancel a reminder, ALWAYS call delete_reminder.
+When the user asks to find a free time slot, schedule something, when am I free, or find open time, ALWAYS call find_free_slot with the date and duration.
+When the user asks about packages, shipments, tracking, deliveries, or "where is my package", ALWAYS call track_packages.
+When the user asks for suggestions, tips, what should I know about today, or proactive advice, ALWAYS call get_suggestions.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
@@ -336,6 +340,39 @@ const CALENDAR_TOOLS = [
             },
         },
     },
+    {
+        type: "function",
+        function: {
+            name: "find_free_slot",
+            description: "Find available time slots on the user's calendar for a given date. Use when the user asks 'when am I free', 'find me a free slot', 'schedule a meeting for Tuesday', or any request to find open calendar time.",
+            parameters: {
+                type: "object",
+                properties: {
+                    date: { type: "string", description: "Date to check in YYYY-MM-DD format" },
+                    durationMinutes: { type: "number", description: "How long the slot needs to be, in minutes (e.g. 60)" },
+                    preferredStartHour: { type: "number", description: "Preferred earliest start hour (0-23, e.g. 9 for 9 AM). Default 8." },
+                    preferredEndHour: { type: "number", description: "Preferred latest end hour (0-23, e.g. 18 for 6 PM). Default 18." },
+                },
+                required: ["date", "durationMinutes"],
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "track_packages",
+            description: "Scan emails for shipping tracking numbers (UPS, FedEx, USPS, Amazon) and return package details with tracking links. Use when the user asks about packages, deliveries, shipments, or tracking numbers.",
+            parameters: { type: "object", properties: {}, required: [] },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "get_suggestions",
+            description: "Get proactive suggestions and insights about today based on the current briefing data. Use when the user asks for advice, suggestions, tips, or 'what should I know about today'.",
+            parameters: { type: "object", properties: {}, required: [] },
+        },
+    },
 ];
 // ─── Execute a tool call returned by the model ────────────────────────────
 async function executeTool(name, args) {
@@ -510,6 +547,74 @@ async function executeTool(name, args) {
             case "delete_reminder": {
                 const ok = deleteReminder(String(args.id));
                 return JSON.stringify({ ok, message: ok ? "Reminder deleted." : "Reminder not found." });
+            }
+            case "find_free_slot": {
+                const date = String(args.date);
+                const durationMin = Number(args.durationMinutes ?? 60);
+                const startHour = Number(args.preferredStartHour ?? 8);
+                const endHour = Number(args.preferredEndHour ?? 18);
+                const dayStart = new Date(`${date}T00:00:00`);
+                const dayEnd = new Date(`${date}T23:59:59`);
+                const events = await listEventsByRange(dayStart.toISOString(), dayEnd.toISOString());
+                // Build busy blocks from events that have ISO times
+                const busy = [];
+                for (const ev of events) {
+                    if (!ev.startIso)
+                        continue;
+                    const s = new Date(ev.startIso).getTime();
+                    // Estimate end: use next event start or startIso + 1hr
+                    const eEnd = s + 60 * 60_000;
+                    busy.push({ start: s, end: eEnd });
+                }
+                busy.sort((a, b) => a.start - b.start);
+                // Find gaps
+                const freeSlots = [];
+                let cursor = new Date(`${date}T${String(startHour).padStart(2, "0")}:00:00`).getTime();
+                const windowEnd = new Date(`${date}T${String(endHour).padStart(2, "0")}:00:00`).getTime();
+                for (const block of busy) {
+                    if (block.start > cursor && block.start - cursor >= durationMin * 60_000) {
+                        const slotEnd = Math.min(block.start, cursor + durationMin * 60_000);
+                        freeSlots.push({
+                            start: new Date(cursor).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+                            end: new Date(slotEnd).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+                        });
+                    }
+                    cursor = Math.max(cursor, block.end);
+                    if (freeSlots.length >= 3)
+                        break;
+                }
+                // Check gap after last event
+                if (freeSlots.length < 3 && windowEnd - cursor >= durationMin * 60_000) {
+                    freeSlots.push({
+                        start: new Date(cursor).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+                        end: new Date(cursor + durationMin * 60_000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+                    });
+                }
+                if (freeSlots.length === 0) {
+                    return JSON.stringify({ message: `No free ${durationMin}-minute slots found on ${date} between ${startHour}:00 and ${endHour}:00.` });
+                }
+                return JSON.stringify({ date, durationMinutes: durationMin, freeSlots });
+            }
+            case "track_packages": {
+                const packages = await getTrackedPackages();
+                if (packages.length === 0)
+                    return JSON.stringify({ message: "No tracking numbers found in recent emails." });
+                return JSON.stringify(packages.map(p => ({
+                    carrier: p.carrier,
+                    tracking: p.trackingNumber,
+                    url: p.trackingUrl,
+                    subject: p.emailSubject,
+                    from: p.emailFrom,
+                    date: p.emailDate,
+                })));
+            }
+            case "get_suggestions": {
+                const { getCachedBriefing } = await import("../coordinator.js");
+                const briefing = await getCachedBriefing();
+                if (!briefing.suggestions || briefing.suggestions.length === 0) {
+                    return JSON.stringify({ message: "No proactive suggestions right now — your day looks well-organized!" });
+                }
+                return JSON.stringify({ suggestions: briefing.suggestions });
             }
             default:
                 return JSON.stringify({ error: `Unknown tool: ${name}` });

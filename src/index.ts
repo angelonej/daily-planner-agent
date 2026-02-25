@@ -14,6 +14,8 @@ import { addNotificationClient, updateUserLocation, addPushSubscription } from "
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
+import { getTrackedPackages } from "./tools/packageTools.js";
+import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -370,15 +372,23 @@ if (process.argv.includes("--cli")) {
       ],
       morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
       eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
+      vipSenders: getVipSenders(),
+      filterKeywords: getFilterKeywords(),
     });
   });
 
   app.post("/api/settings", (req: Request, res: Response) => {
-    const { newsTopics, morningBriefingTime, eveningBriefingTime } =
-      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string };
+    const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords } =
+      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string; vipSenders?: string[]; filterKeywords?: string[] };
     if (Array.isArray(newsTopics)) {
       runtimeNewsTopics = newsTopics.map((t: string) => t.trim()).filter(Boolean);
       process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
+    }
+    if (Array.isArray(vipSenders)) {
+      setVipSenders(vipSenders.map((s: string) => s.trim().toLowerCase()).filter(Boolean));
+    }
+    if (Array.isArray(filterKeywords)) {
+      setFilterKeywords(filterKeywords.map((k: string) => k.trim().toLowerCase()).filter(Boolean));
     }
     let rescheduled = false;
     if (morningBriefingTime && /^\d{1,2}:\d{2}$/.test(morningBriefingTime)) {
@@ -392,11 +402,14 @@ if (process.argv.includes("--cli")) {
     if (rescheduled) {
       rescheduleBriefingJobs();
     }
+    invalidateDashboardCache();
     res.json({
       ok: true,
       newsTopics: runtimeNewsTopics,
       morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
       eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
+      vipSenders: getVipSenders(),
+      filterKeywords: getFilterKeywords(),
     });
   });
 
@@ -470,6 +483,16 @@ if (process.argv.includes("--cli")) {
     const ok = deleteReminder(req.params.id);
     if (!ok) return res.status(404).json({ error: "Reminder not found" });
     res.json({ ok: true });
+  });
+
+  // ─── Package tracking ─────────────────────────────────────────────────────────
+  app.get("/api/packages", async (_req: Request, res: Response) => {
+    try {
+      const packages = await getTrackedPackages();
+      res.json({ packages });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   // ─── Health check ────────────────────────────────────────────────────────────

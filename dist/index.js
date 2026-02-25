@@ -12,6 +12,8 @@ import { addNotificationClient, updateUserLocation, addPushSubscription } from "
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
+import { getTrackedPackages } from "./tools/packageTools.js";
+import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -334,13 +336,21 @@ else {
             ],
             morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
             eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
+            vipSenders: getVipSenders(),
+            filterKeywords: getFilterKeywords(),
         });
     });
     app.post("/api/settings", (req, res) => {
-        const { newsTopics, morningBriefingTime, eveningBriefingTime } = req.body;
+        const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords } = req.body;
         if (Array.isArray(newsTopics)) {
             runtimeNewsTopics = newsTopics.map((t) => t.trim()).filter(Boolean);
             process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
+        }
+        if (Array.isArray(vipSenders)) {
+            setVipSenders(vipSenders.map((s) => s.trim().toLowerCase()).filter(Boolean));
+        }
+        if (Array.isArray(filterKeywords)) {
+            setFilterKeywords(filterKeywords.map((k) => k.trim().toLowerCase()).filter(Boolean));
         }
         let rescheduled = false;
         if (morningBriefingTime && /^\d{1,2}:\d{2}$/.test(morningBriefingTime)) {
@@ -354,11 +364,14 @@ else {
         if (rescheduled) {
             rescheduleBriefingJobs();
         }
+        invalidateDashboardCache();
         res.json({
             ok: true,
             newsTopics: runtimeNewsTopics,
             morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
             eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
+            vipSenders: getVipSenders(),
+            filterKeywords: getFilterKeywords(),
         });
     });
     // ─── Live briefing JSON for dashboard widgets ──────────────────────────
@@ -434,6 +447,16 @@ else {
         if (!ok)
             return res.status(404).json({ error: "Reminder not found" });
         res.json({ ok: true });
+    });
+    // ─── Package tracking ─────────────────────────────────────────────────────────
+    app.get("/api/packages", async (_req, res) => {
+        try {
+            const packages = await getTrackedPackages();
+            res.json({ packages });
+        }
+        catch (err) {
+            res.status(500).json({ error: String(err) });
+        }
     });
     // ─── Health check ────────────────────────────────────────────────────────────
     app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));

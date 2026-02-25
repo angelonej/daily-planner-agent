@@ -1,0 +1,87 @@
+/**
+ * packageTools.ts
+ * Scans fetched emails for shipping tracking numbers and returns PackageInfo objects.
+ * No external tracking API calls — just extracts tracking numbers + carrier URLs.
+ */
+import { fetchAllAccountEmails } from "./gmailTools.js";
+// ─── Carrier patterns ───────────────────────────────────────────────────────
+const PATTERNS = [
+    {
+        carrier: "Amazon",
+        regex: /\bTBA\d{12,16}\b/gi,
+        url: (n) => `https://track.amazon.com/tracking/${n}`,
+    },
+    {
+        carrier: "UPS",
+        // 1Z followed by 16 alphanumeric chars
+        regex: /\b(1Z[A-Z0-9]{16})\b/gi,
+        url: (n) => `https://www.ups.com/track?tracknum=${n}`,
+    },
+    {
+        carrier: "FedEx",
+        // 12, 15, 20, or 22 digit numbers typical of FedEx
+        regex: /\b(\d{12}|\d{15}|\d{20}|\d{22})\b/g,
+        url: (n) => `https://www.fedex.com/fedextrack/?tracknumbers=${n}`,
+    },
+    {
+        carrier: "USPS",
+        // 9400, 9205, 9261, 9274, 9300, 9400 prefix 20–22 digit numbers
+        regex: /\b(9[2-4]\d{18,20})\b/g,
+        url: (n) => `https://tools.usps.com/go/TrackConfirmAction?tLabels=${n}`,
+    },
+];
+// Keywords in subject/snippet that suggest shipping notifications
+const SHIPPING_KEYWORDS = [
+    "tracking", "shipped", "shipment", "package", "delivery", "delivered",
+    "out for delivery", "on its way", "order shipped", "order update",
+    "ups", "fedex", "usps", "amazon", "dhl", "arriving",
+];
+function looksLikeShippingEmail(subject, snippet) {
+    const combined = `${subject} ${snippet}`.toLowerCase();
+    return SHIPPING_KEYWORDS.some((kw) => combined.includes(kw));
+}
+function extractTrackingNumbers(text) {
+    const results = [];
+    const seen = new Set();
+    for (const { carrier, regex, url } of PATTERNS) {
+        regex.lastIndex = 0; // reset stateful regex
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const num = match[1] ?? match[0];
+            if (!seen.has(num)) {
+                seen.add(num);
+                results.push({ carrier, number: num, url: url(num) });
+            }
+        }
+    }
+    return results;
+}
+/**
+ * Scans all unread emails for tracking numbers.
+ * Returns deduplicated list of PackageInfo objects.
+ */
+export async function getTrackedPackages() {
+    const emails = await fetchAllAccountEmails();
+    const packages = [];
+    const seenTrackingNums = new Set();
+    for (const email of emails) {
+        if (!looksLikeShippingEmail(email.subject, email.snippet))
+            continue;
+        const combined = `${email.subject} ${email.snippet}`;
+        const found = extractTrackingNumbers(combined);
+        for (const { carrier, number, url } of found) {
+            if (seenTrackingNums.has(number))
+                continue;
+            seenTrackingNums.add(number);
+            packages.push({
+                trackingNumber: number,
+                carrier,
+                trackingUrl: url,
+                emailSubject: email.subject,
+                emailFrom: email.from,
+                emailDate: email.date,
+            });
+        }
+    }
+    return packages;
+}

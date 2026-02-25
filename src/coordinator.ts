@@ -10,6 +10,7 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { pushNotification, startNotificationPolling } from "./tools/notificationTools.js";
 import { getUsageToday } from "./tools/usageTracker.js";
 import { getTrafficDuration } from "./tools/trafficTools.js";
+import { getTrackedPackages } from "./tools/packageTools.js";
 import { MorningBriefing, ScheduleBlock } from "./types.js";
 import cron from "node-cron";
 
@@ -132,6 +133,74 @@ export function startScheduledJobs(): void {
   startNotificationPolling();
 }
 
+// ─── Proactive Suggestions ────────────────────────────────────────────────────
+/**
+ * Analyzes the morning briefing and returns an array of actionable suggestion strings.
+ * These are surfaced as dismissible banners on the dashboard.
+ */
+function proactiveAnalysis(briefing: MorningBriefing): string[] {
+  const suggestions: string[] = [];
+  const events = briefing.calendar;
+  const tasks  = briefing.googleTasks;
+  const weather = briefing.weather;
+
+  // ── Back-to-back meetings (< 5 min gap) ──────────────────────────────────
+  for (let i = 0; i < events.length - 1; i++) {
+    const a = events[i];
+    const b = events[i + 1];
+    if (!a.startIso || !b.startIso) continue;
+    // find a's end time from the formatted string is tricky; use b's start vs a's start+estimated
+    // Use the end ISO if available — if not, skip
+    const aEndMs = a.startIso ? new Date(a.startIso).getTime() + 60 * 60_000 : null; // rough 1hr estimate
+    const bStartMs = new Date(b.startIso).getTime();
+    if (aEndMs && bStartMs - aEndMs < 5 * 60_000 && bStartMs > aEndMs) {
+      suggestions.push(`📆 Back-to-back meetings: "${a.title}" runs into "${b.title}" with little buffer.`);
+    }
+  }
+
+  // ── Events with location but no preceding travel buffer ──────────────────
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    if (!ev.location || !ev.startIso) continue;
+    const evStartMs = new Date(ev.startIso).getTime();
+    // Check if the prior event ends close to this one's start
+    const prior = events[i - 1];
+    if (prior && prior.startIso) {
+      const priorEndMs = new Date(prior.startIso).getTime() + 60 * 60_000;
+      if (evStartMs - priorEndMs < 30 * 60_000) {
+        suggestions.push(`📍 "${ev.title}" is at ${ev.location} — you may need travel time after "${prior.title}".`);
+      }
+    }
+  }
+
+  // ── Overdue tasks (due > 3 days ago) ──────────────────────────────────────
+  const todayMs = Date.now();
+  const overdue = tasks.filter((t) => {
+    if (!t.due || t.status === "completed") return false;
+    const dueMs = new Date(t.due).getTime();
+    return todayMs - dueMs > 3 * 24 * 60 * 60_000;
+  });
+  if (overdue.length > 0) {
+    const titles = overdue.slice(0, 3).map(t => `"${t.title}"`).join(", ");
+    suggestions.push(`⚠️ ${overdue.length} overdue task${overdue.length > 1 ? "s" : ""}: ${titles}${overdue.length > 3 ? " and more" : ""}.`);
+  }
+
+  // ── Rain today + outdoor/offsite event ──────────────────────────────────
+  if (weather && weather.precipChance >= 60) {
+    const outdoorEvents = events.filter(e => e.location && !e.location.toLowerCase().includes("zoom") && !e.location.toLowerCase().includes("teams") && !e.location.toLowerCase().includes("meet"));
+    if (outdoorEvents.length > 0) {
+      suggestions.push(`🌧️ ${weather.precipChance}% chance of rain — "${outdoorEvents[0].title}" is at an in-person location. Consider an umbrella.`);
+    }
+  }
+
+  // ── Heavy meeting day (4+ events) ────────────────────────────────────────
+  if (events.length >= 4) {
+    suggestions.push(`🔥 Heavy meeting day — ${events.length} events on your calendar. Block focus time if possible.`);
+  }
+
+  return suggestions;
+}
+
 // ─── Morning Briefing ──────────────────────────────────────────────────────
 export async function buildMorningBriefing(): Promise<MorningBriefing> {
   console.log("⏳ Fetching morning briefing data...");
@@ -161,6 +230,20 @@ export async function buildMorningBriefing(): Promise<MorningBriefing> {
 
   const importantEmails = filterImportant(emailsData);
 
+  // Run proactive analysis and package tracking in parallel (non-blocking)
+  const [suggestionsResult, packagesResult] = await Promise.allSettled([
+    Promise.resolve(proactiveAnalysis({
+      calendar: calendarData, emails: emailsData, importantEmails,
+      news: newsData, weather: weatherData, googleTasks: googleTasksData,
+      llmUsage: getUsageToday(), generatedAt: new Date().toISOString(),
+    })),
+    getTrackedPackages(),
+  ]);
+
+  const suggestions = suggestionsResult.status === "fulfilled" ? suggestionsResult.value : [];
+  const packages    = packagesResult.status    === "fulfilled" ? packagesResult.value    : [];
+  if (packagesResult.status === "rejected") console.error("Package tracking error:", packagesResult.reason);
+
   const briefing: MorningBriefing = {
     calendar:     calendarData,
     emails:       emailsData,
@@ -170,6 +253,8 @@ export async function buildMorningBriefing(): Promise<MorningBriefing> {
     googleTasks:  googleTasksData,
     llmUsage:     getUsageToday(),
     generatedAt:  new Date().toISOString(),
+    suggestions,
+    packages,
   };
 
   return briefing;

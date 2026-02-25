@@ -63,6 +63,17 @@ export interface Email {
   account: string;       // which Gmail account this came from
   isImportant: boolean;
   labels: string[];
+  isHighlighted?: boolean;   // matched a filter keyword or highlight sender
+  isVip?: boolean;            // sender is in VIP list
+}
+
+export interface PackageInfo {
+  trackingNumber: string;
+  carrier: "UPS" | "FedEx" | "USPS" | "Amazon" | "Unknown";
+  trackingUrl: string;
+  emailSubject: string;
+  emailFrom: string;
+  emailDate: string;
 }
 
 export interface NewsArticle {
@@ -86,7 +97,7 @@ export interface ChatMessage {
 // ─── Notifications ─────────────────────────────────────────────────────────
 export interface NotificationAlert {
   id: string;
-  type: "event_soon" | "event_starting" | "digest_ready" | "important_email" | "task_reminder";
+  type: "event_soon" | "event_starting" | "digest_ready" | "important_email" | "task_reminder" | "vip_email";
   title: string;
   body: string;
   eventId?: string;
@@ -122,4 +133,6 @@ export interface MorningBriefing {
   googleTasks: GoogleTask[];
   llmUsage?: LlmUsage;
   generatedAt: string;
+  suggestions?: string[];
+  packages?: PackageInfo[];
 }
