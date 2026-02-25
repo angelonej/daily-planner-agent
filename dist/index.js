@@ -1,5 +1,6 @@
 import express from "express";
 import session from "express-session";
+import FileStore from "session-file-store";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 import readline from "readline";
@@ -49,7 +50,12 @@ else {
     // ─── Session & Auth ────────────────────────────────────────────────────
     const APP_PASSWORD = process.env.APP_PASSWORD;
     const SESSION_SECRET = process.env.SESSION_SECRET ?? "change-me-please";
+    const SessionFileStore = FileStore(session);
+    const sessionsDir = path.resolve("sessions");
+    if (!fs.existsSync(sessionsDir))
+        fs.mkdirSync(sessionsDir, { recursive: true });
     app.use(session({
+        store: new SessionFileStore({ path: sessionsDir, ttl: 30 * 24 * 60 * 60, retries: 1, logFn: () => { } }),
         secret: SESSION_SECRET,
         resave: false,
         saveUninitialized: false,

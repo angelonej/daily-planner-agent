@@ -733,10 +733,13 @@ function stripMd(text) {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')   // markdown links → label only
     .replace(/\*\*([^*]+)\*\*/g, '$1')           // bold
     .replace(/`([^`]+)`/g, '$1')                 // inline code
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')      // emoji (supplementary plane)
-    .replace(/[\u2600-\u27BF]/gu, '')             // emoji (basic plane: ☀️☁️✅ etc)
-    .replace(/[\uFE00-\uFE0F]/gu, '')             // variation selectors
-    .replace(/[\u200D]/gu, '')                    // zero-width joiner
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')      // emoji (supplementary plane: 🎵🏠🧠🐶 etc)
+    .replace(/[\u2600-\u27BF]/gu, '')             // Misc symbols, Dingbats, arrows (☀️✅🔔 etc)
+    .replace(/[\u2300-\u23FF]/gu, '')             // Misc Technical (⏰⏳ etc)
+    .replace(/[\u25A0-\u25FF]/gu, '')             // Geometric shapes
+    .replace(/[\u2700-\u27BF]/gu, '')             // Dingbats
+    .replace(/[\uFE00-\uFE0F]/gu, '')             // variation selectors (invisible ️ suffix)
+    .replace(/[\u200B-\u200D\uFEFF]/gu, '')       // zero-width chars
     .replace(/\s{2,}/g, ' ')                      // collapse extra spaces left by removed emoji
     .trim();
 }
@@ -934,7 +937,10 @@ if (SpeechRecognition) {
   };
   recognition.onend = () => { micBtn.style.background = 'var(--surface2)'; isListening = false; voiceStatus.textContent = ''; };
 } else {
-  micBtn.disabled = true; voiceStatus.textContent = 'Voice not supported in this browser';
+  micBtn.disabled = true;
+  micBtn.title = 'Voice input not supported in this browser';
+  micBtn.style.opacity = '0.4';
+  voiceStatus.style.display = 'none';
 }
 
 micBtn.addEventListener('click', () => {
