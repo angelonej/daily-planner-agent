@@ -88,81 +88,154 @@
     }
     .label.right { text-align: right; }
 
+    /* ── Bottom input bar ── */
     footer {
-      padding: 14px 20px;
+      padding: 10px 12px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
       background: #161b22;
       border-top: 1px solid #30363d;
       display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .top-bar {
-      display: flex;
+      align-items: center;
       gap: 8px;
+      z-index: 100;
     }
 
     #textInput {
       flex: 1;
       background: #21262d;
       border: 1px solid #30363d;
-      border-radius: 10px;
+      border-radius: 22px;
       color: #e1e4e8;
-      padding: 10px 14px;
-      font-size: 14px;
+      padding: 11px 16px;
+      font-size: 16px;
       outline: none;
       transition: border-color 0.2s;
+      min-width: 0;
     }
     #textInput:focus { border-color: #1f6feb; }
     #textInput::placeholder { color: #484f58; }
 
     button {
       border: none;
-      border-radius: 10px;
+      border-radius: 50%;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 18px;
       font-weight: 600;
-      padding: 10px 16px;
-      transition: opacity 0.15s, transform 0.1s;
+      transition: opacity 0.15s, transform 0.1s, background 0.15s;
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
     }
-    button:active { transform: scale(0.96); }
+    button:active { transform: scale(0.92); }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
     #sendBtn {
       background: #1f6feb;
       color: #fff;
+      font-size: 20px;
     }
-    #morningBtn {
-      background: #238636;
-      color: #fff;
-      white-space: nowrap;
-    }
-    #clearBtn {
-      background: #30363d;
-      color: #8b949e;
-    }
-    #digestBtn {
-      background: #6f42c1;
-      color: #fff;
-      white-space: nowrap;
-    }
-    #recurringBtn {
-      background: #1a7f5a;
-      color: #fff;
-      white-space: nowrap;
-    }
-    #notifBtn {
+    #menuBtn {
       background: #21262d;
-      border: 2px solid #30363d;
+      border: 1px solid #30363d;
       color: #e1e4e8;
-      font-size: 18px;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      padding: 0;
+      font-size: 20px;
       position: relative;
     }
-    #notifBtn.active { border-color: #3fb950; }
+    #menuBtn.open { background: #30363d; }
+
+    /* ── Slide-up drawer ── */
+    #drawer-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      backdrop-filter: blur(2px);
+    }
+    #drawer-overlay.open { display: block; }
+
+    #drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #161b22;
+      border-top: 1px solid #30363d;
+      border-radius: 20px 20px 0 0;
+      z-index: 201;
+      padding: 12px 16px 24px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #drawer.open { transform: translateY(0); }
+
+    .drawer-handle {
+      width: 36px;
+      height: 4px;
+      background: #30363d;
+      border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+
+    .drawer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .drawer-btn {
+      width: 100% !important;
+      height: 56px !important;
+      border-radius: 14px !important;
+      font-size: 14px !important;
+      font-weight: 600;
+      display: flex !important;
+      flex-direction: column;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 4px;
+      color: #fff;
+    }
+    .drawer-btn .btn-icon { font-size: 20px; line-height: 1; }
+    .drawer-btn .btn-label { font-size: 11px; opacity: 0.85; }
+
+    #morningBtn  { background: #1a6334; }
+    #digestBtn   { background: #4a2b8a; }
+    #recurringBtn{ background: #0e5a6e; }
+    #clearBtn    { background: #2a1f1f; border: 1px solid #6e1a1a !important; }
+    #clearBtn .btn-label { color: #f85149; }
+
+    /* Notification + stop row */
+    .drawer-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .drawer-row-btn {
+      flex: 1;
+      height: 44px !important;
+      border-radius: 12px !important;
+      font-size: 13px !important;
+      font-weight: 600;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px;
+      width: auto !important;
+    }
+
+    #notifBtn {
+      background: #21262d;
+      border: 1px solid #30363d !important;
+      color: #e1e4e8;
+      position: relative;
+    }
+    #notifBtn.active { border-color: #3fb950 !important; color: #3fb950; }
     #notifBadge {
       display: none;
       position: absolute;
@@ -177,6 +250,11 @@
       height: 16px;
       line-height: 16px;
       text-align: center;
+    }
+    #stopBtn {
+      background: #3d1f1f;
+      border: 1px solid #6e1a1a !important;
+      color: #f85149;
     }
 
     /* Notification toast */
@@ -207,29 +285,15 @@
     @keyframes slideIn { from { transform: translateX(110%); opacity:0; } to { transform: translateX(0); opacity:1; } }
     @keyframes slideOut { to { transform: translateX(110%); opacity:0; } }
 
-    .voice-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
     #micBtn {
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
       background: #21262d;
-      border: 2px solid #30363d;
+      border: 1px solid #30363d;
       color: #e1e4e8;
       font-size: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
       transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
       user-select: none;
       -webkit-user-select: none;
     }
-    #micBtn:hover { border-color: #1f6feb; }
     #micBtn.recording {
       background: #da3633;
       border-color: #da3633;
@@ -239,81 +303,21 @@
     @keyframes pulse { 0%,100%{box-shadow:0 0 0 4px rgba(218,54,51,0.25)} 50%{box-shadow:0 0 0 10px rgba(218,54,51,0.1)} }
 
     #voiceStatus {
-      font-size: 13px;
-      color: #8b949e;
-      flex: 1;
+      display: none; /* shown in drawer only */
     }
 
-    #stopBtn {
-      background: #3d1f1f;
-      border: 1px solid #6e1a1a;
-      color: #f85149;
-      padding: 8px 14px;
-      font-size: 13px;
-      border-radius: 10px;
-      flex-shrink: 0;
-    }
-    #stopBtn:hover { background: #6e1a1a; }
-
-    #audioPlayer {
-      display: none;
-    }
-
-    .transcript-tag {
-      font-size: 11px;
-      color: #8b949e;
-      font-style: italic;
-      margin-top: 2px;
-      padding: 0 4px;
-      text-align: right;
-    }
+    #audioPlayer { display: none; }
+    .transcript-tag { display: none; }
 
     /* ── Mobile responsive ── */
     @media (max-width: 600px) {
       header { padding: 10px 14px; }
       header h1 { font-size: 15px; }
-
       #chat { padding: 12px; gap: 10px; }
-
-      .bubble { max-width: 88%; font-size: 14px; }
-
-      footer { padding: 10px 12px; gap: 8px; }
-
-      .top-bar {
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-
-      #textInput {
-        flex: 1 1 100%;
-        order: -1;
-        font-size: 16px; /* prevents iOS zoom */
-        padding: 12px 14px;
-      }
-
-      #sendBtn {
-        flex: 1;
-        min-width: 0;
-      }
-
-      #morningBtn, #digestBtn, #recurringBtn, #clearBtn {
-        flex: 1 1 calc(50% - 6px);
-        min-width: 0;
-        font-size: 12px;
-        padding: 10px 8px;
-      }
-
-      #notifBtn {
-        flex-shrink: 0;
-      }
-
-      .voice-bar { gap: 10px; }
-
-      #voiceStatus { font-size: 12px; }
-
+      .bubble { max-width: 90%; }
       #toastContainer {
         top: auto;
-        bottom: 16px;
+        bottom: 80px;
         right: 8px;
         left: 8px;
       }
@@ -337,27 +341,45 @@
   </div>
 </div>
 
+<!-- Slide-up drawer overlay -->
+<div id="drawer-overlay"></div>
+<div id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-grid">
+    <button id="morningBtn" class="drawer-btn">
+      <span class="btn-icon">☀️</span><span class="btn-label">Morning Briefing</span>
+    </button>
+    <button id="digestBtn" class="drawer-btn">
+      <span class="btn-icon">📧</span><span class="btn-label">Email Digest</span>
+    </button>
+    <button id="recurringBtn" class="drawer-btn">
+      <span class="btn-icon">🔄</span><span class="btn-label">Recurring Events</span>
+    </button>
+    <button id="clearBtn" class="drawer-btn">
+      <span class="btn-icon">🗑</span><span class="btn-label">Clear Chat</span>
+    </button>
+  </div>
+  <div class="drawer-row">
+    <button id="notifBtn" class="drawer-row-btn">🔔 Notifications<span id="notifBadge"></span></button>
+    <button id="stopBtn" class="drawer-row-btn">⏹ Stop Speaking</button>
+  </div>
+  <div style="margin-top:12px; font-size:12px; color:#484f58; text-align:center;">
+    <span id="voiceStatus">Tap 🎙 to speak</span>
+  </div>
+</div>
+
 <footer>
-  <div class="top-bar">
-    <input id="textInput" type="text" placeholder='Type a message or press 🎙 to speak…' autocomplete="off" />
-    <button id="sendBtn">Send</button>
-    <button id="notifBtn" title="Enable browser notifications">🔔<span id="notifBadge"></span></button>
-    <button id="morningBtn">☀️ Morning</button>
-    <button id="digestBtn" title="Send morning briefing to your email">📧 Digest</button>
-    <button id="recurringBtn" title="Analyze calendar for recurring patterns">🔄 Recurring</button>
-    <button id="clearBtn">🗑 Clear</button>
-  </div>
-  <div class="voice-bar">
-    <button id="micBtn" title="Click to start/stop listening">🎙</button>
-    <button id="stopBtn" title="Stop speaking">⏹ Stop</button>
-    <span id="voiceStatus">Click the mic button to speak</span>
-  </div>
+  <button id="menuBtn" title="Open menu">⋯</button>
+  <input id="textInput" type="text" placeholder='Message your planner…' autocomplete="off" />
+  <button id="micBtn" title="Tap to speak">🎙</button>
+  <button id="sendBtn" title="Send">➤</button>
 </footer>
 
 <script>
   const chat        = document.getElementById('chat');
   const textInput   = document.getElementById('textInput');
   const sendBtn     = document.getElementById('sendBtn');
+  const menuBtn     = document.getElementById('menuBtn');
   const morningBtn  = document.getElementById('morningBtn');
   const digestBtn   = document.getElementById('digestBtn');
   const recurringBtn= document.getElementById('recurringBtn');
@@ -368,6 +390,15 @@
   const stopBtn     = document.getElementById('stopBtn');
   const voiceStatus = document.getElementById('voiceStatus');
   const toastContainer = document.getElementById('toastContainer');
+  const drawer      = document.getElementById('drawer');
+  const drawerOverlay = document.getElementById('drawer-overlay');
+
+  function openDrawer()  { drawer.classList.add('open'); drawerOverlay.classList.add('open'); menuBtn.classList.add('open'); }
+  function closeDrawer() { drawer.classList.remove('open'); drawerOverlay.classList.remove('open'); menuBtn.classList.remove('open'); }
+  menuBtn.addEventListener('click', () => drawer.classList.contains('open') ? closeDrawer() : openDrawer());
+  drawerOverlay.addEventListener('click', closeDrawer);
+  // Close drawer when any drawer button is tapped
+  drawer.querySelectorAll('button').forEach(b => b.addEventListener('click', () => setTimeout(closeDrawer, 150)));
 
   const USER_ID = 'web-user';
   let unreadNotifs = 0;
