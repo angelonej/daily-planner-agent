@@ -113,7 +113,7 @@ function formatMorningBriefingText(briefing) {
         ? briefing.news
             .map((n) => `\n  ${n.topic}:\n` +
             (n.articles.length > 0
-                ? n.articles.map((a) => `  • ${a.title}`).join("\n")
+                ? n.articles.map((a) => `  • [${a.title}](${a.url})`).join("\n")
                 : "  No articles found."))
             .join("\n")
         : "  No news loaded.";
