@@ -77,10 +77,30 @@ if (process.argv.includes("--cli")) {
 
   // ─── Token store: fallback for mobile browsers that drop cookies on HTTP IPs ─
   const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+  const TOKEN_FILE = path.join(__dirname, '..', '.tokens.json');
   const validTokens = new Map<string, number>(); // token → expiry timestamp
+  // Persist tokens across restarts so mobile sessions survive PM2 restarts
+  (function loadTokens() {
+    try {
+      const raw = fs.readFileSync(TOKEN_FILE, 'utf8');
+      const obj = JSON.parse(raw) as Record<string, number>;
+      const now = Date.now();
+      for (const [t, exp] of Object.entries(obj)) {
+        if (exp > now) validTokens.set(t, exp);
+      }
+    } catch {}
+  })();
+  function saveTokens() {
+    try {
+      const obj: Record<string, number> = {};
+      validTokens.forEach((exp, t) => { obj[t] = exp; });
+      fs.writeFileSync(TOKEN_FILE, JSON.stringify(obj));
+    } catch {}
+  }
   function issueToken(): string {
     const tok = crypto.randomBytes(32).toString('hex');
     validTokens.set(tok, Date.now() + TOKEN_TTL_MS);
+    saveTokens();
     return tok;
   }
   function checkToken(tok: string | undefined): boolean {
@@ -165,7 +185,7 @@ if (process.argv.includes("--cli")) {
   });
 
   // Auth guard — skip for Twilio webhooks and health check
-  const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key"]);
+  const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key", "/api/briefing", "/api/calendar"]);
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!APP_PASSWORD) return next();
     if (OPEN_PATHS.has(req.path)) return next();
