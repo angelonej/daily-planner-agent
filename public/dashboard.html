@@ -980,8 +980,12 @@ function showToast(title, body, urgent=false) {
   const t = document.createElement('div');
   t.className = 'toast' + (urgent?' urgent':'');
   t.innerHTML = `<div class="toast-title">${escapeHtml(title)}</div><div class="toast-body">${escapeHtml(body??'')}</div>`;
+  t.addEventListener('click', () => t.remove());
   document.getElementById('toast-container').appendChild(t);
-  if (Notification.permission === 'granted') new Notification(title, { body });
+  if (Notification.permission === 'granted') {
+    const n = new Notification(title, { body, icon: '/icons/icon-192.png', tag: title });
+    n.onclick = () => { n.close(); window.focus(); };
+  }
   unreadNotifs++;
   const b = document.getElementById('notifBadge');
   b.style.display = 'inline'; b.textContent = unreadNotifs > 9 ? '9+' : unreadNotifs;

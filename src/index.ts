@@ -59,7 +59,13 @@ if (process.argv.includes("--cli")) {
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: "lax" }
+    rolling: true,   // reset expiry on every request — keeps active users logged in
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,  // set to true only behind HTTPS termination
+    }
   }));
 
   // Login page
