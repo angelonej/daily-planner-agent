@@ -1,12 +1,13 @@
 /**
  * trafficTools.ts
  *
- * Google Maps Distance Matrix API wrapper.
+ * Google Maps Routes API (New) wrapper.
  * Returns drive time with live traffic between two addresses.
  *
  * Required env vars:
- *   GOOGLE_MAPS_API_KEY  — Maps Platform API key with Distance Matrix enabled
+ *   GOOGLE_MAPS_API_KEY  — Maps Platform API key with Routes API enabled
  *   HOME_ADDRESS         — e.g. "123 Main St, Orlando, FL 32801"
+ *   WORK_ADDRESS         — e.g. "200 SW 2nd St, Fort Lauderdale, FL 33021"
  */
 export async function getTrafficDuration(origin, destination) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -14,29 +15,39 @@ export async function getTrafficDuration(origin, destination) {
         console.warn("⚠️ GOOGLE_MAPS_API_KEY not set — skipping traffic check");
         return null;
     }
-    const params = new URLSearchParams({
-        origins: origin,
-        destinations: destination,
-        mode: "driving",
-        departure_time: "now", // enables live traffic
-        traffic_model: "best_guess",
-        key: apiKey,
-    });
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?${params}`;
+    // Routes API (New) — replaces legacy Distance Matrix
+    const url = "https://routes.googleapis.com/directions/v2:computeRoutes";
+    const body = {
+        origin: { address: origin },
+        destination: { address: destination },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_AWARE",
+        departureTime: new Date().toISOString(),
+        computeAlternativeRoutes: false,
+        routeModifiers: { avoidTolls: false, avoidHighways: false },
+        languageCode: "en-US",
+        units: "IMPERIAL",
+    };
     try {
-        const res = await fetch(url);
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": apiKey,
+                "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters",
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(8000),
+        });
         const data = await res.json();
-        if (data.status !== "OK") {
-            console.warn("Maps API status:", data.status);
+        if (!res.ok || !data.routes?.length) {
+            console.warn("Routes API error:", res.status, JSON.stringify(data).slice(0, 200));
             return null;
         }
-        const element = data.rows?.[0]?.elements?.[0];
-        if (!element || element.status !== "OK") {
-            console.warn("Maps element status:", element?.status);
-            return null;
-        }
-        const durationMin = Math.round(element.duration.value / 60);
-        const durationTrafficMin = Math.round((element.duration_in_traffic?.value ?? element.duration.value) / 60);
+        const route = data.routes[0];
+        // duration = traffic-aware, staticDuration = no-traffic baseline
+        const durationTrafficMin = Math.round(parseDurationSec(route.duration) / 60);
+        const durationMin = Math.round(parseDurationSec(route.staticDuration ?? route.duration) / 60);
         const trafficDelayMin = Math.max(0, durationTrafficMin - durationMin);
         const heavyTraffic = trafficDelayMin > 5;
         let summary;
@@ -55,4 +66,11 @@ export async function getTrafficDuration(origin, destination) {
         console.error("Traffic API error:", err instanceof Error ? err.message : err);
         return null;
     }
+}
+/** Parse a Routes API duration string like "1234s" → number of seconds */
+function parseDurationSec(duration) {
+    if (!duration)
+        return 0;
+    const match = duration.match(/^(\d+)s$/);
+    return match ? parseInt(match[1], 10) : 0;
 }

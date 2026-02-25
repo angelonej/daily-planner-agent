@@ -1,12 +1,13 @@
 /**
  * trafficTools.ts
  *
- * Google Maps Distance Matrix API wrapper.
+ * Google Maps Routes API (New) wrapper.
  * Returns drive time with live traffic between two addresses.
  *
  * Required env vars:
- *   GOOGLE_MAPS_API_KEY  — Maps Platform API key with Distance Matrix enabled
+ *   GOOGLE_MAPS_API_KEY  — Maps Platform API key with Routes API enabled
  *   HOME_ADDRESS         — e.g. "123 Main St, Orlando, FL 32801"
+ *   WORK_ADDRESS         — e.g. "200 SW 2nd St, Fort Lauderdale, FL 33021"
  */
 
 export interface TrafficResult {
@@ -27,34 +28,45 @@ export async function getTrafficDuration(
     return null;
   }
 
-  const params = new URLSearchParams({
-    origins:        origin,
-    destinations:   destination,
-    mode:           "driving",
-    departure_time: "now",       // enables live traffic
-    traffic_model:  "best_guess",
-    key:            apiKey,
-  });
+  // Routes API (New) — replaces legacy Distance Matrix
+  const url = "https://routes.googleapis.com/directions/v2:computeRoutes";
 
-  const url = `https://maps.googleapis.com/maps/api/distancematrix/json?${params}`;
+  const body = {
+    origin:      { address: origin },
+    destination: { address: destination },
+    travelMode:  "DRIVE",
+    routingPreference: "TRAFFIC_AWARE",
+    departureTime: new Date().toISOString(),
+    computeAlternativeRoutes: false,
+    routeModifiers: { avoidTolls: false, avoidHighways: false },
+    languageCode: "en-US",
+    units: "IMPERIAL",
+  };
 
   try {
-    const res = await fetch(url);
-    const data = await res.json() as GoogleDistanceMatrixResponse;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
 
-    if (data.status !== "OK") {
-      console.warn("Maps API status:", data.status);
+    const data = await res.json() as RoutesApiResponse;
+
+    if (!res.ok || !data.routes?.length) {
+      console.warn("Routes API error:", res.status, JSON.stringify(data).slice(0, 200));
       return null;
     }
 
-    const element = data.rows?.[0]?.elements?.[0];
-    if (!element || element.status !== "OK") {
-      console.warn("Maps element status:", element?.status);
-      return null;
-    }
+    const route = data.routes[0];
 
-    const durationMin        = Math.round(element.duration.value / 60);
-    const durationTrafficMin = Math.round((element.duration_in_traffic?.value ?? element.duration.value) / 60);
+    // duration = traffic-aware, staticDuration = no-traffic baseline
+    const durationTrafficMin = Math.round(parseDurationSec(route.duration) / 60);
+    const durationMin        = Math.round(parseDurationSec(route.staticDuration ?? route.duration) / 60);
     const trafficDelayMin    = Math.max(0, durationTrafficMin - durationMin);
     const heavyTraffic       = trafficDelayMin > 5;
 
@@ -74,15 +86,19 @@ export async function getTrafficDuration(
   }
 }
 
+/** Parse a Routes API duration string like "1234s" → number of seconds */
+function parseDurationSec(duration: string | undefined): number {
+  if (!duration) return 0;
+  const match = duration.match(/^(\d+)s$/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────
-interface GoogleDistanceMatrixResponse {
-  status: string;
-  rows: Array<{
-    elements: Array<{
-      status: string;
-      duration:            { value: number; text: string };
-      duration_in_traffic?: { value: number; text: string };
-      distance:            { value: number; text: string };
-    }>;
+interface RoutesApiResponse {
+  routes?: Array<{
+    duration:       string;        // e.g. "1234s" — traffic-aware
+    staticDuration?: string;       // e.g. "1100s" — no-traffic baseline
+    distanceMeters: number;
   }>;
+  error?: { code: number; message: string };
 }
