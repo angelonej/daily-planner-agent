@@ -54,15 +54,25 @@ function buildTasksAuth(): OAuth2Client {
   return auth;
 }
 
-/** Get all task lists */
+// ─── Task list cache (10 minutes) ───────────────────────────────────────────
+let taskListCache: { lists: GoogleTaskList[]; fetchedAt: number } | null = null;
+const TASK_LIST_CACHE_TTL = 10 * 60 * 1000;
+
+/** Get all task lists (cached for 10 minutes) */
 export async function getTaskLists(): Promise<GoogleTaskList[]> {
+  const now = Date.now();
+  if (taskListCache && now - taskListCache.fetchedAt < TASK_LIST_CACHE_TTL) {
+    return taskListCache.lists;
+  }
   const auth = buildTasksAuth();
   const tasks = google.tasks({ version: "v1", auth });
   const res = await tasks.tasklists.list({ maxResults: 20 });
-  return (res.data.items ?? []).map((l) => ({
+  const lists = (res.data.items ?? []).map((l) => ({
     id: l.id!,
     title: l.title ?? "Untitled",
   }));
+  taskListCache = { lists, fetchedAt: Date.now() };
+  return lists;
 }
 
 /** List incomplete tasks (optionally from a specific list, defaults to all lists) */

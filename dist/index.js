@@ -381,6 +381,7 @@ else {
     });
     // ─── Live briefing JSON for dashboard widgets ──────────────────────────
     app.get("/api/briefing", async (req, res) => {
+        const t0 = Date.now();
         try {
             const force = req.query?.refresh === "1";
             if (force)
@@ -388,9 +389,13 @@ else {
             const briefing = await getCachedBriefing();
             // Attach the fetchedAt timestamp from the cache for the "last updated" indicator
             const fetchedAt = dashboardCacheFetchedAt();
+            const elapsed = Date.now() - t0;
+            if (elapsed > 500)
+                console.log(`⏱ /api/briefing took ${elapsed}ms (force=${force})`);
             res.json({ ...briefing, _fetchedAt: fetchedAt });
         }
         catch (err) {
+            console.error(`❌ /api/briefing error after ${Date.now() - t0}ms:`, err);
             res.status(500).json({ error: String(err) });
         }
     });

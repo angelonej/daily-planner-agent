@@ -1741,8 +1741,8 @@ async function saveSettings() {
 
 // Apply on load
 applyAssistantName();
-loadTaskLists();
-loadReminders();
+// Delay non-critical init calls so they don't compete with the briefing fetch
+setTimeout(() => { loadTaskLists(); loadReminders(); }, 2000);
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();
