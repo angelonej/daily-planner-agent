@@ -263,14 +263,15 @@ export async function findEventsByTitle(query: string, daysToSearch = 14): Promi
         for (const event of res.data.items ?? []) {
           const start = event.start?.dateTime ?? event.start?.date ?? "";
           const end   = event.end?.dateTime   ?? event.end?.date   ?? "";
+          // Strip description to avoid HTML/noise confusing the LLM
           allEvents.push({
-            start:       fmtEventTime(start),
-            end:         fmtEventTime(end),
-            startIso:    start,
-            title:       event.summary     ?? "(no title)",
-            location:    event.location    ?? undefined,
-            description: event.description ?? undefined,
-            eventId:     event.id          ?? undefined,
+            start:    fmtEventTime(start),
+            end:      fmtEventTime(end),
+            startIso: start,
+            endIso:   end,
+            title:    event.summary  ?? "(no title)",
+            location: event.location ?? undefined,
+            eventId:  event.id       ?? undefined,
           });
         }
       } catch (err) {
@@ -279,7 +280,29 @@ export async function findEventsByTitle(query: string, daysToSearch = 14): Promi
     })
   );
 
-  allEvents.sort((a, b) => a.start.localeCompare(b.start));
-  return allEvents;
+  // Sort by raw ISO start time (accurate), not display string
+  allEvents.sort((a, b) => (a.startIso ?? a.start).localeCompare(b.startIso ?? b.start));
+
+  // Deduplicate: if two events share the same date and similar title, keep the longest one
+  const deduped: typeof allEvents = [];
+  for (const ev of allEvents) {
+    const dateKey = (ev.startIso ?? "").slice(0, 10);
+    const titleKey = ev.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
+    const key = `${dateKey}|${titleKey}`;
+    const existing = deduped.findIndex(e => {
+      const eDate = (e.startIso ?? "").slice(0, 10);
+      const eTitle = e.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
+      return `${eDate}|${eTitle}` === key;
+    });
+    if (existing === -1) {
+      deduped.push(ev);
+    } else {
+      // Keep the one with the longer duration
+      const existingDur = new Date(deduped[existing].endIso ?? 0).getTime() - new Date(deduped[existing].startIso ?? 0).getTime();
+      const newDur = new Date(ev.endIso ?? 0).getTime() - new Date(ev.startIso ?? 0).getTime();
+      if (newDur > existingDur) deduped[existing] = ev;
+    }
+  }
+  return deduped;
 }
 
