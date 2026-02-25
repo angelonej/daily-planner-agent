@@ -130,6 +130,15 @@ export function startScheduledJobs(): void {
 
   // Start SSE notification polling (calendar event reminders)
   startNotificationPolling();
+
+  // Pre-warm the briefing cache 5 seconds after startup so the first
+  // dashboard load hits a warm cache instead of building from scratch.
+  setTimeout(() => {
+    console.log("🔥 Pre-warming briefing cache on startup...");
+    getCachedBriefing()
+      .then(() => console.log("✅ Startup briefing cache warm."))
+      .catch((err) => console.warn("⚠️  Startup cache warm failed:", err));
+  }, 5_000);
 }
 
 // ─── Proactive Suggestions ────────────────────────────────────────────────────
