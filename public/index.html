@@ -518,6 +518,25 @@
 </footer>
 
 <script>
+  // ── Auth token: capture from URL after login, persist to localStorage ────
+  (function() {
+    const params = new URLSearchParams(location.search);
+    const tok = params.get('tok');
+    if (tok) {
+      localStorage.setItem('authToken', tok);
+      history.replaceState({}, '', location.pathname);
+    }
+  })();
+
+  // ── Patch fetch to always send the auth token header ─────────────────────
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    init = init || {};
+    const tok = localStorage.getItem('authToken');
+    if (tok) init.headers = Object.assign({ 'X-Auth-Token': tok }, init.headers || {});
+    return _origFetch(input, init);
+  };
+
   const chat        = document.getElementById('chat');
   const textInput   = document.getElementById('textInput');
   const sendBtn     = document.getElementById('sendBtn');
@@ -604,23 +623,7 @@
     }, 6000);
   }
 
-  // ── SSE: listen for server-push notifications ──────────────────────────
-  function connectSSE() {
-    const es = new EventSource('/notifications');
-    es.addEventListener('notification', (e) => {
-      try {
-        const alert = JSON.parse(e.data);
-        const urgent = alert.type === 'event_starting';
-        showToast(alert.title, alert.body, urgent);
-      } catch {}
-    });
-    es.addEventListener('error', () => {
-      // Reconnect after 5s on error
-      es.close();
-      setTimeout(connectSSE, 5000);
-    });
-  }
-  connectSSE();
+  // SSE connection defined at bottom of script (needs auth token)
 
   // ── Notification bell: request browser permission ──────────────────────
   notifBtn.addEventListener('click', async () => {
@@ -630,8 +633,7 @@
 
     if (Notification.permission === 'granted') {
       notifBtn.classList.add('active');
-      showToast('🔔 Notifications', 'Browser notifications are already enabled!');
-      return;
+      return; // already enabled — just clear the badge, no toast
     }
     if (Notification.permission === 'denied') {
       showToast('🔕 Blocked', 'Browser notifications are blocked. Enable them in browser settings.');
@@ -688,14 +690,15 @@
       voiceStatus.textContent = 'Click the mic button to speak';
     };
   } else {
-    voiceStatus.textContent = '⚠️ Voice not supported in this browser (use Chrome)';
     micBtn.disabled = true;
+    micBtn.style.opacity = '0.4';
+    micBtn.title = 'Voice not supported in this browser';
   }
 
-  // Warn immediately if on HTTP (mic won't work)
+  // On HTTP: mic won't work — disable silently, don't show permanent error text
   if (location.protocol === 'http:' && SpeechRecognition) {
-    voiceStatus.textContent = '⚠️ Mic unavailable over HTTP — use the text input to chat';
     micBtn.title = 'Microphone requires HTTPS';
+    micBtn.style.opacity = '0.6';
   }
 
   // ── helpers ────────────────────────────────────────────────────────────
@@ -729,13 +732,20 @@
       .replace(/>/g, '&gt;');
   }
 
-  // Strip markdown for TTS (remove links, bold markers, etc.)
+  // Strip markdown + emojis for TTS
   function stripMarkdown(text) {
     return text
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [label](url) → label
-      .replace(/https?:\/\/\S+/g, '')           // bare URLs → remove
-      .replace(/\*\*([^*]+)\*\*/g, '$1')        // **bold** → bold
-      .replace(/`([^`]+)`/g, '$1');              // `code` → code
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')   // [label](url) → label
+      .replace(/https?:\/\/\S+/g, '')             // bare URLs
+      .replace(/\*\*([^*]+)\*\*/g, '$1')          // **bold**
+      .replace(/`([^`]+)`/g, '$1')                // `code`
+      .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')     // emoji supplementary plane
+      .replace(/[\u2600-\u27BF]/gu, '')            // misc symbols, dingbats
+      .replace(/[\u2300-\u23FF]/gu, '')            // misc technical
+      .replace(/[\uFE00-\uFE0F]/gu, '')            // variation selectors
+      .replace(/[\u200B-\u200D\uFEFF]/gu, '')      // zero-width chars
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   }
 
   function addBubble(role, text) {
@@ -916,34 +926,45 @@
 // ─── Service Worker + Web Push ────────────────────────────────────────────
 async function registerPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (Notification.permission === 'denied') return;
   try {
     const reg = await navigator.serviceWorker.register('/service-worker.js');
-    // Get VAPID public key
     const keyRes = await fetch('/vapid-public-key');
     if (!keyRes.ok) return;
     const { key } = await keyRes.json();
-    // Check if already subscribed
     let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return;
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: key,
-      });
+    if (sub) {
+      // Already subscribed — only re-POST if endpoint changed
+      const stored = localStorage.getItem('pushEndpoint');
+      if (stored === sub.endpoint) return;
+      localStorage.setItem('pushEndpoint', sub.endpoint);
+      await fetch('/push-subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+      return;
     }
-    // Send subscription to server
-    await fetch('/push-subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sub),
-    });
-    console.log('✅ Push notifications registered');
+    // No sub yet — only subscribe if permission already granted (don't auto-prompt)
+    if (Notification.permission !== 'granted') return;
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    localStorage.setItem('pushEndpoint', sub.endpoint);
+    await fetch('/push-subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
   } catch (e) {
     console.warn('Push registration failed:', e);
   }
 }
 registerPush();
+connectSSE();
+
+// SSE also needs the auth token (EventSource can't send headers — use query param)
+function connectSSE() {
+  const tok = localStorage.getItem('authToken');
+  const es = new EventSource('/notifications' + (tok ? '?tok=' + encodeURIComponent(tok) : ''));
+  es.addEventListener('notification', (e) => {
+    try {
+      const alert = JSON.parse(e.data);
+      showToast(alert.title, alert.body, alert.type === 'event_starting');
+    } catch {}
+  });
+  es.addEventListener('error', () => { es.close(); setTimeout(connectSSE, 5000); });
+}
 </script>
 
 </body>
