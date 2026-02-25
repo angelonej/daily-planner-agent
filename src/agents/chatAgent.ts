@@ -39,6 +39,7 @@ When including links, always use markdown format: [View Event](https://...) — 
 Do NOT include Google Calendar event links in responses — just confirm the event title and time.
 If asked to summarize emails or news, use the briefing data provided.
 When the user asks to add, create, schedule, move, reschedule, cancel, or delete a calendar event, use the appropriate calendar tool.
+When the user asks WHEN something is, WHERE an event is, WHAT TIME an event starts, or ANY question about upcoming events on their calendar (e.g. "when does X play", "is Y scheduled", "do I have Z coming up"), ALWAYS call search_calendar_events — NEVER answer from memory or make up dates.
 When the user asks about recurring events, patterns, or regular meetings, use suggest_recurring_events.
 When the user asks to send the daily digest, morning summary, or briefing email, use send_digest_email.
 When the user asks about weather (today, tomorrow, this week, will it rain, forecast, etc.), ALWAYS call get_weather with the appropriate number of days.
@@ -129,12 +130,12 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
     type: "function",
     function: {
       name: "search_calendar_events",
-      description: "Search for calendar events by title keyword, returns events with their IDs. Use this before update/delete.",
+      description: "Search for calendar events by title keyword, returns events with their IDs. Use this before update/delete, and ALWAYS use this to answer any question about when/where an event is — never guess. For questions about upcoming events, use daysToSearch=180 or more to look several months ahead.",
       parameters: {
         type: "object",
         properties: {
-          query:         { type: "string",  description: "Search keyword (e.g. 'dentist', 'gym', 'AWS')" },
-          daysToSearch:  { type: "number",  description: "How many days ahead to search (default 14)" },
+          query:         { type: "string",  description: "Search keyword (e.g. 'dentist', 'gym', 'Turnstiles')" },
+          daysToSearch:  { type: "number",  description: "How many days ahead to search. Default 30, use 180+ for events that may be months away." },
         },
         required: ["query"],
       },
@@ -438,7 +439,10 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         return JSON.stringify(events);
       }
       case "search_calendar_events": {
-        const events = await searchEvents(String(args.query), Number(args.daysToSearch ?? 14));
+        const events = await searchEvents(String(args.query), Number(args.daysToSearch ?? 90));
+        if (!events || (Array.isArray(events) && events.length === 0)) {
+          return JSON.stringify({ message: `No calendar events found matching "${args.query}" in the next ${args.daysToSearch ?? 90} days.` });
+        }
         return JSON.stringify(events);
       }
       case "list_tasks": {
