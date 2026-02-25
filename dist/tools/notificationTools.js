@@ -333,8 +333,9 @@ function describeReminderFreq(freq, dayOfWeek, dayOfMonth, month) {
     return "Daily reminder";
 }
 // ─── VIP email polling ─────────────────────────────────────────────────────
-// Track the latest email id seen to avoid re-alerting
-let lastSeenEmailId = null;
+// Use a Set of seen IDs so we never re-alert regardless of list pagination
+const seenEmailIds = new Set();
+let vipEmailsInitialized = false;
 async function checkVipEmails() {
     if (runtimeVipSenders.length === 0)
         return; // no VIPs configured
@@ -342,15 +343,17 @@ async function checkVipEmails() {
         const emails = await fetchAllAccountEmails();
         if (emails.length === 0)
             return;
-        // Find the first email we haven’t seen yet
-        const firstNewIndex = lastSeenEmailId
-            ? emails.findIndex((e) => e.id === lastSeenEmailId)
-            : emails.length;
-        const newEmails = firstNewIndex > 0 ? emails.slice(0, firstNewIndex) : [];
-        // Update the watermark
-        if (emails[0])
-            lastSeenEmailId = emails[0].id;
-        for (const email of newEmails) {
+        if (!vipEmailsInitialized) {
+            // First run: seed the seen-set so we don't flood alerts for existing emails on startup
+            emails.forEach((e) => seenEmailIds.add(e.id));
+            vipEmailsInitialized = true;
+            console.log(`⭐ VIP email watcher initialized with ${seenEmailIds.size} existing emails`);
+            return;
+        }
+        for (const email of emails) {
+            if (seenEmailIds.has(email.id))
+                continue; // already processed
+            seenEmailIds.add(email.id);
             const fromLower = email.from.toLowerCase();
             const isVip = runtimeVipSenders.some((v) => fromLower.includes(v));
             if (!isVip)

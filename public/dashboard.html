@@ -180,16 +180,22 @@
       border-bottom: 1px solid var(--border);
       background: var(--surface);
       flex-shrink: 0;
+      overflow-x: auto;
     }
+    #right-tabs::-webkit-scrollbar { display: none; }
     .rtab {
-      flex: 1; padding: 10px 4px; text-align: center; font-size: 11px; font-weight: 600;
+      flex: 1; min-width: 0; padding: 8px 2px; text-align: center; font-size: 10px; font-weight: 600;
       color: var(--muted); background: none; border: none; cursor: pointer;
       border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
-      text-transform: uppercase; letter-spacing: .05em;
+      text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: visible;
     }
     .rtab:hover { color: var(--text); }
     .rtab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 
+    .notif-item { padding: 8px 10px; border-radius: 6px; background: var(--surface2); margin-bottom: 6px; }
+    .notif-item-title { font-size: 12px; font-weight: 600; }
+    .notif-item-body { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .notif-item-time { font-size: 10px; color: var(--muted); margin-top: 3px; }
     #right-content { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
     #right-content::-webkit-scrollbar { width: 4px; }
     #right-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -607,6 +613,15 @@
 <!-- Toast container -->
 <div id="toast-container"></div>
 
+<!-- Notification history panel -->
+<div id="notif-panel" style="display:none;position:fixed;top:52px;right:12px;width:320px;max-height:420px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px #0008;z-index:900;padding:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-weight:700;font-size:13px">🔔 Notifications</span>
+    <button onclick="document.getElementById('notif-panel').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer">✕</button>
+  </div>
+  <div id="notif-panel-list"><div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">No notifications yet</div></div>
+</div>
+
 <!-- ── Settings Modal ── -->
 <div id="settings-overlay">
   <div id="settings-modal">
@@ -999,6 +1014,20 @@ document.getElementById('digestBtn').addEventListener('click', async () => {
 
 // ── SSE notifications ─────────────────────────────────────────────────────
 let unread = 0;
+const recentAlerts = [];
+
+function addToNotifPanel(title, body) {
+  recentAlerts.unshift({ title, body, time: new Date() });
+  if (recentAlerts.length > 50) recentAlerts.pop();
+  const list = document.getElementById('notif-panel-list');
+  list.innerHTML = recentAlerts.map(a => `
+    <div class="notif-item">
+      <div class="notif-item-title">${escapeHtml(a.title)}</div>
+      <div class="notif-item-body">${escapeHtml(a.body ?? '')}</div>
+      <div class="notif-item-time">${a.time.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+    </div>`).join('');
+}
+
 function connectSSE() {
   const tok = localStorage.getItem('authToken');
   const es = new EventSource('/notifications' + (tok ? `?tok=${encodeURIComponent(tok)}` : ''));
@@ -1006,6 +1035,7 @@ function connectSSE() {
     try {
       const n = JSON.parse(e.data);
       showToast(n.title, n.body, n.type === 'event_starting');
+      addToNotifPanel(n.title, n.body);
     } catch {}
   });
   es.addEventListener('error', () => { es.close(); setTimeout(connectSSE, 5000); });
@@ -1910,23 +1940,32 @@ async function registerPush() {
     console.warn('Push registration failed:', e);
   }
 }
-// Wire the 🔔 bell button to explicitly request permission then subscribe
-document.getElementById('notifBtn').addEventListener('click', async () => {
+// Wire the 🔔 bell button: toggle notification history panel + request permission if needed
+document.getElementById('notifBtn').addEventListener('click', async (ev) => {
+  ev.stopPropagation();
   unreadNotifs = 0;
   const badge = document.getElementById('notifBadge');
   badge.style.display = 'none';
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'granted') {
-    // Already enabled — just re-run push registration silently
-    await registerPush();
-    return;
-  }
-  if (Notification.permission !== 'denied') {
+  // Toggle the notification history panel
+  const panel = document.getElementById('notif-panel');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  // If permissions not yet granted, request them
+  if (!isOpen && 'Notification' in window && Notification.permission === 'default') {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       showToast('🔔 Enabled', 'Browser notifications on!');
       await registerPush();
     }
+  } else if (!isOpen && Notification.permission === 'granted') {
+    await registerPush();
+  }
+});
+// Close panel when clicking outside
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('notif-panel');
+  if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && e.target.id !== 'notifBtn') {
+    panel.style.display = 'none';
   }
 });
 registerPush();
