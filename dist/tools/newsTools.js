@@ -1,9 +1,17 @@
 import fetch from "node-fetch";
+// Cache news results for 30 minutes — news doesn't change that fast
+// and this prevents re-fetching on every briefing cache miss
+const newsCache = new Map();
+const NEWS_CACHE_TTL_MS = 30 * 60 * 1000;
 /**
  * Fetch news from Google News RSS (no API key, no rate limits).
- * Falls back to empty array on error.
+ * Cached 30 min. Falls back to empty array on error.
  */
 export async function searchNews(topic, maxResults = 3) {
+    const cached = newsCache.get(topic);
+    if (cached && Date.now() - cached.fetchedAt < NEWS_CACHE_TTL_MS) {
+        return cached.articles;
+    }
     try {
         const url = `https://news.google.com/rss/search` +
             `?q=${encodeURIComponent(topic)}` +
@@ -11,17 +19,20 @@ export async function searchNews(topic, maxResults = 3) {
         const res = await fetch(url, {
             headers: { "User-Agent": "Mozilla/5.0 (compatible; DailyPlannerBot/1.0)" },
             redirect: "follow",
+            signal: AbortSignal.timeout(8000), // hard 8s cap — don't hang the briefing
         });
         if (!res.ok) {
             console.error(`Google News RSS error ${res.status} for topic "${topic}"`);
-            return [];
+            return cached?.articles ?? []; // return stale cache on error rather than empty
         }
         const xml = await res.text();
-        return parseRssItems(xml, maxResults);
+        const articles = parseRssItems(xml, maxResults);
+        newsCache.set(topic, { articles, fetchedAt: Date.now() });
+        return articles;
     }
     catch (err) {
         console.error(`Failed to fetch news for "${topic}":`, err);
-        return [];
+        return cached?.articles ?? []; // return stale cache on timeout/error
     }
 }
 function parseRssItems(xml, max) {

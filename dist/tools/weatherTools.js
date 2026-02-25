@@ -140,7 +140,13 @@ function mapWttrCodeToWMO(code) {
         return 95; // Thunder + snow
     return 0;
 }
+// Cache weather for 15 minutes — no need to re-fetch on every briefing cache miss
+let weatherCache = null;
+const WEATHER_CACHE_TTL_MS = 15 * 60 * 1000;
 export async function getWeather() {
+    if (weatherCache && Date.now() - weatherCache.fetchedAt < WEATHER_CACHE_TTL_MS) {
+        return weatherCache.data;
+    }
     const lat = process.env.LATITUDE ?? "26.0112"; // Hollywood FL default
     const lon = process.env.LONGITUDE ?? "-80.1495";
     const locationName = process.env.LOCATION_NAME ?? "Hollywood, FL";
@@ -202,7 +208,7 @@ export async function getWeather() {
         }
         // Format sunrise/sunset
         const fmtTime = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
-        return {
+        const result = {
             location: locationName,
             temperatureF: celsiusToF(cur.temperature_2m),
             feelsLikeF: celsiusToF(cur.apparent_temperature),
@@ -220,10 +226,14 @@ export async function getWeather() {
             sunset: fmtTime(daily.sunset[0]),
             hourly: hourlyResult,
         };
+        weatherCache = { data: result, fetchedAt: Date.now() };
+        return result;
     }
     catch (primaryErr) {
         console.warn(`⚠️  Open-Meteo failed (${primaryErr.message}) — falling back to wttr.in`);
-        return getWeatherFromWttr(locationName, tz);
+        const fallback = await getWeatherFromWttr(locationName, tz);
+        weatherCache = { data: fallback, fetchedAt: Date.now() };
+        return fallback;
     }
 }
 export async function getWeatherForecast(days = 7) {
