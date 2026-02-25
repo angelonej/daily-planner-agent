@@ -259,10 +259,11 @@
     /* News */
     .news-topic { font-size: 11px; font-weight: 700; color: var(--purple); text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 6px; }
     .news-topic:first-child { margin-top: 0; }
-    .news-article { padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .news-article { padding: 6px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
     .news-article:last-child { border-bottom: none; }
-    .news-article a { color: var(--text); text-decoration: none; font-size: 13px; font-weight: 500; line-height: 1.4; display: block; }
-    .news-article a:hover { color: var(--accent2); }
+    .news-article a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: transparent; font-size: 13px; font-weight: 500; line-height: 1.4; display: block; transition: color .15s, text-decoration-color .15s; }
+    .news-article a:hover { color: #79c0ff; text-decoration-color: #79c0ff; }
+    .news-article a::after { content: " ↗"; font-size: 10px; opacity: 0.5; }
     .news-source { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
     /* Quick action chips */
