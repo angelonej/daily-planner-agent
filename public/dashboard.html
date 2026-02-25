@@ -756,6 +756,7 @@ function stripMd(text) {
     .replace(/`([^`]+)`/g, '$1')                 // inline code
     .replace(/\[[^\]]*\]/g, '')                  // [anything in brackets]
     .replace(/\([^)]*\)/g, '')                   // (anything in parens)
+    .replace(/<[^>]*>/g, '')                     // <anything in angle brackets>
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')      // emoji (supplementary plane: 🎵🏠🧠🐶 etc)
     .replace(/[\u2600-\u27BF]/gu, '')             // Misc symbols, Dingbats, arrows (☀️✅🔔 etc)
     .replace(/[\u2300-\u23FF]/gu, '')             // Misc Technical (⏰⏳ etc)

@@ -741,6 +741,7 @@
       .replace(/`([^`]+)`/g, '$1')                // `code`
       .replace(/\[[^\]]*\]/g, '')                 // [anything in brackets]
       .replace(/\([^)]*\)/g, '')                  // (anything in parens)
+      .replace(/<[^>]*>/g, '')                    // <anything in angle brackets>
       .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')     // emoji supplementary plane
       .replace(/[\u2600-\u27BF]/gu, '')            // misc symbols, dingbats
       .replace(/[\u2300-\u23FF]/gu, '')            // misc technical
