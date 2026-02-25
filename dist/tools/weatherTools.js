@@ -191,14 +191,18 @@ export async function getWeather() {
         const daily = data.daily;
         const hourly = data.hourly;
         // Build next 12 hours of hourly data (skip past hours)
-        const nowHour = new Date().getHours();
+        // Use local hour in the configured timezone to find the current slot
+        const nowHour = parseInt(new Date().toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: tz }));
         const hourlyResult = [];
         for (let i = nowHour; i < Math.min(nowHour + 12, 24); i++) {
             if (!hourly.time[i])
                 break;
-            const timeLabel = new Date(hourly.time[i]).toLocaleTimeString("en-US", {
-                hour: "numeric", hour12: true, timeZone: tz,
-            });
+            // Open-Meteo returns "2026-02-25T06:00" — no tz suffix, so parse the hour directly
+            const hh = parseInt(hourly.time[i].slice(11, 13));
+            const mm = hourly.time[i].slice(14, 16);
+            const ampm = hh < 12 ? "AM" : "PM";
+            const h12 = hh % 12 === 0 ? 12 : hh % 12;
+            const timeLabel = mm === "00" ? `${h12} ${ampm}` : `${h12}:${mm} ${ampm}`;
             hourlyResult.push({
                 time: timeLabel,
                 tempF: celsiusToF(hourly.temperature_2m[i]),
@@ -206,8 +210,15 @@ export async function getWeather() {
                 condition: WMO_CODES[hourly.weather_code[i]] ?? "Unknown",
             });
         }
-        // Format sunrise/sunset
-        const fmtTime = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
+        // Format sunrise/sunset — Open-Meteo returns "2026-02-25T06:47", no tz suffix
+        // Parse the time portion directly to avoid UTC shift
+        const fmtTime = (iso) => {
+            const hh = parseInt(iso.slice(11, 13));
+            const mm = iso.slice(14, 16);
+            const ampm = hh < 12 ? "AM" : "PM";
+            const h12 = hh % 12 === 0 ? 12 : hh % 12;
+            return `${h12}:${mm} ${ampm}`;
+        };
         const result = {
             location: locationName,
             temperatureF: celsiusToF(cur.temperature_2m),
