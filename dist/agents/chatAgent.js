@@ -98,11 +98,11 @@ const CALENDAR_TOOLS = [
         type: "function",
         function: {
             name: "list_calendar_events",
-            description: "List calendar events between two dates. Use for: 'show this week', 'what's on my calendar', 'events this week/month/tomorrow/next week', or any request to VIEW events for a date range. Always call this for calendar viewing requests.",
+            description: "List calendar events between two dates. Use for: 'show this week', 'what's on my calendar', 'events this week/month/tomorrow/next week', or any request to VIEW events for a date range. Always call this for calendar viewing requests. IMPORTANT: startIso must NEVER be before today's date — always use today as the start when the period has already begun (e.g. for 'this week' use today not the start of the week).",
             parameters: {
                 type: "object",
                 properties: {
-                    startIso: { type: "string", description: "Start of range in ISO 8601, e.g. 2026-02-24T00:00:00" },
+                    startIso: { type: "string", description: "Start of range in ISO 8601. Must be today or in the future — never use a past date. For 'this week' or 'this month', use today's date as the start." },
                     endIso: { type: "string", description: "End of range in ISO 8601, e.g. 2026-03-02T23:59:59" },
                 },
                 required: ["startIso", "endIso"],
@@ -416,7 +416,12 @@ async function executeTool(name, args) {
                 return JSON.stringify({ success: true });
             }
             case "list_calendar_events": {
-                const events = await listEventsByRange(String(args.startIso), String(args.endIso));
+                const tz = process.env.TIMEZONE ?? "America/New_York";
+                const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: tz }) + "T00:00:00";
+                // Never return past events — clamp start to today if LLM passed an earlier date
+                const rawStart = String(args.startIso);
+                const clampedStart = rawStart < todayIso ? todayIso : rawStart;
+                const events = await listEventsByRange(clampedStart, String(args.endIso));
                 if (events.length === 0)
                     return JSON.stringify({ message: "No events found in that date range." });
                 return JSON.stringify(events);
