@@ -244,6 +244,17 @@
       flex: 1;
     }
 
+    #stopBtn {
+      background: #3d1f1f;
+      border: 1px solid #6e1a1a;
+      color: #f85149;
+      padding: 8px 14px;
+      font-size: 13px;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+    #stopBtn:hover { background: #6e1a1a; }
+
     #audioPlayer {
       display: none;
     }
@@ -338,6 +349,7 @@
   </div>
   <div class="voice-bar">
     <button id="micBtn" title="Click to start/stop listening">🎙</button>
+    <button id="stopBtn" title="Stop speaking">⏹ Stop</button>
     <span id="voiceStatus">Click the mic button to speak</span>
   </div>
 </footer>
@@ -353,6 +365,7 @@
   const notifBtn    = document.getElementById('notifBtn');
   const notifBadge  = document.getElementById('notifBadge');
   const micBtn      = document.getElementById('micBtn');
+  const stopBtn     = document.getElementById('stopBtn');
   const voiceStatus = document.getElementById('voiceStatus');
   const toastContainer = document.getElementById('toastContainer');
 
@@ -446,9 +459,14 @@
     };
 
     recognition.onerror = (e) => {
-      voiceStatus.textContent = e.error === 'not-allowed'
-        ? '⚠️ Mic permission denied'
-        : '⚠️ Speech error: ' + e.error;
+      if (e.error === 'not-allowed') {
+        const isHttp = location.protocol === 'http:';
+        voiceStatus.textContent = isHttp
+          ? '⚠️ Mic blocked — browser requires HTTPS for microphone access. Use the text input below.'
+          : '⚠️ Mic permission denied — tap mic again and allow access.';
+      } else {
+        voiceStatus.textContent = '⚠️ Speech error: ' + e.error;
+      }
       micBtn.classList.remove('recording');
       isListening = false;
     };
@@ -462,6 +480,24 @@
     voiceStatus.textContent = '⚠️ Voice not supported in this browser (use Chrome)';
     micBtn.disabled = true;
   }
+
+  // Warn immediately if on HTTP (mic won't work)
+  if (location.protocol === 'http:' && SpeechRecognition) {
+    voiceStatus.textContent = '⚠️ Mic unavailable over HTTP — use the text input to chat';
+    micBtn.title = 'Microphone requires HTTPS';
+  }
+
+  // ── Stop button: cancel TTS and mic ───────────────────────────────────
+  stopBtn.addEventListener('click', () => {
+    window.speechSynthesis?.cancel();
+    if (isListening && recognition) {
+      recognition.stop();
+      isListening = false;
+      micBtn.classList.remove('recording');
+    }
+    voiceStatus.textContent = 'Stopped.';
+    setTimeout(() => { voiceStatus.textContent = 'Click the mic button to speak'; }, 1500);
+  });
 
   // ── helpers ────────────────────────────────────────────────────────────
   function addBubble(role, text) {
