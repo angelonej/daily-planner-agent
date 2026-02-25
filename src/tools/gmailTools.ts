@@ -132,6 +132,72 @@ export async function fetchUnreadEmails(
   return emails;
 }
 
+// ─── Search emails with a Gmail query (e.g. "from:john", "today", "subject:invoice") ──
+export async function searchEmails(
+  query: string,
+  accountAlias?: string,
+  maxResults = 10
+): Promise<Email[]> {
+  const accounts = accountAlias
+    ? [accountAlias]
+    : [
+        process.env.GMAIL_ACCOUNT_1_ALIAS ?? "personal",
+        process.env.GMAIL_ACCOUNT_2_ALIAS ?? "work",
+      ];
+
+  const results = await Promise.allSettled(
+    accounts.map(async (alias) => {
+      const auth = buildOAuth2Client();
+      await loadTokens(alias, auth);
+      const gmail = google.gmail({ version: "v1", auth });
+
+      const listRes = await gmail.users.messages.list({
+        userId: "me",
+        q: query,
+        maxResults,
+      });
+
+      const messages = listRes.data.messages ?? [];
+      if (messages.length === 0) return [] as Email[];
+
+      return Promise.all(
+        messages.map(async (msg) => {
+          const detail = await gmail.users.messages.get({
+            userId: "me",
+            id: msg.id!,
+            format: "metadata",
+            metadataHeaders: ["Subject", "From", "Date"],
+          });
+          const headers = detail.data.payload?.headers ?? [];
+          const get = (name: string) =>
+            headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())
+              ?.value ?? "";
+          const labels = detail.data.labelIds ?? [];
+          const subject = get("Subject") || "(no subject)";
+          const snippet = detail.data.snippet ?? "";
+          return {
+            id: msg.id!,
+            subject,
+            from: get("From"),
+            snippet,
+            date: get("Date"),
+            account: alias,
+            isImportant: detectImportant(subject, snippet, labels),
+            labels,
+          } as Email;
+        })
+      );
+    })
+  );
+
+  const emails: Email[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") emails.push(...r.value);
+    else console.error("searchEmails error:", r.reason);
+  }
+  return emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
 // ─── Fetch from BOTH configured Gmail accounts ───────────────────────────────
 export async function fetchAllAccountEmails(): Promise<Email[]> {
   const accounts = [

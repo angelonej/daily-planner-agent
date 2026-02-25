@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { fetchAllAccountEmails, searchEmails } from "../tools/gmailTools.js";
 import { createEvent, updateEvent, deleteEvent, searchEvents, listEventsByRange, } from "./calendarAgent.js";
 import { listTasks, createTask, completeTask, deleteTask, findTasksByTitle, } from "../tools/tasksTools.js";
 import { suggestRecurringEvents, formatRecurringSuggestions } from "../tools/recurringTools.js";
@@ -19,7 +20,9 @@ When the user asks to add, create, schedule, move, reschedule, cancel, or delete
 When the user asks about recurring events, patterns, or regular meetings, use suggest_recurring_events.
 When the user asks to send the daily digest, morning summary, or briefing email, use send_digest_email.
 When the user asks about weather (today, tomorrow, this week, will it rain, forecast, etc.), ALWAYS call get_weather with the appropriate number of days.
-For ambiguous requests (e.g. "move my dentist"), use search_calendar_events first to find the event ID.
+When the user asks to check emails, show today's emails, list unread emails, or get recent emails, ALWAYS call list_emails.
+When the user asks for the last email from someone, emails about a topic, or to search emails, ALWAYS call search_emails with the appropriate Gmail query.
+For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
 // ─── OpenAI tool definitions for calendar actions ──────────────────────────
@@ -223,6 +226,36 @@ const CALENDAR_TOOLS = [
             },
         },
     },
+    {
+        type: "function",
+        function: {
+            name: "list_emails",
+            description: "Fetch the latest unread emails from all Gmail accounts. Use for: 'check my emails', 'any new emails', 'show today\'s emails', 'what emails do I have', 'unread emails'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    maxResults: { type: "number", description: "Max number of emails to return per account (default 10)" },
+                },
+                required: [],
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "search_emails",
+            description: "Search Gmail using a query. Use for: 'last email from John', 'emails about invoice', 'emails from Amazon', 'find email about contract', 'most recent email from X'. Build the Gmail query from the user's request.",
+            parameters: {
+                type: "object",
+                properties: {
+                    query: { type: "string", description: "Gmail search query, e.g. 'from:john@example.com', 'subject:invoice', 'from:amazon', 'newer_than:1d'" },
+                    account: { type: "string", description: "Optional: which account to search — 'personal' or 'work'. Omit to search both." },
+                    maxResults: { type: "number", description: "Max emails to return (default 5)" },
+                },
+                required: ["query"],
+            },
+        },
+    },
 ];
 // ─── Execute a tool call returned by the model ────────────────────────────
 async function executeTool(name, args) {
@@ -305,6 +338,37 @@ async function executeTool(name, args) {
                 const days = args.days ? Number(args.days) : 3;
                 const forecast = await getWeatherForecast(days);
                 return JSON.stringify(forecast);
+            }
+            case "list_emails": {
+                const max = args.maxResults ? Number(args.maxResults) : 10;
+                const emails = await fetchAllAccountEmails();
+                const slice = emails.slice(0, max);
+                if (slice.length === 0)
+                    return JSON.stringify({ message: "No unread emails found." });
+                return JSON.stringify(slice.map((e) => ({
+                    subject: e.subject,
+                    from: e.from,
+                    date: e.date,
+                    snippet: e.snippet,
+                    account: e.account,
+                    isImportant: e.isImportant,
+                })));
+            }
+            case "search_emails": {
+                const q = String(args.query);
+                const acct = args.account ? String(args.account) : undefined;
+                const max = args.maxResults ? Number(args.maxResults) : 5;
+                const emails = await searchEmails(q, acct, max);
+                if (emails.length === 0)
+                    return JSON.stringify({ message: `No emails found for query: "${q}"` });
+                return JSON.stringify(emails.map((e) => ({
+                    subject: e.subject,
+                    from: e.from,
+                    date: e.date,
+                    snippet: e.snippet,
+                    account: e.account,
+                    isImportant: e.isImportant,
+                })));
             }
             default:
                 return JSON.stringify({ error: `Unknown tool: ${name}` });
