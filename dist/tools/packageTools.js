@@ -6,25 +6,29 @@
 // ─── Carrier patterns ───────────────────────────────────────────────────────
 const PATTERNS = [
     {
+        // Amazon Logistics TBA tracking numbers
         carrier: "Amazon",
-        regex: /\bTBA\d{12,16}\b/gi,
+        regex: /\bTBA\d{9,16}\b/gi,
         url: (n) => `https://track.amazon.com/tracking/${n}`,
     },
     {
+        // Amazon order numbers (e.g. 112-3456789-1234567)
+        carrier: "Amazon",
+        regex: /\b(\d{3}-\d{7}-\d{7})\b/g,
+        url: (n) => `https://www.amazon.com/gp/your-account/order-details?orderID=${n}`,
+    },
+    {
         carrier: "UPS",
-        // 1Z followed by 16 alphanumeric chars
         regex: /\b(1Z[A-Z0-9]{16})\b/gi,
         url: (n) => `https://www.ups.com/track?tracknum=${n}`,
     },
     {
         carrier: "FedEx",
-        // 12, 15, 20, or 22 digit numbers typical of FedEx
         regex: /\b(\d{12}|\d{15}|\d{20}|\d{22})\b/g,
         url: (n) => `https://www.fedex.com/fedextrack/?tracknumbers=${n}`,
     },
     {
         carrier: "USPS",
-        // 9400, 9205, 9261, 9274, 9300, 9400 prefix 20–22 digit numbers
         regex: /\b(9[2-4]\d{18,20})\b/g,
         url: (n) => `https://tools.usps.com/go/TrackConfirmAction?tLabels=${n}`,
     },
@@ -46,18 +50,33 @@ const TODAY_KEYWORDS = [
     "delivered today",
     "your delivery is today",
     "scheduled for today",
+    "arriving by end of day",
+    "arriving soon",
 ];
 /** Returns true if the email text strongly suggests delivery today */
 function isArrivingToday(subject, snippet, emailDate) {
     const combined = `${subject} ${snippet}`.toLowerCase();
     if (TODAY_KEYWORDS.some((kw) => combined.includes(kw)))
         return true;
-    // Also flag emails received today that say "out for delivery" or "on its way"
-    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
-    const isToday = emailDate.startsWith(today) || emailDate.includes(new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+    const today = new Date().toISOString().slice(0, 10);
+    const isToday = emailDate.startsWith(today) ||
+        emailDate.includes(new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }));
     if (isToday && (combined.includes("out for delivery") || combined.includes("on its way")))
         return true;
     return false;
+}
+/** Detect likely carrier from email sender/subject when no tracking number is present */
+function detectCarrierFromEmail(from, subject) {
+    const text = `${from} ${subject}`.toLowerCase();
+    if (text.includes("amazon"))
+        return "Amazon";
+    if (text.includes("ups"))
+        return "UPS";
+    if (text.includes("fedex"))
+        return "FedEx";
+    if (text.includes("usps") || text.includes("postal"))
+        return "USPS";
+    return "Unknown";
 }
 function looksLikeShippingEmail(subject, snippet) {
     const combined = `${subject} ${snippet}`.toLowerCase();
@@ -94,19 +113,43 @@ export async function getTrackedPackages(prefetchedEmails) {
             continue;
         const combined = `${email.subject} ${email.snippet}`;
         const found = extractTrackingNumbers(combined);
-        for (const { carrier, number, url } of found) {
-            if (seenTrackingNums.has(number))
-                continue;
-            seenTrackingNums.add(number);
-            packages.push({
-                trackingNumber: number,
-                carrier,
-                trackingUrl: url,
-                emailSubject: email.subject,
-                emailFrom: email.from,
-                emailDate: email.date,
-                arrivingToday: isArrivingToday(email.subject, email.snippet, email.date),
-            });
+        const arriving = isArrivingToday(email.subject, email.snippet, email.date);
+        if (found.length > 0) {
+            for (const { carrier, number, url } of found) {
+                if (seenTrackingNums.has(number))
+                    continue;
+                seenTrackingNums.add(number);
+                packages.push({
+                    trackingNumber: number,
+                    carrier,
+                    trackingUrl: url,
+                    emailSubject: email.subject,
+                    emailFrom: email.from,
+                    emailDate: email.date,
+                    arrivingToday: arriving,
+                });
+            }
+        }
+        else if (arriving) {
+            // No tracking number found but email clearly says arriving today —
+            // create an entry anyway (common with Amazon "out for delivery" emails
+            // that only include an order number in a link, not plain text)
+            const carrier = detectCarrierFromEmail(email.from, email.subject);
+            const syntheticKey = `no-tracking-${email.id}`;
+            if (!seenTrackingNums.has(syntheticKey)) {
+                seenTrackingNums.add(syntheticKey);
+                packages.push({
+                    trackingNumber: "View order →",
+                    carrier,
+                    trackingUrl: carrier === "Amazon"
+                        ? "https://www.amazon.com/gp/your-account/order-history"
+                        : "#",
+                    emailSubject: email.subject,
+                    emailFrom: email.from,
+                    emailDate: email.date,
+                    arrivingToday: true,
+                });
+            }
         }
     }
     return packages;
