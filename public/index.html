@@ -546,21 +546,31 @@
 
   // Convert a small subset of markdown to HTML (links, bold, code)
   function renderMarkdown(text) {
-    // Escape HTML first
-    let html = text
+    // Extract [label](url) links BEFORE any escaping so URLs aren't corrupted
+    const linkPlaceholders = [];
+    let processed = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, label, url) => {
+      const idx = linkPlaceholders.length;
+      linkPlaceholders.push(`<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`);
+      return `\x00LINK${idx}\x00`;
+    });
+    // Now escape HTML in the rest of the text
+    processed = escapeHtml(processed);
+    // Re-insert the links (already safe HTML)
+    processed = processed.replace(/\x00LINK(\d+)\x00/g, (_, i) => linkPlaceholders[+i]);
+    // **bold**
+    processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // `code`
+    processed = processed.replace(/`([^`]+)`/g, '<code style="background:#161b22;padding:1px 5px;border-radius:4px;font-size:0.9em">$1</code>');
+    // newlines → <br>
+    processed = processed.replace(/\n/g, '<br>');
+    return processed;
+  }
+
+  function escapeHtml(str) {
+    return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
-    // [label](url) → <a>
-    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener">$1</a>');
-    // **bold**
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    // `code`
-    html = html.replace(/`([^`]+)`/g, '<code style="background:#161b22;padding:1px 5px;border-radius:4px;font-size:0.9em">$1</code>');
-    // newlines → <br>
-    html = html.replace(/\n/g, '<br>');
-    return html;
   }
 
   // Strip markdown for TTS (remove links, bold markers, etc.)
