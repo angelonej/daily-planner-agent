@@ -84,7 +84,7 @@ else {
         const { password } = req.body;
         if (!APP_PASSWORD || password === APP_PASSWORD) {
             req.session.authenticated = true;
-            return res.redirect("/");
+            return req.session.save(() => res.redirect("/"));
         }
         res.send(`<!DOCTYPE html><html lang="en">
 <head>

@@ -92,7 +92,7 @@ if (process.argv.includes("--cli")) {
     const { password } = req.body as { password: string };
     if (!APP_PASSWORD || password === APP_PASSWORD) {
       (req.session as any).authenticated = true;
-      return res.redirect("/");
+      return req.session.save(() => res.redirect("/"));
     }
     res.send(`<!DOCTYPE html><html lang="en">
 <head>
