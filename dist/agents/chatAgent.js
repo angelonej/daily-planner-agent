@@ -15,7 +15,8 @@ const openai = new OpenAI({
 });
 // In-memory conversation history per user (keyed by chat/user ID)
 const conversationHistory = new Map();
-const SYSTEM_PROMPT = `You are a sharp, concise personal assistant AI. You help the user manage their day.
+function buildSystemPrompt(assistantName = "Assistant") {
+    return `You are ${assistantName}, a sharp, concise personal assistant AI. You help the user manage their day.
 You have access to their morning briefing (calendar events, emails, news) and can CREATE, UPDATE, and DELETE calendar events.
 When answering questions, reference their actual data when relevant.
 Keep responses brief and actionable. Use bullet points for lists.
@@ -41,6 +42,7 @@ When the user asks about AWS costs, cloud spend, monthly bill, EC2 charges, or h
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
+}
 // ─── OpenAI tool definitions for calendar actions ──────────────────────────
 const CALENDAR_TOOLS = [
     {
@@ -572,6 +574,7 @@ async function executeTool(name, args) {
                 const durationMin = Number(args.durationMinutes ?? 60);
                 const startHour = Number(args.preferredStartHour ?? 8);
                 const endHour = Number(args.preferredEndHour ?? 18);
+                const tz = process.env.TIMEZONE ?? "America/New_York";
                 const dayStart = new Date(`${date}T00:00:00`);
                 const dayEnd = new Date(`${date}T23:59:59`);
                 const events = await listEventsByRange(dayStart.toISOString(), dayEnd.toISOString());
@@ -581,15 +584,21 @@ async function executeTool(name, args) {
                     if (!ev.startIso)
                         continue;
                     const s = new Date(ev.startIso).getTime();
-                    // Estimate end: use next event start or startIso + 1hr
-                    const eEnd = s + 60 * 60_000;
-                    busy.push({ start: s, end: eEnd });
+                    // Use actual endIso if available, otherwise estimate 1hr
+                    const e = ev.endIso ? new Date(ev.endIso).getTime() : s + 60 * 60_000;
+                    busy.push({ start: s, end: e });
                 }
                 busy.sort((a, b) => a.start - b.start);
-                // Find gaps
-                const freeSlots = [];
-                let cursor = new Date(`${date}T${String(startHour).padStart(2, "0")}:00:00`).getTime();
+                // Start cursor at preferredStartHour, but never before now (for today)
+                const windowStart = new Date(`${date}T${String(startHour).padStart(2, "0")}:00:00`).getTime();
                 const windowEnd = new Date(`${date}T${String(endHour).padStart(2, "0")}:00:00`).getTime();
+                const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+                const nowMs = Date.now();
+                // Round now up to next 15-minute boundary for cleaner suggestions
+                const nowRounded = Math.ceil(nowMs / (15 * 60_000)) * (15 * 60_000);
+                let cursor = date === todayStr ? Math.max(windowStart, nowRounded) : windowStart;
+                // Find gaps between busy blocks
+                const freeSlots = [];
                 for (const block of busy) {
                     if (block.start > cursor && block.start - cursor >= durationMin * 60_000) {
                         const slotEnd = Math.min(block.start, cursor + durationMin * 60_000);
@@ -696,11 +705,12 @@ ${tasksSection}
 ${newsSection}
 --- END BRIEFING DATA ---`;
 }
-export async function chatAgent(userId, userMessage, briefing) {
+export async function chatAgent(userId, userMessage, briefing, assistantName = "Assistant") {
     if (!conversationHistory.has(userId)) {
         conversationHistory.set(userId, []);
     }
     const history = conversationHistory.get(userId);
+    const SYSTEM_PROMPT = buildSystemPrompt(assistantName);
     const systemContent = briefing
         ? `${SYSTEM_PROMPT}\n\n${formatBriefingContext(briefing)}`
         : SYSTEM_PROMPT;

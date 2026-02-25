@@ -203,7 +203,7 @@ else {
                 return res.sendStatus(403);
             }
             const userId = `whatsapp-${from}`;
-            const reply = await coordinatorAgent(text, userId);
+            const reply = await coordinatorAgent(text, userId, runtimeAssistantName);
             // Respond with TwiML
             const twiml = new twilio.twiml.MessagingResponse();
             twiml.message(reply);
@@ -245,7 +245,7 @@ else {
                 return res.type("text/xml").send(twiml.toString());
             }
             console.log(`Voice [${callerId}]: ${speechResult}`);
-            const reply = await coordinatorAgent(speechResult, userId);
+            const reply = await coordinatorAgent(speechResult, userId, runtimeAssistantName);
             // Speak the response, then offer another turn
             twiml.say({ voice: "Polly.Joanna" }, reply);
             const gather = twiml.gather({
@@ -276,8 +276,7 @@ else {
         const bodyText = req.body?.text;
         if (bodyText) {
             try {
-                const reply = await coordinatorAgent(bodyText.trim(), userId);
-                return res.json({ transcript: bodyText.trim(), reply });
+                const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName);
             }
             catch (err) {
                 console.error("Voice-chat (text) error:", err);

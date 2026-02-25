@@ -222,7 +222,7 @@ if (process.argv.includes("--cli")) {
       }
 
       const userId = `whatsapp-${from}`;
-      const reply = await coordinatorAgent(text, userId);
+      const reply = await coordinatorAgent(text, userId, runtimeAssistantName);
 
       // Respond with TwiML
       const twiml = new twilio.twiml.MessagingResponse();
@@ -274,7 +274,7 @@ if (process.argv.includes("--cli")) {
       }
 
       console.log(`Voice [${callerId}]: ${speechResult}`);
-      const reply = await coordinatorAgent(speechResult, userId);
+      const reply = await coordinatorAgent(speechResult, userId, runtimeAssistantName);
 
       // Speak the response, then offer another turn
       twiml.say({ voice: "Polly.Joanna" }, reply);
@@ -308,8 +308,7 @@ if (process.argv.includes("--cli")) {
     const bodyText = req.body?.text as string | undefined;
     if (bodyText) {
       try {
-        const reply = await coordinatorAgent(bodyText.trim(), userId);
-        return res.json({ transcript: bodyText.trim(), reply });
+        const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName);
       } catch (err) {
         console.error("Voice-chat (text) error:", err);
         return res.status(500).json({ error: "Processing failed", details: String(err) });

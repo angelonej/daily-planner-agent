@@ -419,7 +419,7 @@ async function formatEveningBriefingText(briefing: MorningBriefing): Promise<str
 // ─── Main coordinator ──────────────────────────────────────────────────────
 const MORNING_TRIGGERS = ["/morning", "good morning", "morning briefing", "daily briefing", "start my day"];
 
-export async function coordinatorAgent(message: string, userId = "default"): Promise<string> {
+export async function coordinatorAgent(message: string, userId = "default", assistantName = "Assistant"): Promise<string> {
   const lower = message.toLowerCase().trim();
 
   // Morning briefing request
@@ -456,7 +456,7 @@ export async function coordinatorAgent(message: string, userId = "default"): Pro
   // All other messages → chat agent with briefing context
   const briefing = briefingCache.get(userId);
   try {
-    return await chatAgent(userId, message, briefing);
+    return await chatAgent(userId, message, briefing, assistantName);
   } catch (err: any) {
     console.error("Chat agent error:", err?.status, err?.error ?? err?.message ?? err);
     const status = err?.status ?? err?.code;
