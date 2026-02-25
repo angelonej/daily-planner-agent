@@ -436,6 +436,18 @@ if (process.argv.includes("--cli")) {
     }
   });
 
+  // ─── Calendar events (for sidebar badge counts) ────────────────────────
+  app.get("/api/calendar", async (req: Request, res: Response) => {
+    try {
+      const days = Math.min(Number(req.query?.days ?? 1), 30);
+      const { getCalendarEvents } = await import("./tools/calendarTools.js");
+      const events = await getCalendarEvents(days);
+      res.json({ events });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // ─── Direct task actions (bypasses AI for instant response) ────────────
   app.post("/api/complete-task", async (req: Request, res: Response) => {
     const { taskId, listId } = req.body as { taskId?: string; listId?: string };
