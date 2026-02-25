@@ -1,6 +1,7 @@
 export interface CalendarEvent {
-  start: string;
+  start: string;       // formatted display string e.g. "9:00 AM"
   end: string;
+  startIso?: string;   // raw ISO datetime e.g. "2026-02-25T09:00:00-05:00" for traffic/timing
   title: string;
   location?: string;
   description?: string;

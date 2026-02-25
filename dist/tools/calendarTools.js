@@ -88,6 +88,7 @@ export async function getCalendarEventsByRange(startIso, endIso) {
                 allEvents.push({
                     start: fmtEventTime(start),
                     end: fmtEventTime(end),
+                    startIso: start,
                     title: event.summary ?? "(no title)",
                     location: event.location ?? undefined,
                     description: event.description ?? undefined,
@@ -126,6 +127,7 @@ export async function getCalendarEvents(daysAhead = 1) {
                 allEvents.push({
                     start: fmtEventTime(start),
                     end: fmtEventTime(end),
+                    startIso: start,
                     title: event.summary ?? "(no title)",
                     location: event.location ?? undefined,
                     description: event.description ?? undefined,
@@ -214,6 +216,7 @@ export async function findEventsByTitle(query, daysToSearch = 14) {
                 allEvents.push({
                     start: fmtEventTime(start),
                     end: fmtEventTime(end),
+                    startIso: start,
                     title: event.summary ?? "(no title)",
                     location: event.location ?? undefined,
                     description: event.description ?? undefined,

@@ -14,6 +14,7 @@
 
 import { Response } from "express";
 import { getCalendarEvents } from "./calendarTools.js";
+import { getTrafficDuration } from "./trafficTools.js";
 import { NotificationAlert } from "../types.js";
 import { randomUUID } from "crypto";
 
@@ -62,50 +63,91 @@ function pruneOldFiredAlerts(): void {
   if (firedAlerts.size > 500) firedAlerts.clear();
 }
 
-// ─── Calendar polling: alert 15 min and 1 min before events ───────────────
+// ─── Calendar polling: alert before events, with traffic info if location set ──
 async function checkUpcomingEvents(): Promise<void> {
   try {
     const events = await getCalendarEvents(1); // today's events
-    const now = Date.now();
+    const now    = Date.now();
+    const home   = process.env.HOME_ADDRESS;
 
     for (const ev of events) {
-      if (!ev.eventId || !ev.start) continue;
+      if (!ev.eventId) continue;
 
-      // Parse the start time — format from calendarTools is "Mon, Feb 24 at 9:00 AM"
-      // We stored the original ISO via ev.start from calendarTools, but that's formatted.
-      // Use a simpler approach: check events where start string contains today's date
-      const startTs = parseEventTime(ev.start);
-      if (!startTs) continue;
+      // Prefer the raw ISO startIso; fall back to parsing the formatted string
+      const startTs = ev.startIso
+        ? new Date(ev.startIso).getTime()
+        : parseEventTime(ev.start);
+      if (!startTs || isNaN(startTs)) continue;
 
       const diffMin = (startTs - now) / 60_000;
+      if (diffMin < -5 || diffMin > 120) continue; // ignore past or far-future
 
-      // 15-minute warning
+      // ── Traffic-aware departure alert for events with a location ──────────
+      if (ev.location && home) {
+        const trafficKey = `${ev.eventId}-traffic-check`;
+        if (!firedAlerts.has(trafficKey)) {
+          firedAlerts.add(trafficKey);
+          // Run async — don't block the poll loop
+          void (async () => {
+            try {
+              const traffic = await getTrafficDuration(home, ev.location!);
+              if (!traffic) return;
+
+              // Lead time = travel time + 10 min buffer, minimum 20 min
+              const leadMin  = Math.max(20, traffic.durationTrafficMin + 10);
+              const fireKey  = `${ev.eventId}-depart`;
+              if (firedAlerts.has(fireKey)) return;
+
+              const fireAt      = startTs - leadMin * 60_000;
+              const nowCheck    = Date.now();
+              const sinceFireAt = (nowCheck - fireAt) / 60_000;
+
+              if (sinceFireAt >= 0 && sinceFireAt <= 2) {
+                firedAlerts.add(fireKey);
+                const leaveIn = Math.round(leadMin - traffic.durationTrafficMin);
+                broadcast({
+                  id:        randomUUID(),
+                  type:      "event_soon",
+                  title:     `🚗 Depart soon for ${ev.title}`,
+                  body:      `${traffic.summary}\nLeave in ~${leaveIn} min to arrive on time.`,
+                  eventId:   ev.eventId,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (e) {
+              console.error("Traffic alert error:", e);
+            }
+          })();
+        }
+      }
+
+      // ── Standard 15-minute warning ────────────────────────────────────────
       if (diffMin > 13 && diffMin <= 16) {
         const key = `${ev.eventId}-15min`;
         if (!firedAlerts.has(key)) {
           firedAlerts.add(key);
           broadcast({
-            id: randomUUID(),
-            type: "event_soon",
-            title: `📅 Starting in ~15 min`,
-            body: `${ev.title}${ev.location ? ` @ ${ev.location}` : ""}`,
-            eventId: ev.eventId,
+            id:        randomUUID(),
+            type:      "event_soon",
+            title:     `📅 Starting in ~15 min`,
+            body:      `${ev.title}${ev.location ? ` @ ${ev.location}` : ""}`,
+            eventId:   ev.eventId,
             timestamp: new Date().toISOString(),
           });
         }
       }
 
-      // 1-minute warning / starting now
+      // ── Starting-now warning ──────────────────────────────────────────────
       if (diffMin > -2 && diffMin <= 2) {
         const key = `${ev.eventId}-starting`;
         if (!firedAlerts.has(key)) {
           firedAlerts.add(key);
           broadcast({
-            id: randomUUID(),
-            type: "event_starting",
-            title: `🚨 Starting now`,
-            body: `${ev.title}${ev.location ? ` @ ${ev.location}` : ""}`,
-            eventId: ev.eventId,
+            id:        randomUUID(),
+            type:      "event_starting",
+            title:     `🚨 Starting now`,
+            body:      `${ev.title}${ev.location ? ` @ ${ev.location}` : ""}`,
+            eventId:   ev.eventId,
             timestamp: new Date().toISOString(),
           });
         }
