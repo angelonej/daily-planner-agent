@@ -13,11 +13,24 @@ import { getTrafficDuration } from "./tools/trafficTools.js";
 import cron from "node-cron";
 // Cache the morning briefing per user so chat can reference it all day
 const briefingCache = new Map();
+// ─── Parse "H:MM" or "HH:MM" into a cron expression "M H * * *" ─────────────
+function timeToCron(envVar, defaultHour, defaultMin = 0) {
+    const raw = process.env[envVar];
+    if (raw) {
+        const [h, m] = raw.split(":").map(Number);
+        if (!isNaN(h) && !isNaN(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+            return `${m} ${h} * * *`;
+        }
+        console.warn(`⚠️  Invalid ${envVar}="${raw}" — expected HH:MM, using default`);
+    }
+    return `${defaultMin} ${defaultHour} * * *`;
+}
 // ─── Scheduled jobs ────────────────────────────────────────────────────────
 export function startScheduledJobs() {
     const tz = process.env.TIMEZONE ?? "America/New_York";
-    // 7:00 AM daily: build briefing, cache it, send digest email
-    cron.schedule("0 7 * * *", async () => {
+    // Morning digest — default 7:00 AM, override with MORNING_BRIEFING_TIME=HH:MM
+    const morningCron = timeToCron("MORNING_BRIEFING_TIME", 7, 0);
+    cron.schedule(morningCron, async () => {
         console.log("⏰ Cron: building morning briefing + sending digest email...");
         try {
             const briefing = await buildMorningBriefing();
@@ -38,13 +51,12 @@ export function startScheduledJobs() {
             console.error("Cron morning job error:", err);
         }
     }, { timezone: tz });
-    console.log(`⏰ Cron jobs scheduled (tz: ${tz}): digest email at 7:00 AM daily`);
-    // 5:00 PM daily: push evening briefing notification
-    cron.schedule("0 17 * * *", async () => {
+    // Evening briefing — default 5:00 PM, override with EVENING_BRIEFING_TIME=HH:MM
+    const eveningCron = timeToCron("EVENING_BRIEFING_TIME", 17, 0);
+    cron.schedule(eveningCron, async () => {
         console.log("⏰ Cron: sending evening briefing notification...");
         try {
             const briefing = await buildMorningBriefing();
-            const text = await formatEveningBriefingText(briefing);
             pushNotification({
                 type: "digest_ready",
                 title: "🌙 Evening Briefing Ready",
@@ -57,6 +69,7 @@ export function startScheduledJobs() {
             console.error("Cron evening job error:", err);
         }
     }, { timezone: tz });
+    console.log(`⏰ Cron jobs scheduled (tz: ${tz}): morning=${morningCron}, evening=${eveningCron}`);
     // Start SSE notification polling (calendar event reminders)
     startNotificationPolling();
 }
