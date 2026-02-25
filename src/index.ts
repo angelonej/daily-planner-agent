@@ -9,7 +9,7 @@ import fs from "fs";
 import path from "path";
 import webpush from "web-push";
 import { fileURLToPath } from "url";
-import { coordinatorAgent, buildMorningBriefing, startScheduledJobs, rescheduleBriefingJobs } from "./coordinator.js";
+import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
@@ -401,10 +401,14 @@ if (process.argv.includes("--cli")) {
   });
 
   // ─── Live briefing JSON for dashboard widgets ──────────────────────────
-  app.get("/api/briefing", async (_req: Request, res: Response) => {
+  app.get("/api/briefing", async (req: Request, res: Response) => {
     try {
-      const briefing = await buildMorningBriefing();
-      res.json(briefing);
+      const force = req.query?.refresh === "1";
+      if (force) invalidateDashboardCache();
+      const briefing = await getCachedBriefing();
+      // Attach the fetchedAt timestamp from the cache for the "last updated" indicator
+      const fetchedAt = dashboardCacheFetchedAt();
+      res.json({ ...briefing, _fetchedAt: fetchedAt });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -416,6 +420,7 @@ if (process.argv.includes("--cli")) {
     if (!taskId || !listId) return res.status(400).json({ error: "taskId and listId are required" });
     try {
       await completeGoogleTask(taskId, listId);
+      invalidateDashboardCache();
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -436,6 +441,7 @@ if (process.argv.includes("--cli")) {
     if (!title) return res.status(400).json({ error: "title is required" });
     try {
       const task = await createGoogleTask(title, { notes, due, listId });
+      invalidateDashboardCache();
       res.json({ ok: true, task });
     } catch (err) {
       res.status(500).json({ error: String(err) });

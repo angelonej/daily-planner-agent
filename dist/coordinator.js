@@ -13,6 +13,37 @@ import { getTrafficDuration } from "./tools/trafficTools.js";
 import cron from "node-cron";
 // Cache the morning briefing per user so chat can reference it all day
 const briefingCache = new Map();
+// ─── Dashboard briefing cache (TTL = 5 minutes) ──────────────────────────────
+const BRIEFING_TTL_MS = 5 * 60 * 1000;
+let dashboardCache = null;
+let dashboardFetchInFlight = null;
+export function invalidateDashboardCache() {
+    dashboardCache = null;
+}
+export function dashboardCacheFetchedAt() {
+    return dashboardCache ? new Date(dashboardCache.fetchedAt).toISOString() : null;
+}
+export async function getCachedBriefing() {
+    const now = Date.now();
+    // Return cached data if still fresh
+    if (dashboardCache && now - dashboardCache.fetchedAt < BRIEFING_TTL_MS) {
+        return dashboardCache.data;
+    }
+    // Deduplicate concurrent requests — only one fetch at a time
+    if (dashboardFetchInFlight)
+        return dashboardFetchInFlight;
+    dashboardFetchInFlight = buildMorningBriefing()
+        .then((data) => {
+        dashboardCache = { data, fetchedAt: Date.now() };
+        dashboardFetchInFlight = null;
+        return data;
+    })
+        .catch((err) => {
+        dashboardFetchInFlight = null;
+        throw err;
+    });
+    return dashboardFetchInFlight;
+}
 // ─── Parse "H:MM" or "HH:MM" into a cron expression "M H * * *" ─────────────
 function timeToCron(envVar, defaultHour, defaultMin = 0) {
     const raw = process.env[envVar];

@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daily Planner — Dashboard</title>
+  <title>Daily Planner â€” Dashboard</title>
   <link rel="manifest" href="/manifest.json" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,10 +28,10 @@
 
     html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
 
-    /* ── Layout ── */
+    /* â”€â”€ Layout â”€â”€ */
     #app { display: grid; grid-template-columns: var(--sidebar-w) 1fr var(--right-w); grid-template-rows: 48px 1fr; height: 100vh; }
 
-    /* ── Top bar ── */
+    /* â”€â”€ Top bar â”€â”€ */
     #topbar {
       grid-column: 1 / -1;
       background: var(--surface);
@@ -65,7 +65,7 @@
       padding: 1px 5px; font-size: 10px; font-weight: 700; display: none;
     }
 
-    /* ── Left Sidebar ── */
+    /* â”€â”€ Left Sidebar â”€â”€ */
     #sidebar {
       background: var(--surface);
       border-right: 1px solid var(--border);
@@ -92,7 +92,7 @@
     .nav-divider { height: 1px; background: var(--border); margin: 8px 12px; }
     #sidebar .bottom { margin-top: auto; padding: 0 12px; }
 
-    /* ── Center: Chat ── */
+    /* â”€â”€ Center: Chat â”€â”€ */
     #center {
       display: flex;
       flex-direction: column;
@@ -140,7 +140,7 @@
     .dots span:nth-child(3) { animation-delay: .4s; }
     @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
 
-    /* ── Input bar ── */
+    /* â”€â”€ Input bar â”€â”€ */
     #input-area {
       padding: 12px 16px;
       border-top: 1px solid var(--border);
@@ -166,7 +166,7 @@
     .send-btn:disabled { opacity: .4; cursor: not-allowed; }
     #voice-status { font-size: 11px; color: var(--muted); margin-top: 5px; text-align: center; min-height: 14px; }
 
-    /* ── Right Panel ── */
+    /* â”€â”€ Right Panel â”€â”€ */
     #right {
       border-left: 1px solid var(--border);
       background: var(--bg);
@@ -196,7 +196,7 @@
     .panel { display: none; flex-direction: column; gap: 12px; }
     .panel.active { display: flex; }
 
-    /* ── Widget Cards ── */
+    /* â”€â”€ Widget Cards â”€â”€ */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -243,7 +243,7 @@
     }
     .task-check:hover { border-color: var(--green); }
     .task-check.done { background: var(--green); border-color: var(--green); }
-    .task-check.done::after { content: "✓"; color: #fff; font-size: 10px; font-weight: 700; }
+    .task-check.done::after { content: "âœ“"; color: #fff; font-size: 10px; font-weight: 700; }
     .task-title { font-size: 13px; line-height: 1.3; }
     .task-due { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
@@ -264,7 +264,7 @@
     .news-article:last-child { border-bottom: none; }
     .news-article a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: transparent; font-size: 13px; font-weight: 500; line-height: 1.4; display: block; transition: color .15s, text-decoration-color .15s; }
     .news-article a:hover { color: #79c0ff; text-decoration-color: #79c0ff; }
-    .news-article a::after { content: " ↗"; font-size: 10px; opacity: 0.5; }
+    .news-article a::after { content: " â†—"; font-size: 10px; opacity: 0.5; }
     .news-source { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
     /* Quick action chips */
@@ -276,7 +276,7 @@
     }
     .chip:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
 
-    /* ── Settings Modal ── */
+    /* â”€â”€ Settings Modal â”€â”€ */
     #settings-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
       z-index: 1000; align-items: center; justify-content: center;
@@ -340,57 +340,58 @@
 <body>
 <div id="app">
 
-  <!-- ── Top Bar ── -->
+  <!-- â”€â”€ Top Bar â”€â”€ -->
   <header id="topbar">
     <div class="logo"><div class="dot"></div> Daily Planner Agent</div>
     <div class="date-time" id="clock"></div>
     <div class="spacer"></div>
+    <span id="last-updated" style="font-size:11px;color:var(--muted);margin-right:4px"></span>
     <div class="top-actions">
-      <button class="icon-btn" id="notifBtn" title="Notifications">🔔 <span id="notifBadge"></span></button>
-      <button class="icon-btn" onclick="sendQuick('/morning')">☀️ Morning</button>
-      <button class="icon-btn" id="digestBtn">📧 Send Digest</button>
-      <button class="icon-btn" id="muteBtn" title="Mute voice reading">🔊 Voice</button>
-      <button class="icon-btn" id="settingsBtn">⚙️ Settings</button>
-      <button class="icon-btn" onclick="window.location.href='/logout'">↩ Logout</button>
+      <button class="icon-btn" id="notifBtn" title="Notifications">ðŸ”” <span id="notifBadge"></span></button>
+      <button class="icon-btn" onclick="sendQuick('/morning')">â˜€ï¸ Morning</button>
+      <button class="icon-btn" id="digestBtn">ðŸ“§ Send Digest</button>
+      <button class="icon-btn" id="muteBtn" title="Mute voice reading">ðŸ”Š Voice</button>
+      <button class="icon-btn" id="settingsBtn">âš™ï¸ Settings</button>
+      <button class="icon-btn" onclick="window.location.href='/logout'">â†© Logout</button>
     </div>
   </header>
 
-  <!-- ── Left Sidebar ── -->
+  <!-- â”€â”€ Left Sidebar â”€â”€ -->
   <nav id="sidebar">
     <div class="nav-section">
       <div class="nav-label">Chat</div>
-      <button class="nav-btn active" onclick="sendQuick('/morning')"><span class="icon">☀️</span> Morning Briefing</button>
-      <button class="nav-btn" onclick="sendQuick('/evening')"><span class="icon">🌙</span> Evening Briefing</button>
-      <button class="nav-btn" onclick="sendQuick('Check my emails')"><span class="icon">📧</span> Check Emails <span class="badge" id="emailBadge" style="display:none">0</span></button>
-      <button class="nav-btn" onclick="sendQuick('Show my tasks')"><span class="icon">✅</span> My Tasks <span class="badge green" id="taskBadge" style="display:none">0</span></button>
-      <button class="nav-btn" onclick="sendQuick('What is on my calendar today?')"><span class="icon">📅</span> Today's Calendar</button>
-      <button class="nav-btn" onclick="sendQuick('What is on my calendar this week?')"><span class="icon">🗓</span> This Week</button>
-      <button class="nav-btn" onclick="sendQuick('What is the weather today?')"><span class="icon">🌤</span> Weather</button>
-      <button class="nav-btn" onclick="sendQuick('What is the weather forecast this week?')"><span class="icon">🌦</span> Forecast</button>
+      <button class="nav-btn active" onclick="sendQuick('/morning')"><span class="icon">â˜€ï¸</span> Morning Briefing</button>
+      <button class="nav-btn" onclick="sendQuick('/evening')"><span class="icon">ðŸŒ™</span> Evening Briefing</button>
+      <button class="nav-btn" onclick="sendQuick('Check my emails')"><span class="icon">ðŸ“§</span> Check Emails <span class="badge" id="emailBadge" style="display:none">0</span></button>
+      <button class="nav-btn" onclick="sendQuick('Show my tasks')"><span class="icon">âœ…</span> My Tasks <span class="badge green" id="taskBadge" style="display:none">0</span></button>
+      <button class="nav-btn" onclick="sendQuick('What is on my calendar today?')"><span class="icon">ðŸ“…</span> Today's Calendar</button>
+      <button class="nav-btn" onclick="sendQuick('What is on my calendar this week?')"><span class="icon">ðŸ—“</span> This Week</button>
+      <button class="nav-btn" onclick="sendQuick('What is the weather today?')"><span class="icon">ðŸŒ¤</span> Weather</button>
+      <button class="nav-btn" onclick="sendQuick('What is the weather forecast this week?')"><span class="icon">ðŸŒ¦</span> Forecast</button>
     </div>
     <div class="nav-divider"></div>
     <div class="nav-section">
       <div class="nav-label">Actions</div>
-      <button class="nav-btn" onclick="focusInput('Schedule ')"><span class="icon">➕</span> Add Event</button>
-      <button class="nav-btn" onclick="focusInput('Add a task: ')"><span class="icon">📝</span> Add Task</button>
-      <button class="nav-btn" onclick="switchTab('reminders')"><span class="icon">🔔</span> Reminders</button>
-      <button class="nav-btn" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
+      <button class="nav-btn" onclick="focusInput('Schedule ')"><span class="icon">âž•</span> Add Event</button>
+      <button class="nav-btn" onclick="focusInput('Add a task: ')"><span class="icon">ðŸ“</span> Add Task</button>
+      <button class="nav-btn" onclick="switchTab('reminders')"><span class="icon">ðŸ””</span> Reminders</button>
+      <button class="nav-btn" onclick="sendQuick('Search my emails for ')"><span class="icon">ðŸ”</span> Search Emails</button>
     </div>
     <div class="nav-divider"></div>
     <div class="nav-section">
       <div class="nav-label">News</div>
-      <button class="nav-btn" id="newsNavBtn" onclick="sendQuick('What is in the news today?')"><span class="icon">📰</span> Latest News</button>
+      <button class="nav-btn" id="newsNavBtn" onclick="sendQuick('What is in the news today?')"><span class="icon">ðŸ“°</span> Latest News</button>
     </div>
     <div class="nav-divider"></div>
     <div class="bottom nav-section">
-      <button class="nav-btn" onclick="clearChat()"><span class="icon">🗑</span> Clear Chat</button>
+      <button class="nav-btn" onclick="clearChat()"><span class="icon">ðŸ—‘</span> Clear Chat</button>
     </div>
   </nav>
 
-  <!-- ── Center: Chat ── -->
+  <!-- â”€â”€ Center: Chat â”€â”€ -->
   <main id="center">
     <div id="chat-header">
-      <span style="font-size:20px">🤖</span>
+      <span style="font-size:20px">ðŸ¤–</span>
       <div>
         <div id="chat-title" style="font-size:14px;font-weight:600">Daily Planner Agent</div>
         <div class="subtitle" id="chat-subtitle">Ask me anything about your day</div>
@@ -399,12 +400,12 @@
 
     <!-- Quick action chips -->
     <div class="quick-chips">
-      <div class="chip" onclick="sendQuick('What is on my calendar today?')">📅 Today</div>
-      <div class="chip" onclick="sendQuick('Check my emails')">📧 Emails</div>
-      <div class="chip" onclick="sendQuick('Show my tasks')">✅ Tasks</div>
-      <div class="chip" onclick="sendQuick('What is the weather today?')">🌤 Weather</div>
-      <div class="chip" onclick="sendQuick('What is in the news today?')">📰 News</div>
-      <div class="chip" onclick="sendQuick('/evening')">🌙 Evening</div>
+      <div class="chip" onclick="sendQuick('What is on my calendar today?')">ðŸ“… Today</div>
+      <div class="chip" onclick="sendQuick('Check my emails')">ðŸ“§ Emails</div>
+      <div class="chip" onclick="sendQuick('Show my tasks')">âœ… Tasks</div>
+      <div class="chip" onclick="sendQuick('What is the weather today?')">ðŸŒ¤ Weather</div>
+      <div class="chip" onclick="sendQuick('What is in the news today?')">ðŸ“° News</div>
+      <div class="chip" onclick="sendQuick('/evening')">ðŸŒ™ Evening</div>
     </div>
 
     <div id="chat">
@@ -413,21 +414,21 @@
 
     <div id="input-area">
       <div id="input-row">
-        <input id="textInput" type="text" placeholder="Ask anything… schedule, emails, tasks, weather, news" autocomplete="off" />
-        <button class="send-btn" id="sendBtn" title="Send">➤</button>
-        <button class="send-btn" id="micBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:16px" title="Mic">🎙</button>
+        <input id="textInput" type="text" placeholder="Ask anythingâ€¦ schedule, emails, tasks, weather, news" autocomplete="off" />
+        <button class="send-btn" id="sendBtn" title="Send">âž¤</button>
+        <button class="send-btn" id="micBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:16px" title="Mic">ðŸŽ™</button>
       </div>
       <div id="voice-status"></div>
     </div>
   </main>
 
-  <!-- ── Right Panel ── -->
+  <!-- â”€â”€ Right Panel â”€â”€ -->
   <aside id="right">
     <div id="right-tabs">
       <button class="rtab active" data-panel="overview" onclick="switchTab('overview')">Overview</button>
       <button class="rtab" data-panel="calendar" onclick="switchTab('calendar')">Calendar</button>
       <button class="rtab" data-panel="tasks" onclick="switchTab('tasks')">Tasks</button>
-      <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')">🔔</button>
+      <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')">ðŸ””</button>
       <button class="rtab" data-panel="email" onclick="switchTab('email')">Email</button>
       <button class="rtab" data-panel="news" onclick="switchTab('news')">News</button>
     </div>
@@ -437,35 +438,35 @@
       <div class="panel active" id="panel-overview">
         <!-- Weather widget -->
         <div class="card" id="weather-card">
-          <div class="card-title">🌤 Weather <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
+          <div class="card-title">ðŸŒ¤ Weather <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">âŸ³</button></div>
           <div id="weather-body"><div class="spinner"></div></div>
         </div>
         <!-- Today's events summary -->
         <div class="card">
-          <div class="card-title">📅 Today's Events <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
+          <div class="card-title">ðŸ“… Today's Events <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">âŸ³</button></div>
           <div id="overview-cal"></div>
         </div>
         <!-- Important emails -->
         <div class="card">
-          <div class="card-title">⚠️ Important Emails</div>
+          <div class="card-title">âš ï¸ Important Emails</div>
           <div id="overview-imp"></div>
         </div>
         <!-- Tasks summary -->
         <div class="card">
-          <div class="card-title">✅ Tasks Due</div>
+          <div class="card-title">âœ… Tasks Due</div>
           <div id="overview-tasks"></div>
         </div>
         <!-- LLM Usage -->
         <div class="card">
-          <div class="card-title">🤖 LLM Usage Today</div>
-          <div id="overview-usage"><div class="empty-state">Loading…</div></div>
+          <div class="card-title">ðŸ¤– LLM Usage Today</div>
+          <div id="overview-usage"><div class="empty-state">Loadingâ€¦</div></div>
         </div>
       </div>
 
       <!-- Calendar Tab -->
       <div class="panel" id="panel-calendar">
         <div class="card">
-          <div class="card-title">📅 Today <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div class="card-title">ðŸ“… Today <button class="refresh-btn" onclick="loadBriefing(true)">âŸ³</button></div>
           <div id="cal-today"></div>
         </div>
       </div>
@@ -473,13 +474,13 @@
       <!-- Tasks Tab -->
       <div class="panel" id="panel-tasks">
         <div class="card">
-          <div class="card-title">✅ Google Tasks <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div class="card-title">âœ… Google Tasks <button class="refresh-btn" onclick="loadBriefing(true)">âŸ³</button></div>
           <!-- List filter tabs -->
           <div id="task-list-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
           <div id="tasks-list"></div>
           <div style="margin-top:10px">
             <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <input id="new-task-input" class="topic-input" placeholder="Add task…" style="font-size:12px;padding:6px 10px;flex:1;min-width:0" />
+              <input id="new-task-input" class="topic-input" placeholder="Add taskâ€¦" style="font-size:12px;padding:6px 10px;flex:1;min-width:0" />
               <select id="new-task-list" class="topic-input" style="font-size:12px;padding:6px 8px;cursor:pointer;max-width:130px">
                 <option value="">Default list</option>
               </select>
@@ -492,7 +493,7 @@
       <!-- Email Tab -->
       <div class="panel" id="panel-email">
         <div class="card">
-          <div class="card-title">📧 Unread Emails <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div class="card-title">ðŸ“§ Unread Emails <button class="refresh-btn" onclick="loadBriefing(true)">âŸ³</button></div>
           <div id="email-list"></div>
         </div>
       </div>
@@ -500,7 +501,7 @@
       <!-- News Tab -->
       <div class="panel" id="panel-news">
         <div class="card">
-          <div class="card-title">📰 Morning News <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div class="card-title">ðŸ“° Morning News <button class="refresh-btn" onclick="loadBriefing(true)">âŸ³</button></div>
           <div id="news-list"></div>
         </div>
       </div>
@@ -508,7 +509,7 @@
       <!-- Reminders Tab -->
       <div class="panel" id="panel-reminders">
         <div class="card">
-          <div class="card-title">🔔 Recurring Reminders <button class="refresh-btn" onclick="loadReminders()">⟳</button></div>
+          <div class="card-title">ðŸ”” Recurring Reminders <button class="refresh-btn" onclick="loadReminders()">âŸ³</button></div>
           <div id="reminders-list"><div class="spinner"></div></div>
           <!-- Add reminder form -->
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
@@ -551,45 +552,45 @@
 <!-- Toast container -->
 <div id="toast-container"></div>
 
-<!-- ── Settings Modal ── -->
+<!-- â”€â”€ Settings Modal â”€â”€ -->
 <div id="settings-overlay">
   <div id="settings-modal">
-    <h2>⚙️ Settings</h2>
+    <h2>âš™ï¸ Settings</h2>
     <p class="subtitle">Customize your daily planner experience</p>
 
     <div class="setting-section">
-      <div class="setting-label">🤖 Assistant Name</div>
-      <input id="assistant-name-input" class="topic-input" placeholder="e.g. Aria, Max, Nova…" style="width:100%" />
+      <div class="setting-label">ðŸ¤– Assistant Name</div>
+      <input id="assistant-name-input" class="topic-input" placeholder="e.g. Aria, Max, Novaâ€¦" style="width:100%" />
       <div style="font-size:11px;color:var(--muted);margin-top:5px">Shown in the chat header and used to greet you.</div>
     </div>
 
     <div class="setting-section">
-      <div class="setting-label">🔊 Voice</div>
+      <div class="setting-label">ðŸ”Š Voice</div>
       <select id="voice-select" class="topic-input" style="width:100%;cursor:pointer">
-        <option value="">Loading voices…</option>
+        <option value="">Loading voicesâ€¦</option>
       </select>
       <div style="display:flex;gap:8px;margin-top:8px">
         <input id="voice-rate" type="range" min="0.6" max="1.6" step="0.05" style="flex:1;accent-color:var(--accent)" />
-        <span style="font-size:12px;color:var(--muted);min-width:70px" id="voice-rate-label">Speed: 1.05×</span>
-        <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="previewVoice()">▶ Preview</button>
+        <span style="font-size:12px;color:var(--muted);min-width:70px" id="voice-rate-label">Speed: 1.05Ã—</span>
+        <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="previewVoice()">â–¶ Preview</button>
       </div>
     </div>
 
     <div class="setting-section">
-      <div class="setting-label">📰 News Topics</div>
+      <div class="setting-label">ðŸ“° News Topics</div>
       <div class="topic-list" id="topic-list"></div>
       <button class="add-topic-btn" onclick="addTopicRow()">+ Add topic</button>
     </div>
 
     <div class="setting-section">
-      <div class="setting-label">⏰ Briefing Schedule</div>
+      <div class="setting-label">â° Briefing Schedule</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
         <div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">☀️ Morning Briefing</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">â˜€ï¸ Morning Briefing</div>
           <input id="morning-time-input" type="time" class="topic-input" style="width:100%" value="07:00" />
         </div>
         <div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">🌙 Evening Briefing</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">ðŸŒ™ Evening Briefing</div>
           <input id="evening-time-input" type="time" class="topic-input" style="width:100%" value="17:00" />
         </div>
       </div>
@@ -597,7 +598,7 @@
     </div>
 
     <div class="setting-section">
-      <div class="setting-label">ℹ️ Active Accounts</div>
+      <div class="setting-label">â„¹ï¸ Active Accounts</div>
       <div id="accounts-info" style="font-size:13px;color:var(--muted);line-height:1.8"></div>
     </div>
 
@@ -613,7 +614,7 @@ const USER_ID = 'web-user';
 let briefingData = null;
 let tasksData = [];
 
-// ── Clock ────────────────────────────────────────────────────────────────
+// â”€â”€ Clock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent = now.toLocaleDateString('en-US', {
@@ -623,14 +624,14 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
-// ── Tab switching ─────────────────────────────────────────────────────────
+// â”€â”€ Tab switching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function switchTab(name) {
   document.querySelectorAll('.rtab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
   if (name === 'reminders') loadReminders();
 }
 
-// ── Markdown renderer ─────────────────────────────────────────────────────
+// â”€â”€ Markdown renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -651,7 +652,7 @@ function stripMd(text) {
   return text.replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/`([^`]+)`/g,'$1');
 }
 
-// ── Chat bubbles ──────────────────────────────────────────────────────────
+// â”€â”€ Chat bubbles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const chat = document.getElementById('chat');
 
 function addBubble(role, text) {
@@ -679,7 +680,7 @@ function addThinking() {
   label.textContent = 'Assistant';
   const bubble = document.createElement('div');
   bubble.className = 'bubble thinking';
-  bubble.innerHTML = '<span class="dots"><span>●</span><span>●</span><span>●</span></span>';
+  bubble.innerHTML = '<span class="dots"><span>â—</span><span>â—</span><span>â—</span></span>';
   row.appendChild(label);
   row.appendChild(bubble);
   chat.appendChild(row);
@@ -687,7 +688,7 @@ function addThinking() {
   return row;
 }
 
-// ── Send message ──────────────────────────────────────────────────────────
+// â”€â”€ Send message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const textInput = document.getElementById('textInput');
 const sendBtn   = document.getElementById('sendBtn');
 
@@ -706,7 +707,7 @@ async function sendText(msg) {
     });
     if (res.status === 401) {
       thinking.remove();
-      addBubble('agent', '🔒 Session expired — redirecting to login…');
+      addBubble('agent', 'ðŸ”’ Session expired â€” redirecting to loginâ€¦');
       setTimeout(() => window.location.href = '/login', 1500);
       return;
     }
@@ -716,10 +717,10 @@ async function sendText(msg) {
     addBubble('agent', reply);
     speakText(stripMd(reply));
     // Refresh widgets after AI actions
-    setTimeout(() => loadBriefing(false), 1200);
+    setTimeout(() => loadBriefing(), 1200);
   } catch (e) {
     thinking.remove();
-    addBubble('agent', '⚠️ Network error: ' + e.message);
+    addBubble('agent', 'âš ï¸ Network error: ' + e.message);
   } finally {
     sendBtn.disabled = false;
     textInput.focus();
@@ -741,17 +742,17 @@ function focusInput(prefix) {
   textInput.setSelectionRange(prefix.length, prefix.length);
 }
 
-// ── TTS ───────────────────────────────────────────────────────────────────
+// â”€â”€ TTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let ttsEnabled = localStorage.getItem('ttsEnabled') !== 'false';
 function updateMuteBtn() {
   const btn = document.getElementById('muteBtn');
   if (!btn) return;
   if (ttsEnabled) {
-    btn.textContent = '🔊 Voice';
+    btn.textContent = 'ðŸ”Š Voice';
     btn.classList.remove('active');
     btn.title = 'Click to mute voice reading';
   } else {
-    btn.textContent = '🔇 Muted';
+    btn.textContent = 'ðŸ”‡ Muted';
     btn.classList.add('active');
     btn.title = 'Click to enable voice reading';
   }
@@ -767,13 +768,13 @@ updateMuteBtn();
 // Female-first preference order for default voice selection
 const FEMALE_VOICE_PREFS = [
   'Google US English',       // Chrome on desktop (female by default)
-  'Microsoft Aria',          // Edge – female
-  'Microsoft Jenny',         // Edge – female
-  'Microsoft Zira',          // Windows – female
-  'Samantha',                // macOS/iOS – female
-  'Karen',                   // macOS/iOS – female
-  'Victoria',                // macOS – female
-  'Moira',                   // macOS – female
+  'Microsoft Aria',          // Edge â€“ female
+  'Microsoft Jenny',         // Edge â€“ female
+  'Microsoft Zira',          // Windows â€“ female
+  'Samantha',                // macOS/iOS â€“ female
+  'Karen',                   // macOS/iOS â€“ female
+  'Victoria',                // macOS â€“ female
+  'Moira',                   // macOS â€“ female
 ];
 
 let _voicesReady = false;
@@ -824,7 +825,7 @@ function previewVoice() {
   speakText(`Hi, I'm ${name}. Here is your daily briefing.`);
 }
 
-// ── Mic ───────────────────────────────────────────────────────────────────
+// â”€â”€ Mic â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const micBtn = document.getElementById('micBtn');
 const voiceStatus = document.getElementById('voice-status');
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -836,10 +837,10 @@ if (SpeechRecognition) {
   recognition.onresult = e => {
     const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
     if (e.results[e.results.length-1].isFinal) { voiceStatus.textContent = ''; sendText(transcript); }
-    else voiceStatus.textContent = '🎙 "' + transcript + '"';
+    else voiceStatus.textContent = 'ðŸŽ™ "' + transcript + '"';
   };
   recognition.onerror = e => {
-    voiceStatus.textContent = e.error === 'not-allowed' && location.protocol === 'http:' ? '⚠️ Mic requires HTTPS' : '⚠️ ' + e.error;
+    voiceStatus.textContent = e.error === 'not-allowed' && location.protocol === 'http:' ? 'âš ï¸ Mic requires HTTPS' : 'âš ï¸ ' + e.error;
     micBtn.style.background = 'var(--surface2)'; isListening = false;
   };
   recognition.onend = () => { micBtn.style.background = 'var(--surface2)'; isListening = false; voiceStatus.textContent = ''; };
@@ -850,28 +851,28 @@ if (SpeechRecognition) {
 micBtn.addEventListener('click', () => {
   if (!recognition) return;
   if (isListening) { recognition.stop(); isListening = false; micBtn.style.background = 'var(--surface2)'; }
-  else { window.speechSynthesis?.cancel(); recognition.start(); isListening = true; micBtn.style.background = 'var(--red)'; voiceStatus.textContent = '🔴 Listening…'; }
+  else { window.speechSynthesis?.cancel(); recognition.start(); isListening = true; micBtn.style.background = 'var(--red)'; voiceStatus.textContent = 'ðŸ”´ Listeningâ€¦'; }
 });
 
-// ── Clear chat ────────────────────────────────────────────────────────────
+// â”€â”€ Clear chat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function clearChat() {
   window.speechSynthesis?.cancel();
   await fetch('/voice-chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text:'/clear', userId: USER_ID}) });
   chat.innerHTML = '<div class="msg-row"><div class="bubble system">Conversation cleared.</div></div>';
 }
 
-// ── Digest ────────────────────────────────────────────────────────────────
+// â”€â”€ Digest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.getElementById('digestBtn').addEventListener('click', async () => {
   const btn = document.getElementById('digestBtn');
-  btn.textContent = '📧 Sending…';
+  btn.textContent = 'ðŸ“§ Sendingâ€¦';
   try {
     const res = await fetch('/send-digest', { method: 'POST' });
     const data = await res.json();
-    showToast(data.ok ? '📧 Digest Sent!' : '❌ Failed', data.ok ? 'Morning briefing emailed.' : data.error);
-  } finally { btn.textContent = '📧 Send Digest'; }
+    showToast(data.ok ? 'ðŸ“§ Digest Sent!' : 'âŒ Failed', data.ok ? 'Morning briefing emailed.' : data.error);
+  } finally { btn.textContent = 'ðŸ“§ Send Digest'; }
 });
 
-// ── SSE notifications ─────────────────────────────────────────────────────
+// â”€â”€ SSE notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let unread = 0;
 function connectSSE() {
   const es = new EventSource('/notifications');
@@ -891,7 +892,7 @@ document.getElementById('notifBtn').addEventListener('click', () => {
   const badge = document.getElementById('notifBadge');
   badge.style.display = 'none';
   if (Notification.permission !== 'granted') {
-    Notification.requestPermission().then(p => { if(p==='granted') showToast('🔔 Enabled','Browser notifications on!'); });
+    Notification.requestPermission().then(p => { if(p==='granted') showToast('ðŸ”” Enabled','Browser notifications on!'); });
   }
 });
 
@@ -907,90 +908,96 @@ function showToast(title, body, urgent=false) {
   setTimeout(() => { t.style.animation = 'tOut .3s forwards'; setTimeout(() => t.remove(), 300); }, 5000);
 }
 
-// ── Load briefing & render widgets ────────────────────────────────────────
-async function loadBriefing(showSpinner=true) {
+// â”€â”€ Load briefing & render widgets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+async function loadBriefing(forceRefresh=false) {
   try {
-    const res = await fetch('/api/briefing');
+    const url = forceRefresh ? '/api/briefing?refresh=1' : '/api/briefing';
+    const res = await fetch(url);
     if (res.status === 401) { window.location.href = '/login'; return; }
     briefingData = await res.json();
+    // Show last-updated timestamp
+    const ts = briefingData._fetchedAt ? new Date(briefingData._fetchedAt) : new Date();
+    const label = ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const el = document.getElementById('last-updated');
+    if (el) el.textContent = `Updated ${label}`;
     renderWidgets();
   } catch(e) { console.warn('Briefing load error:', e); }
 }
 
 function weatherIcon(condition) {
   const c = (condition||'').toLowerCase();
-  if (c.includes('thunder')) return '⛈';
-  if (c.includes('snow')) return '❄️';
-  if (c.includes('rain') || c.includes('drizzle')) return '🌧';
-  if (c.includes('cloud') || c.includes('overcast')) return '☁️';
-  if (c.includes('fog') || c.includes('mist')) return '🌫';
-  if (c.includes('wind')) return '💨';
-  if (c.includes('partly')) return '⛅';
-  return '☀️';
+  if (c.includes('thunder')) return 'â›ˆ';
+  if (c.includes('snow')) return 'â„ï¸';
+  if (c.includes('rain') || c.includes('drizzle')) return 'ðŸŒ§';
+  if (c.includes('cloud') || c.includes('overcast')) return 'â˜ï¸';
+  if (c.includes('fog') || c.includes('mist')) return 'ðŸŒ«';
+  if (c.includes('wind')) return 'ðŸ’¨';
+  if (c.includes('partly')) return 'â›…';
+  return 'â˜€ï¸';
 }
 
 function renderWidgets() {
   if (!briefingData) return;
   const { weather, calendar, emails, importantEmails, googleTasks, news, llmUsage } = briefingData;
 
-  // ── Weather ──
+  // â”€â”€ Weather â”€â”€
   const wb = document.getElementById('weather-body');
   if (weather) {
     wb.innerHTML = `
       <div class="weather-main">
         <div class="weather-icon">${weatherIcon(weather.condition)}</div>
         <div>
-          <div class="weather-temp">${weather.temperatureF}<span>°F</span></div>
-          <div class="weather-desc">${escapeHtml(weather.condition||'')} · Feels ${weather.feelsLikeF}°F</div>
+          <div class="weather-temp">${weather.temperatureF}<span>Â°F</span></div>
+          <div class="weather-desc">${escapeHtml(weather.condition||'')} Â· Feels ${weather.feelsLikeF}Â°F</div>
         </div>
       </div>
       <div class="weather-meta">
-        <div class="weather-meta-item">🌡 H:<strong>${weather.high}°</strong> L:<strong>${weather.low}°</strong></div>
-        <div class="weather-meta-item">💧 Rain <strong>${weather.precipChance}%</strong></div>
-        <div class="weather-meta-item">🌅 <strong>${weather.sunrise||'–'}</strong></div>
-        <div class="weather-meta-item">🌇 <strong>${weather.sunset||'–'}</strong></div>
-        <div class="weather-meta-item">☀️ UV <strong>${weather.uvIndex??'–'}</strong></div>
-        <div class="weather-meta-item">📍 <strong>${escapeHtml(weather.location||'')}</strong></div>
+        <div class="weather-meta-item">ðŸŒ¡ H:<strong>${weather.high}Â°</strong> L:<strong>${weather.low}Â°</strong></div>
+        <div class="weather-meta-item">ðŸ’§ Rain <strong>${weather.precipChance}%</strong></div>
+        <div class="weather-meta-item">ðŸŒ… <strong>${weather.sunrise||'â€“'}</strong></div>
+        <div class="weather-meta-item">ðŸŒ‡ <strong>${weather.sunset||'â€“'}</strong></div>
+        <div class="weather-meta-item">â˜€ï¸ UV <strong>${weather.uvIndex??'â€“'}</strong></div>
+        <div class="weather-meta-item">ðŸ“ <strong>${escapeHtml(weather.location||'')}</strong></div>
       </div>`;
   } else {
     wb.innerHTML = '<div class="empty-state">Weather unavailable</div>';
   }
 
-  // ── Calendar (overview + tab) ──
+  // â”€â”€ Calendar (overview + tab) â”€â”€
   const calHtml = (events) => {
-    if (!events || events.length === 0) return '<div class="empty-state">No events today 🎉</div>';
+    if (!events || events.length === 0) return '<div class="empty-state">No events today ðŸŽ‰</div>';
     return events.map(e => `
       <div class="event-item">
-        <div class="event-time">${escapeHtml(e.start)}${e.end ? '–'+escapeHtml(e.end) : ''}</div>
+        <div class="event-time">${escapeHtml(e.start)}${e.end ? 'â€“'+escapeHtml(e.end) : ''}</div>
         <div class="event-dot"></div>
         <div>
           <div class="event-title">${escapeHtml(e.title)}</div>
-          ${e.location ? `<div class="event-loc">📍 ${escapeHtml(e.location)}</div>` : ''}
+          ${e.location ? `<div class="event-loc">ðŸ“ ${escapeHtml(e.location)}</div>` : ''}
         </div>
       </div>`).join('');
   };
   document.getElementById('overview-cal').innerHTML = calHtml(calendar);
   document.getElementById('cal-today').innerHTML = calHtml(calendar);
 
-  // ── Important emails (overview) ──
+  // â”€â”€ Important emails (overview) â”€â”€
   const ov_imp = document.getElementById('overview-imp');
   if (importantEmails && importantEmails.length > 0) {
     ov_imp.innerHTML = importantEmails.slice(0,4).map(e => `
       <div class="email-item" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
-        <div class="email-from"><span class="imp">⚠️</span><span class="acct">${escapeHtml(e.account)}</span> ${escapeHtml(e.from)}</div>
+        <div class="email-from"><span class="imp">âš ï¸</span><span class="acct">${escapeHtml(e.account)}</span> ${escapeHtml(e.from)}</div>
         <div class="email-subject">${escapeHtml(e.subject)}</div>
       </div>`).join('');
   } else {
-    ov_imp.innerHTML = '<div class="empty-state">No important emails ✅</div>';
+    ov_imp.innerHTML = '<div class="empty-state">No important emails âœ…</div>';
   }
 
-  // ── Email list (tab) ──
+  // â”€â”€ Email list (tab) â”€â”€
   const emailHtml = (emails) => {
-    if (!emails || emails.length === 0) return '<div class="empty-state">Inbox clear ✅</div>';
+    if (!emails || emails.length === 0) return '<div class="empty-state">Inbox clear âœ…</div>';
     return emails.slice(0,15).map(e => `
       <div class="email-item" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
         <div class="email-from">
-          ${e.isImportant ? '<span class="imp">⚠️</span>' : ''}
+          ${e.isImportant ? '<span class="imp">âš ï¸</span>' : ''}
           <span class="acct">${escapeHtml(e.account)}</span>
           ${escapeHtml(e.from)}
         </div>
@@ -1005,7 +1012,7 @@ function renderWidgets() {
   const eb = document.getElementById('emailBadge');
   if (ec > 0) { eb.textContent = ec; eb.style.display = 'inline'; } else { eb.style.display = 'none'; }
 
-  // ── Tasks ──
+  // â”€â”€ Tasks â”€â”€
   tasksData = googleTasks || [];
   renderTasks();
 
@@ -1013,7 +1020,7 @@ function renderWidgets() {
   const tb = document.getElementById('taskBadge');
   if (tc > 0) { tb.textContent = tc; tb.style.display = 'inline'; } else { tb.style.display = 'none'; }
 
-  // ── Tasks overview ──
+  // â”€â”€ Tasks overview â”€â”€
   const ov_tasks = document.getElementById('overview-tasks');
   const dueSoon = tasksData.filter(t => t.due).slice(0,3);
   if (dueSoon.length > 0) {
@@ -1032,13 +1039,13 @@ function renderWidgets() {
         <div><div class="task-title">${escapeHtml(t.title)}</div></div>
       </div>`).join('');
   } else {
-    ov_tasks.innerHTML = '<div class="empty-state">No tasks 🎉</div>';
+    ov_tasks.innerHTML = '<div class="empty-state">No tasks ðŸŽ‰</div>';
   }
 
-  // ── News ──
+  // â”€â”€ News â”€â”€
   renderNews(news);
 
-  // ── LLM Usage ──
+  // â”€â”€ LLM Usage â”€â”€
   const usageEl = document.getElementById('overview-usage');
   if (llmUsage) {
     const cost = llmUsage.estimatedCostUSD || 0;
@@ -1067,8 +1074,8 @@ function renderWidgets() {
         <div style="background:var(--surface2);border-radius:3px;height:5px;overflow:hidden">
           <div style="background:${cost < 0.25 ? 'var(--green,#3fb950)' : cost < 0.40 ? '#d29922' : 'var(--red,#f85149)'};height:100%;width:${pct}%;transition:width .4s"></div>
         </div>
-        <div style="margin-top:6px">Prompt: ${(llmUsage.promptTokens||0).toLocaleString()} &nbsp;·&nbsp; Completion: ${(llmUsage.completionTokens||0).toLocaleString()}</div>
-        <div style="margin-top:2px">Model: grok-3 &nbsp;·&nbsp; Resets at midnight</div>
+        <div style="margin-top:6px">Prompt: ${(llmUsage.promptTokens||0).toLocaleString()} &nbsp;Â·&nbsp; Completion: ${(llmUsage.completionTokens||0).toLocaleString()}</div>
+        <div style="margin-top:2px">Model: grok-3 &nbsp;Â·&nbsp; Resets at midnight</div>
       </div>`;
   } else {
     usageEl.innerHTML = '<div class="empty-state">No usage recorded yet</div>';
@@ -1079,7 +1086,7 @@ let activeTaskList = 'all'; // 'all' or a listTitle
 
 function renderTasks() {
   const el = document.getElementById('tasks-list');
-  if (!tasksData || tasksData.length === 0) { el.innerHTML = '<div class="empty-state">No tasks 🎉</div>'; return; }
+  if (!tasksData || tasksData.length === 0) { el.innerHTML = '<div class="empty-state">No tasks ðŸŽ‰</div>'; return; }
 
   // Build list tabs
   const tabsEl = document.getElementById('task-list-tabs');
@@ -1098,7 +1105,7 @@ function renderTasks() {
     ? tasksData
     : tasksData.filter(t => t.listTitle === activeTaskList);
 
-  if (filtered.length === 0) { el.innerHTML = '<div class="empty-state">No tasks in this list 🎉</div>'; return; }
+  if (filtered.length === 0) { el.innerHTML = '<div class="empty-state">No tasks in this list ðŸŽ‰</div>'; return; }
 
   // Group by list title when showing All
   const grouped = new Map();
@@ -1144,7 +1151,7 @@ async function loadTaskLists() {
   } catch (e) { /* silently ignore */ }
 }
 
-// ── Recurring Reminders ─────────────────────────────────────────────────────
+// â”€â”€ Recurring Reminders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const FREQ_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTH_NAMES = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1164,7 +1171,7 @@ function updateReminderForm() {
   if (freq === 'weekly') {
     dayLabel.textContent = 'Day of week';
     dayInput.type = 'number'; dayInput.min = '0'; dayInput.max = '6'; dayInput.value = '1';
-    dayInput.placeholder = '0=Sun … 6=Sat';
+    dayInput.placeholder = '0=Sun â€¦ 6=Sat';
     monthCol.style.display = 'none';
   } else if (freq === 'monthly') {
     dayLabel.textContent = 'Day of month';
@@ -1258,19 +1265,19 @@ async function loadReminders() {
       const diffMs = next - now;
       const diffDays = Math.floor(diffMs / 86400000);
       let whenLabel;
-      if (next.toDateString() === todayStr) whenLabel = '⚡ Today';
-      else if (next.toDateString() === tomorrowStr) whenLabel = '📅 Tomorrow';
-      else whenLabel = `📅 In ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+      if (next.toDateString() === todayStr) whenLabel = 'âš¡ Today';
+      else if (next.toDateString() === tomorrowStr) whenLabel = 'ðŸ“… Tomorrow';
+      else whenLabel = `ðŸ“… In ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
 
       return `<div class="task-item" style="align-items:flex-start" id="rem-${r.id}">
-        <div style="font-size:18px;line-height:1;padding-top:2px">🔔</div>
+        <div style="font-size:18px;line-height:1;padding-top:2px">ðŸ””</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${escapeHtml(r.title)}</div>
           <div style="font-size:11px;color:${color};margin-top:2px">${escapeHtml(schedule)}</div>
-          <div style="font-size:11px;color:var(--accent2,#e3b341);margin-top:1px">${whenLabel} · ${next.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+          <div style="font-size:11px;color:var(--accent2,#e3b341);margin-top:1px">${whenLabel} Â· ${next.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
           ${r.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escapeHtml(r.notes)}</div>` : ''}
         </div>
-        <button onclick="deleteReminder('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 4px" title="Delete">✕</button>
+        <button onclick="deleteReminder('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 4px" title="Delete">âœ•</button>
       </div>`;
     }).join('');
   } catch (e) {
@@ -1292,7 +1299,7 @@ function describeReminderJS(r) {
 
 async function addReminder() {
   const title = document.getElementById('rem-title').value.trim();
-  if (!title) { showToast('❌', 'Enter a reminder title'); return; }
+  if (!title) { showToast('âŒ', 'Enter a reminder title'); return; }
   const freq  = document.getElementById('rem-freq').value;
   const time  = document.getElementById('rem-time').value;
   const day   = parseInt(document.getElementById('rem-day').value);
@@ -1314,21 +1321,21 @@ async function addReminder() {
     if (data.ok) {
       document.getElementById('rem-title').value = '';
       document.getElementById('rem-notes').value = '';
-      showToast('🔔 Reminder set', describeReminderJS(data.reminder));
+      showToast('ðŸ”” Reminder set', describeReminderJS(data.reminder));
       loadReminders();
     } else {
-      showToast('❌ Error', data.error || 'Could not add reminder');
+      showToast('âŒ Error', data.error || 'Could not add reminder');
     }
-  } catch(e) { showToast('❌ Error', e.message); }
+  } catch(e) { showToast('âŒ Error', e.message); }
 }
 
 async function deleteReminder(id) {
   try {
     const res = await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
     const data = await res.json();
-    if (data.ok) { showToast('🗑 Removed', 'Reminder deleted'); loadReminders(); }
-    else showToast('❌ Error', data.error || 'Could not delete');
-  } catch(e) { showToast('❌ Error', e.message); }
+    if (data.ok) { showToast('ðŸ—‘ Removed', 'Reminder deleted'); loadReminders(); }
+    else showToast('âŒ Error', data.error || 'Could not delete');
+  } catch(e) { showToast('âŒ Error', e.message); }
 }
 
 async function completeTask(taskId, listId, el) {
@@ -1341,15 +1348,15 @@ async function completeTask(taskId, listId, el) {
     });
     const data = await res.json();
     if (data.ok) {
-      showToast('✅ Task complete', 'Task marked as done');
-      setTimeout(() => loadBriefing(false), 600);
+      showToast('âœ… Task complete', 'Task marked as done');
+      setTimeout(() => loadBriefing(), 600);
     } else {
       el.classList.remove('done');
-      showToast('❌ Error', data.error || 'Could not complete task');
+      showToast('âŒ Error', data.error || 'Could not complete task');
     }
   } catch(e) {
     el.classList.remove('done');
-    showToast('❌ Error', e.message);
+    showToast('âŒ Error', e.message);
   }
 }
 
@@ -1368,13 +1375,13 @@ async function addTask() {
     });
     const data = await res.json();
     if (data.ok) {
-      showToast('✅ Task added', title);
-      setTimeout(() => loadBriefing(false), 600);
+      showToast('âœ… Task added', title);
+      setTimeout(() => loadBriefing(), 600);
     } else {
-      showToast('❌ Error', data.error || 'Could not add task');
+      showToast('âŒ Error', data.error || 'Could not add task');
     }
   } catch(e) {
-    showToast('❌ Error', e.message);
+    showToast('âŒ Error', e.message);
   }
 }
 document.getElementById('new-task-input').addEventListener('keydown', e => { if(e.key === 'Enter') addTask(); });
@@ -1389,12 +1396,12 @@ function renderNews(news) {
       : n.articles.map(a => `
         <div class="news-article">
           <a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
-          <div class="news-source">${escapeHtml(a.source)} · ${a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''}</div>
+          <div class="news-source">${escapeHtml(a.source)} Â· ${a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''}</div>
         </div>`).join('')
     }`).join('');
 }
 
-// ── Settings ──────────────────────────────────────────────────────────────
+// â”€â”€ Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 
 async function openSettings() {
@@ -1404,13 +1411,13 @@ async function openSettings() {
   // Assistant name
   document.getElementById('assistant-name-input').value = localStorage.getItem('assistantName') ?? '';
 
-  // Voice picker — wait for voices to be ready
+  // Voice picker â€” wait for voices to be ready
   const sel = document.getElementById('voice-select');
   const savedVoice = localStorage.getItem('ttsVoice');
   const populateVoices = () => {
     const voices = getVoices();
     if (voices.length === 0) {
-      sel.innerHTML = '<option value="">No voices found — try Chrome or Edge</option>';
+      sel.innerHTML = '<option value="">No voices found â€” try Chrome or Edge</option>';
       return;
     }
     const defaultVoice = savedVoice ?? (pickDefaultVoice(voices)?.name ?? '');
@@ -1429,9 +1436,9 @@ async function openSettings() {
   const rateSlider = document.getElementById('voice-rate');
   const savedRate = parseFloat(localStorage.getItem('ttsRate') ?? '1.05');
   rateSlider.value = savedRate;
-  document.getElementById('voice-rate-label').textContent = `Speed: ${savedRate.toFixed(2)}×`;
+  document.getElementById('voice-rate-label').textContent = `Speed: ${savedRate.toFixed(2)}Ã—`;
   rateSlider.oninput = () => {
-    document.getElementById('voice-rate-label').textContent = `Speed: ${parseFloat(rateSlider.value).toFixed(2)}×`;
+    document.getElementById('voice-rate-label').textContent = `Speed: ${parseFloat(rateSlider.value).toFixed(2)}Ã—`;
   };
 
   // Build topic rows
@@ -1445,9 +1452,9 @@ async function openSettings() {
 
   // Accounts info
   document.getElementById('accounts-info').innerHTML =
-    settings.accounts.map(a => `✉️ <strong>${escapeHtml(a)}</strong> Gmail account`).join('<br>') +
-    `<br>🕐 Timezone: <strong>${escapeHtml(settings.timezone)}</strong>` +
-    (settings.digestEmail ? `<br>📧 Digest to: <strong>${escapeHtml(settings.digestEmail)}</strong>` : '');
+    settings.accounts.map(a => `âœ‰ï¸ <strong>${escapeHtml(a)}</strong> Gmail account`).join('<br>') +
+    `<br>ðŸ• Timezone: <strong>${escapeHtml(settings.timezone)}</strong>` +
+    (settings.digestEmail ? `<br>ðŸ“§ Digest to: <strong>${escapeHtml(settings.digestEmail)}</strong>` : '');
   document.getElementById('settings-overlay').classList.add('open');
 }
 
@@ -1459,7 +1466,7 @@ function addTopicRow(value='') {
   const row = document.createElement('div');
   row.className = 'topic-row';
   row.innerHTML = `<input class="topic-input" placeholder="e.g. Artificial Intelligence" value="${escapeHtml(value)}" />
-    <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>`;
+    <button class="remove-btn" onclick="this.parentElement.remove()">âœ•</button>`;
   document.getElementById('topic-list').appendChild(row);
   if (!value) row.querySelector('input').focus();
 }
@@ -1499,9 +1506,9 @@ async function saveSettings() {
   const data = await res.json();
   if (data.ok) {
     applyAssistantName();
-    showToast('✅ Settings saved', nameVal ? `Assistant renamed to ${nameVal}` : 'Settings updated');
+    showToast('âœ… Settings saved', nameVal ? `Assistant renamed to ${nameVal}` : 'Settings updated');
     closeSettings();
-    setTimeout(() => loadBriefing(false), 300);
+    setTimeout(() => loadBriefing(), 300);
   }
 }
 
@@ -1514,8 +1521,8 @@ document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();
 });
 
-// ── Init ──────────────────────────────────────────────────────────────────
-// ─── Service Worker + Web Push ────────────────────────────────────────────
+// â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ Service Worker + Web Push â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function registerPush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
@@ -1537,7 +1544,7 @@ async function registerPush() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sub),
     });
-    console.log('✅ Push notifications registered');
+    console.log('âœ… Push notifications registered');
   } catch (e) {
     console.warn('Push registration failed:', e);
   }
@@ -1546,3 +1553,4 @@ registerPush();
 </script>
 </body>
 </html>
+
