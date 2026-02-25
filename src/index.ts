@@ -15,7 +15,7 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
-import { getAwsCostSummary } from "./tools/awsCostTools.js";
+import { getAwsCostSummary, getCostThreshold, setCostThreshold } from "./tools/awsCostTools.js";
 import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -379,8 +379,8 @@ if (process.argv.includes("--cli")) {
   });
 
   app.post("/api/settings", (req: Request, res: Response) => {
-    const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords } =
-      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string; vipSenders?: string[]; filterKeywords?: string[] };
+    const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold } =
+      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string; vipSenders?: string[]; filterKeywords?: string[]; awsCostThreshold?: number };
     if (Array.isArray(newsTopics)) {
       runtimeNewsTopics = newsTopics.map((t: string) => t.trim()).filter(Boolean);
       process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
@@ -390,6 +390,9 @@ if (process.argv.includes("--cli")) {
     }
     if (Array.isArray(filterKeywords)) {
       setFilterKeywords(filterKeywords.map((k: string) => k.trim().toLowerCase()).filter(Boolean));
+    }
+    if (typeof awsCostThreshold === "number" && awsCostThreshold > 0) {
+      setCostThreshold(awsCostThreshold);
     }
     let rescheduled = false;
     if (morningBriefingTime && /^\d{1,2}:\d{2}$/.test(morningBriefingTime)) {
@@ -411,6 +414,7 @@ if (process.argv.includes("--cli")) {
       eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
       vipSenders: getVipSenders(),
       filterKeywords: getFilterKeywords(),
+      awsCostThreshold: getCostThreshold(),
     });
   });
 
@@ -504,7 +508,7 @@ if (process.argv.includes("--cli")) {
   app.get("/api/aws-cost", async (req: Request, res: Response) => {
     const forceRefresh = req.query.refresh === "1";
     if (!forceRefresh && awsCostCache && Date.now() - awsCostCache.fetchedAt < AWS_COST_CACHE_TTL_MS) {
-      return res.json({ ...awsCostCache.data, cached: true });
+      return res.json({ ...awsCostCache.data, threshold: getCostThreshold(), cached: true });
     }
     try {
       const costData = await getAwsCostSummary();

@@ -657,6 +657,16 @@
     </div>
 
     <div class="setting-section">
+      <div class="setting-label">☁️ AWS Monthly Cost Threshold</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <span style="font-size:14px">$</span>
+        <input id="aws-cost-threshold-input" type="number" min="1" step="1" class="topic-input" style="width:100px" placeholder="50" />
+        <span style="font-size:12px;color:var(--muted)">per month</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">The budget bar on the AWS Cost card turns yellow at 75% and red when exceeded.</div>
+    </div>
+
+    <div class="setting-section">
       <div class="setting-label">ℹ️ Active Accounts</div>
       <div id="accounts-info" style="font-size:13px;color:var(--muted);line-height:1.8"></div>
     </div>
@@ -1181,12 +1191,22 @@ async function loadAwsCost(forceRefresh) {
     }
     awsCostLoaded = true;
     const fmt = n => '$' + (n||0).toFixed(2);
-    const mtd = d.mtdTotalUSD || 0;
+    const mtd      = d.mtdTotalUSD || 0;
     const forecast = d.forecastTotalUSD;
-    const yesterday = d.yesterdayUSD || 0;
-    const daily = d.dailyAvgUSD || 0;
-    const svcs = (d.byService || []).slice(0, 5);
+    const yday     = d.yesterdayUSD || 0;
+    const daily    = d.dailyAvgUSD || 0;
+    const threshold = d.threshold || 50;
+    const svcs     = (d.byService || []).slice(0, 5);
     const cachedNote = d.cached ? ' <span style="font-size:9px;color:var(--muted)">(cached)</span>' : '';
+
+    // Progress bar: use forecast if available, else MTD
+    const compareVal  = (forecast !== null && forecast !== undefined) ? forecast : mtd;
+    const pct         = Math.min(100, (compareVal / threshold) * 100).toFixed(0);
+    const barColor    = compareVal < threshold * 0.75 ? 'var(--green,#3fb950)'
+                      : compareVal < threshold        ? '#d29922'
+                      : 'var(--red,#f85149)';
+    const overBudget  = compareVal >= threshold;
+
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
         <div style="background:var(--surface2);border-radius:6px;padding:8px">
@@ -1194,12 +1214,21 @@ async function loadAwsCost(forceRefresh) {
           <div style="font-size:10px;color:var(--muted);margin-top:2px">MTD ACTUAL${cachedNote}</div>
         </div>
         <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:18px;font-weight:600;color:var(--accent2)">${forecast !== null && forecast !== undefined ? fmt(forecast) : 'N/A'}</div>
+          <div style="font-size:18px;font-weight:600;color:${overBudget ? 'var(--red,#f85149)' : 'var(--accent2)'}">${forecast !== null && forecast !== undefined ? fmt(forecast) : 'N/A'}</div>
           <div style="font-size:10px;color:var(--muted);margin-top:2px">MONTH FORECAST</div>
         </div>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between">
+          <span>${overBudget ? '⚠️ Over budget!' : 'Budget'}</span>
+          <span style="font-weight:600;color:${barColor}">${fmt(compareVal)} / ${fmt(threshold)}</span>
+        </div>
+        <div style="background:var(--surface2);border-radius:3px;height:6px;overflow:hidden;margin:4px 0">
+          <div style="background:${barColor};height:100%;width:${pct}%;transition:width .4s"></div>
+        </div>
+      </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Yesterday: ${fmt(yesterday)} &nbsp;·&nbsp; Daily avg: ${fmt(daily)}/day
+        Yesterday: ${fmt(yday)} &nbsp;·&nbsp; Daily avg: ${fmt(daily)}/day
       </div>
       ${svcs.length ? `<div style="font-size:10px">
         <div style="font-weight:600;margin-bottom:4px;color:var(--muted)">TOP SERVICES</div>
@@ -1621,6 +1650,9 @@ async function openSettings() {
   if (settings.morningBriefingTime) document.getElementById('morning-time-input').value = settings.morningBriefingTime;
   if (settings.eveningBriefingTime) document.getElementById('evening-time-input').value = settings.eveningBriefingTime;
 
+  // AWS cost threshold
+  document.getElementById('aws-cost-threshold-input').value = settings.awsCostThreshold ?? 50;
+
   // Accounts info
   document.getElementById('accounts-info').innerHTML =
     settings.accounts.map(a => `✉️ <strong>${escapeHtml(a)}</strong> Gmail account`).join('<br>') +
@@ -1692,16 +1724,18 @@ async function saveSettings() {
     .map(i => i.value.trim()).filter(Boolean);
   const morningTime = document.getElementById('morning-time-input').value;
   const eveningTime = document.getElementById('evening-time-input').value;
+  const awsCostThreshold = parseFloat(document.getElementById('aws-cost-threshold-input').value) || 50;
   const res = await fetch('/api/settings', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime, vipSenders, filterKeywords }),
+    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime, vipSenders, filterKeywords, awsCostThreshold }),
   });
   const data = await res.json();
   if (data.ok) {
     applyAssistantName();
     showToast('✅ Settings saved', nameVal ? `Assistant renamed to ${nameVal}` : 'Settings updated');
     closeSettings();
-    setTimeout(() => loadBriefing(false), 300);
+    awsCostLoaded = false; // force re-render with new threshold
+    setTimeout(() => { loadBriefing(false); loadAwsCost(false); }, 300);
   }
 }
 

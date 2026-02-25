@@ -19,10 +19,24 @@ import {
   type GetCostForecastCommandInput,
 } from "@aws-sdk/client-cost-explorer";
 
-const AWS_REGION = process.env.AWS_REGION ?? "us-east-1";
-
+// Cost Explorer is a global service — must always use us-east-1 endpoint
 function getClient(): CostExplorerClient {
-  // Cost Explorer is a global service but must use us-east-1
+  const keyId        = process.env.AWS_ACCESS_KEY_ID;
+  const secretKey    = process.env.AWS_SECRET_ACCESS_KEY;
+  const sessionToken = process.env.AWS_SESSION_TOKEN;
+
+  // If explicit creds are in env, pass them directly (works without an instance role)
+  if (keyId && secretKey) {
+    return new CostExplorerClient({
+      region: "us-east-1",
+      credentials: {
+        accessKeyId: keyId,
+        secretAccessKey: secretKey,
+        ...(sessionToken ? { sessionToken } : {}),
+      },
+    });
+  }
+  // Otherwise fall back to instance role / default credential chain
   return new CostExplorerClient({ region: "us-east-1" });
 }
 
@@ -52,6 +66,11 @@ function yesterday(): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Monthly spend threshold in USD — alerts when MTD or forecast exceeds this */
+let runtimeCostThreshold: number = parseFloat(process.env.AWS_COST_THRESHOLD ?? "50");
+export function getCostThreshold(): number { return runtimeCostThreshold; }
+export function setCostThreshold(v: number): void { runtimeCostThreshold = v; }
+
 export interface AwsCostSummary {
   periodStart: string;
   periodEnd: string;
@@ -65,6 +84,8 @@ export interface AwsCostSummary {
   byService: Array<{ service: string; amountUSD: number }>;
   /** Projected daily burn rate (MTD / days elapsed) */
   dailyAvgUSD: number;
+  /** Monthly spend alert threshold in USD */
+  threshold: number;
 }
 
 export async function getAwsCostSummary(): Promise<AwsCostSummary> {
@@ -145,6 +166,7 @@ export async function getAwsCostSummary(): Promise<AwsCostSummary> {
     yesterdayUSD,
     byService:      byService.slice(0, 10), // top 10 services
     dailyAvgUSD,
+    threshold:      runtimeCostThreshold,
   };
 }
 

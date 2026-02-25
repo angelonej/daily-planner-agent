@@ -13,7 +13,7 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
-import { getAwsCostSummary } from "./tools/awsCostTools.js";
+import { getAwsCostSummary, getCostThreshold, setCostThreshold } from "./tools/awsCostTools.js";
 import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -342,7 +342,7 @@ else {
         });
     });
     app.post("/api/settings", (req, res) => {
-        const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords } = req.body;
+        const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold } = req.body;
         if (Array.isArray(newsTopics)) {
             runtimeNewsTopics = newsTopics.map((t) => t.trim()).filter(Boolean);
             process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
@@ -352,6 +352,9 @@ else {
         }
         if (Array.isArray(filterKeywords)) {
             setFilterKeywords(filterKeywords.map((k) => k.trim().toLowerCase()).filter(Boolean));
+        }
+        if (typeof awsCostThreshold === "number" && awsCostThreshold > 0) {
+            setCostThreshold(awsCostThreshold);
         }
         let rescheduled = false;
         if (morningBriefingTime && /^\d{1,2}:\d{2}$/.test(morningBriefingTime)) {
@@ -373,6 +376,7 @@ else {
             eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
             vipSenders: getVipSenders(),
             filterKeywords: getFilterKeywords(),
+            awsCostThreshold: getCostThreshold(),
         });
     });
     // ─── Live briefing JSON for dashboard widgets ──────────────────────────
@@ -466,7 +470,7 @@ else {
     app.get("/api/aws-cost", async (req, res) => {
         const forceRefresh = req.query.refresh === "1";
         if (!forceRefresh && awsCostCache && Date.now() - awsCostCache.fetchedAt < AWS_COST_CACHE_TTL_MS) {
-            return res.json({ ...awsCostCache.data, cached: true });
+            return res.json({ ...awsCostCache.data, threshold: getCostThreshold(), cached: true });
         }
         try {
             const costData = await getAwsCostSummary();

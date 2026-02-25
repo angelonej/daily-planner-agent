@@ -11,9 +11,23 @@
  *   ce:GetCostForecast
  */
 import { CostExplorerClient, GetCostAndUsageCommand, GetCostForecastCommand, } from "@aws-sdk/client-cost-explorer";
-const AWS_REGION = process.env.AWS_REGION ?? "us-east-1";
+// Cost Explorer is a global service — must always use us-east-1 endpoint
 function getClient() {
-    // Cost Explorer is a global service but must use us-east-1
+    const keyId = process.env.AWS_ACCESS_KEY_ID;
+    const secretKey = process.env.AWS_SECRET_ACCESS_KEY;
+    const sessionToken = process.env.AWS_SESSION_TOKEN;
+    // If explicit creds are in env, pass them directly (works without an instance role)
+    if (keyId && secretKey) {
+        return new CostExplorerClient({
+            region: "us-east-1",
+            credentials: {
+                accessKeyId: keyId,
+                secretAccessKey: secretKey,
+                ...(sessionToken ? { sessionToken } : {}),
+            },
+        });
+    }
+    // Otherwise fall back to instance role / default credential chain
     return new CostExplorerClient({ region: "us-east-1" });
 }
 /** Returns YYYY-MM-DD for today */
@@ -38,6 +52,10 @@ function yesterday() {
     d.setDate(d.getDate() - 1);
     return d.toISOString().slice(0, 10);
 }
+/** Monthly spend threshold in USD — alerts when MTD or forecast exceeds this */
+let runtimeCostThreshold = parseFloat(process.env.AWS_COST_THRESHOLD ?? "50");
+export function getCostThreshold() { return runtimeCostThreshold; }
+export function setCostThreshold(v) { runtimeCostThreshold = v; }
 export async function getAwsCostSummary() {
     const client = getClient();
     const start = startOfMonth();
@@ -107,6 +125,7 @@ export async function getAwsCostSummary() {
         yesterdayUSD,
         byService: byService.slice(0, 10), // top 10 services
         dailyAvgUSD,
+        threshold: runtimeCostThreshold,
     };
 }
 /** Human-readable summary string for the chat agent */
