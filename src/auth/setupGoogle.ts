@@ -21,7 +21,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const SCOPES = [
-  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.modify",  // read + mark as read/unread
   "https://www.googleapis.com/auth/gmail.send",    // send digest emails
   "https://www.googleapis.com/auth/calendar",      // read + write
   "https://www.googleapis.com/auth/tasks",         // Google Tasks read + write
