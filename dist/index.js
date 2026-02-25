@@ -11,6 +11,7 @@ import { coordinatorAgent, buildMorningBriefing, startScheduledJobs, rescheduleB
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
+import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -404,7 +405,30 @@ else {
             res.status(500).json({ error: String(err) });
         }
     });
-    // ─── Health check ────────────────────────────────────────────────────────
+    // ─── Recurring Reminders CRUD ────────────────────────────────────────────────────
+    app.get("/api/reminders", (_req, res) => {
+        res.json({ reminders: getReminders() });
+    });
+    app.post("/api/reminders", (req, res) => {
+        const { title, frequency, time, dayOfWeek, dayOfMonth, month, notes } = req.body;
+        if (!title || !frequency || !time)
+            return res.status(400).json({ error: "title, frequency, and time are required" });
+        const reminder = addReminder({ title, frequency, time, dayOfWeek, dayOfMonth, month, notes });
+        res.json({ ok: true, reminder });
+    });
+    app.patch("/api/reminders/:id", (req, res) => {
+        const updated = updateReminder(req.params.id, req.body);
+        if (!updated)
+            return res.status(404).json({ error: "Reminder not found" });
+        res.json({ ok: true, reminder: updated });
+    });
+    app.delete("/api/reminders/:id", (req, res) => {
+        const ok = deleteReminder(req.params.id);
+        if (!ok)
+            return res.status(404).json({ error: "Reminder not found" });
+        res.json({ ok: true });
+    });
+    // ─── Health check ────────────────────────────────────────────────────────────
     app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
     // ─── Web Push: VAPID public key + subscription endpoint ────────────────────
     app.get("/vapid-public-key", (_req, res) => {

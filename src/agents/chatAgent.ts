@@ -19,6 +19,7 @@ import { suggestRecurringEvents, formatRecurringSuggestions } from "../tools/rec
 import { sendDailyDigestEmail } from "../tools/digestEmail.js";
 import { getWeatherForecast } from "../tools/weatherTools.js";
 import { recordUsage, getUsageToday, getUsageHistory } from "../tools/usageTracker.js";
+import { getReminders, addReminder, deleteReminder, describeReminder } from "../tools/remindersTools.js";
 
 const openai = new OpenAI({
   apiKey: process.env.XAI_API_KEY,
@@ -43,6 +44,9 @@ When the user asks to check emails, show today's emails, list unread emails, or 
 When the user asks for the last email from someone, emails about a topic, or to search emails, ALWAYS call search_emails with the appropriate Gmail query.
 When the user asks to mark emails as read, clear unread, or mark today's emails as read, ALWAYS call mark_emails_read.
 When the user asks about token usage, LLM usage, API cost, how many tokens used, or AI usage stats, ALWAYS call get_llm_usage.
+When the user asks to add a reminder, set a recurring reminder, remind me about, or schedule a recurring alert (e.g. "remind me to pay my Amex bill on the 15th every month"), ALWAYS call add_reminder.
+When the user asks to see, list, or show reminders, ALWAYS call list_reminders.
+When the user asks to delete, remove, or cancel a reminder, ALWAYS call delete_reminder.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
@@ -307,6 +311,48 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "add_reminder",
+      description: "Create a recurring reminder that fires as a push notification. Use for things like 'remind me to pay my bill on the 15th every month', 'remind me every Monday at 9am', 'remind me every day at 8pm to take medication'. Supports daily, weekly, monthly, and yearly frequencies.",
+      parameters: {
+        type: "object",
+        properties: {
+          title:      { type: "string",  description: "What to remind the user about, e.g. 'Pay Amex bill'" },
+          frequency:  { type: "string",  enum: ["daily","weekly","monthly","yearly"], description: "How often the reminder repeats" },
+          time:       { type: "string",  description: "Time of day in 24-hour HH:MM format, e.g. '09:00'" },
+          dayOfWeek:  { type: "number",  description: "Day of week for weekly reminders: 0=Sunday, 1=Monday … 6=Saturday" },
+          dayOfMonth: { type: "number",  description: "Day of month (1-31) for monthly or yearly reminders" },
+          month:      { type: "number",  description: "Month (1-12) for yearly reminders" },
+          notes:      { type: "string",  description: "Optional extra context shown in the notification body" },
+        },
+        required: ["title", "frequency", "time"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_reminders",
+      description: "List all active recurring reminders the user has set.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_reminder",
+      description: "Delete a recurring reminder by its ID. Use list_reminders first to find the ID if needed.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "The reminder ID to delete" },
+        },
+        required: ["id"],
+      },
+    },
+  },
 ];
 
 // ─── Execute a tool call returned by the model ────────────────────────────
@@ -443,11 +489,38 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
             const { marked } = await markEmailsAsRead(alias, query);
             totalMarked += marked;
             details.push(`${alias}: ${marked} marked`);
-          } catch (e) {
-            details.push(`${alias}: error — ${e instanceof Error ? e.message : String(e)}`);
+          } catch (e: any) {
+            details.push(`${alias}: failed (${e.message})`);
           }
         }
-        return JSON.stringify({ success: true, totalMarked, details });
+        return JSON.stringify({ totalMarked, details });
+      }
+      case "add_reminder": {
+        const r = addReminder({
+          title:      String(args.title),
+          frequency:  String(args.frequency) as any,
+          time:       String(args.time),
+          dayOfWeek:  args.dayOfWeek !== undefined ? Number(args.dayOfWeek) : undefined,
+          dayOfMonth: args.dayOfMonth !== undefined ? Number(args.dayOfMonth) : undefined,
+          month:      args.month !== undefined ? Number(args.month) : undefined,
+          notes:      args.notes ? String(args.notes) : undefined,
+        });
+        return JSON.stringify({ ok: true, reminder: r, description: describeReminder(r) });
+      }
+      case "list_reminders": {
+        const reminders = getReminders();
+        if (reminders.length === 0) return JSON.stringify({ message: "No reminders set yet." });
+        return JSON.stringify(reminders.map(r => ({
+          id: r.id,
+          title: r.title,
+          schedule: describeReminder(r),
+          notes: r.notes,
+          active: r.active,
+        })));
+      }
+      case "delete_reminder": {
+        const ok = deleteReminder(String(args.id));
+        return JSON.stringify({ ok, message: ok ? "Reminder deleted." : "Reminder not found." });
       }
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });

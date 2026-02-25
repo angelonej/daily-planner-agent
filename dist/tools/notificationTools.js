@@ -14,6 +14,7 @@
 import { getCalendarEvents } from "./calendarTools.js";
 import { getTrafficDuration } from "./trafficTools.js";
 import { listTasks } from "./tasksTools.js";
+import { getDueReminders, markFired } from "./remindersTools.js";
 import { randomUUID } from "crypto";
 import webpush from "web-push";
 import fs from "fs";
@@ -288,6 +289,39 @@ async function checkUpcomingTasks() {
         console.error("Task reminder check error:", err instanceof Error ? err.message : err);
     }
 }
+// ─── Recurring reminder polling ──────────────────────────────────────────────
+async function checkRecurringReminders() {
+    try {
+        const tz = process.env.TIMEZONE ?? "America/New_York";
+        const due = getDueReminders(tz);
+        for (const r of due) {
+            const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
+            markFired(r.id, todayStr);
+            broadcast({
+                id: randomUUID(),
+                type: "task_reminder",
+                title: `🔔 ${r.title}`,
+                body: r.notes ?? describeReminderFreq(r.frequency, r.dayOfWeek, r.dayOfMonth, r.month),
+                timestamp: new Date().toISOString(),
+            });
+            console.log(`🔔 Recurring reminder fired: ${r.title}`);
+        }
+    }
+    catch (err) {
+        console.error("Recurring reminder check error:", err instanceof Error ? err.message : err);
+    }
+}
+function describeReminderFreq(freq, dayOfWeek, dayOfMonth, month) {
+    const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const MONTH_NAMES = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    if (freq === "weekly")
+        return `Weekly on ${DAY_NAMES[dayOfWeek ?? 0]}`;
+    if (freq === "monthly")
+        return `Monthly on the ${dayOfMonth}`;
+    if (freq === "yearly")
+        return `Yearly on ${MONTH_NAMES[month ?? 1]} ${dayOfMonth}`;
+    return "Daily reminder";
+}
 // ─── Heartbeat to keep SSE connections alive ───────────────────────────────
 function sendHeartbeat() {
     if (sseClients.size === 0)
@@ -315,9 +349,11 @@ export function startNotificationPolling() {
     setInterval(checkUpcomingTasks, 15 * 60 * 1_000);
     // Also fire once 30 seconds after startup (so morning reminders hit quickly)
     setTimeout(checkUpcomingTasks, 30_000);
+    // Recurring reminders — check every minute (they fire on the exact minute)
+    setInterval(checkRecurringReminders, 60_000);
     // Heartbeat every 30 seconds (keeps SSE alive through proxies/nginx)
     setInterval(sendHeartbeat, 30_000);
-    console.log(`🔔 Notification polling started (calendar: every ${pollSec}s, tasks: every 15min)`);
+    console.log(`🔔 Notification polling started (calendar: every ${pollSec}s, tasks: every 15min, reminders: every 1min)`);
 }
 /**
  * Manually push a notification — used by digestEmail.ts when the digest is sent

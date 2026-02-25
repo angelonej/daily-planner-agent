@@ -373,6 +373,7 @@
       <div class="nav-label">Actions</div>
       <button class="nav-btn" onclick="focusInput('Schedule ')"><span class="icon">➕</span> Add Event</button>
       <button class="nav-btn" onclick="focusInput('Add a task: ')"><span class="icon">📝</span> Add Task</button>
+      <button class="nav-btn" onclick="switchTab('reminders')"><span class="icon">🔔</span> Reminders</button>
       <button class="nav-btn" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
     </div>
     <div class="nav-divider"></div>
@@ -426,6 +427,7 @@
       <button class="rtab active" data-panel="overview" onclick="switchTab('overview')">Overview</button>
       <button class="rtab" data-panel="calendar" onclick="switchTab('calendar')">Calendar</button>
       <button class="rtab" data-panel="tasks" onclick="switchTab('tasks')">Tasks</button>
+      <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')">🔔</button>
       <button class="rtab" data-panel="email" onclick="switchTab('email')">Email</button>
       <button class="rtab" data-panel="news" onclick="switchTab('news')">News</button>
     </div>
@@ -500,6 +502,45 @@
         <div class="card">
           <div class="card-title">📰 Morning News <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
           <div id="news-list"></div>
+        </div>
+      </div>
+
+      <!-- Reminders Tab -->
+      <div class="panel" id="panel-reminders">
+        <div class="card">
+          <div class="card-title">🔔 Recurring Reminders <button class="refresh-btn" onclick="loadReminders()">⟳</button></div>
+          <div id="reminders-list"><div class="spinner"></div></div>
+          <!-- Add reminder form -->
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">New Reminder</div>
+            <input id="rem-title" class="topic-input" placeholder="e.g. Pay Amex bill" style="width:100%;margin-bottom:6px" />
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+              <select id="rem-freq" class="topic-input" style="cursor:pointer" onchange="updateReminderForm()">
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="daily">Daily</option>
+                <option value="yearly">Yearly</option>
+              </select>
+              <input id="rem-time" type="time" class="topic-input" value="09:00" />
+            </div>
+            <div id="rem-day-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:2px" id="rem-day-label">Day of month</div>
+                <input id="rem-day" type="number" min="1" max="31" value="1" class="topic-input" style="width:100%" />
+              </div>
+              <div id="rem-month-col" style="display:none">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Month</div>
+                <select id="rem-month" class="topic-input" style="cursor:pointer;width:100%">
+                  <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                  <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                  <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                  <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                </select>
+              </div>
+            </div>
+            <textarea id="rem-notes" class="topic-input" placeholder="Notes (optional)" rows="2" style="width:100%;resize:vertical;margin-bottom:8px"></textarea>
+            <button class="btn-primary" style="width:100%;padding:8px" onclick="addReminder()">+ Add Reminder</button>
+          </div>
         </div>
       </div>
 
@@ -586,6 +627,7 @@ setInterval(updateClock, 1000);
 function switchTab(name) {
   document.querySelectorAll('.rtab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  if (name === 'reminders') loadReminders();
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────
@@ -1102,7 +1144,123 @@ async function loadTaskLists() {
   } catch (e) { /* silently ignore */ }
 }
 
-async function completeTask(taskId, listId, el) {
+// ── Recurring Reminders ─────────────────────────────────────────────────────
+const FREQ_LABELS = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+const DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTH_NAMES = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function updateReminderForm() {
+  const freq = document.getElementById('rem-freq').value;
+  const dayRow = document.getElementById('rem-day-row');
+  const dayLabel = document.getElementById('rem-day-label');
+  const monthCol = document.getElementById('rem-month-col');
+  const dayInput = document.getElementById('rem-day');
+
+  if (freq === 'daily') {
+    dayRow.style.display = 'none';
+    return;
+  }
+  dayRow.style.display = 'grid';
+  if (freq === 'weekly') {
+    dayLabel.textContent = 'Day of week';
+    dayInput.type = 'number'; dayInput.min = '0'; dayInput.max = '6'; dayInput.value = '1';
+    dayInput.placeholder = '0=Sun … 6=Sat';
+    monthCol.style.display = 'none';
+  } else if (freq === 'monthly') {
+    dayLabel.textContent = 'Day of month';
+    dayInput.type = 'number'; dayInput.min = '1'; dayInput.max = '31'; dayInput.value = '1';
+    dayInput.placeholder = '1-31';
+    monthCol.style.display = 'none';
+  } else if (freq === 'yearly') {
+    dayLabel.textContent = 'Day of month';
+    dayInput.type = 'number'; dayInput.min = '1'; dayInput.max = '31'; dayInput.value = '1';
+    monthCol.style.display = 'block';
+  }
+}
+updateReminderForm(); // init on load
+
+async function loadReminders() {
+  const el = document.getElementById('reminders-list');
+  try {
+    const res = await fetch('/api/reminders');
+    const data = await res.json();
+    const reminders = data.reminders || [];
+    if (reminders.length === 0) {
+      el.innerHTML = '<div class="empty-state">No reminders yet.<br><small style="color:var(--muted)">Add one below or ask the agent.</small></div>';
+      return;
+    }
+    el.innerHTML = reminders.map(r => {
+      const schedule = describeReminderJS(r);
+      const color = r.active ? 'var(--green)' : 'var(--muted)';
+      return `<div class="task-item" style="align-items:flex-start" id="rem-${r.id}">
+        <div style="font-size:18px;line-height:1;padding-top:2px">🔔</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600">${escapeHtml(r.title)}</div>
+          <div style="font-size:11px;color:${color};margin-top:2px">${escapeHtml(schedule)}</div>
+          ${r.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escapeHtml(r.notes)}</div>` : ''}
+        </div>
+        <button onclick="deleteReminder('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 4px" title="Delete">✕</button>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state" style="color:var(--red)">Error loading reminders</div>`;
+  }
+}
+
+function describeReminderJS(r) {
+  const [h, m] = r.time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const ts = `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+  if (r.frequency === 'daily')   return `Every day at ${ts}`;
+  if (r.frequency === 'weekly')  return `Every ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][r.dayOfWeek ?? 0]} at ${ts}`;
+  if (r.frequency === 'monthly') return `Every month on the ${r.dayOfMonth} at ${ts}`;
+  if (r.frequency === 'yearly')  return `Every year on ${MONTH_NAMES[r.month ?? 1]} ${r.dayOfMonth} at ${ts}`;
+  return ts;
+}
+
+async function addReminder() {
+  const title = document.getElementById('rem-title').value.trim();
+  if (!title) { showToast('❌', 'Enter a reminder title'); return; }
+  const freq  = document.getElementById('rem-freq').value;
+  const time  = document.getElementById('rem-time').value;
+  const day   = parseInt(document.getElementById('rem-day').value);
+  const month = parseInt(document.getElementById('rem-month').value);
+  const notes = document.getElementById('rem-notes').value.trim();
+
+  const body = { title, frequency: freq, time };
+  if (freq === 'weekly')         body.dayOfWeek  = day;
+  if (freq === 'monthly')        body.dayOfMonth = day;
+  if (freq === 'yearly')       { body.dayOfMonth = day; body.month = month; }
+  if (notes) body.notes = notes;
+
+  try {
+    const res = await fetch('/api/reminders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('rem-title').value = '';
+      document.getElementById('rem-notes').value = '';
+      showToast('🔔 Reminder set', describeReminderJS(data.reminder));
+      loadReminders();
+    } else {
+      showToast('❌ Error', data.error || 'Could not add reminder');
+    }
+  } catch(e) { showToast('❌ Error', e.message); }
+}
+
+async function deleteReminder(id) {
+  try {
+    const res = await fetch(`/api/reminders/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) { showToast('🗑 Removed', 'Reminder deleted'); loadReminders(); }
+    else showToast('❌ Error', data.error || 'Could not delete');
+  } catch(e) { showToast('❌ Error', e.message); }
+}
+
+
   el.classList.add('done');
   try {
     const res = await fetch('/api/complete-task', {
@@ -1279,6 +1437,7 @@ async function saveSettings() {
 // Apply on load
 applyAssistantName();
 loadTaskLists();
+loadReminders();
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();
