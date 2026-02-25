@@ -493,7 +493,10 @@ if (process.argv.includes("--cli")) {
   // ─── Package tracking ─────────────────────────────────────────────────────────
   app.get("/api/packages", async (_req: Request, res: Response) => {
     try {
-      const packages = await getTrackedPackages();
+      // Re-use already-fetched emails from the briefing cache to avoid a double Gmail API call
+      const cached = await getCachedBriefing().catch(() => null);
+      const prefetchedEmails = cached?.emails?.length ? cached.emails : undefined;
+      const packages = await getTrackedPackages(prefetchedEmails);
       res.json({ packages });
     } catch (err) {
       res.status(500).json({ error: String(err) });

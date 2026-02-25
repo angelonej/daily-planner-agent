@@ -3,7 +3,6 @@
  * Scans fetched emails for shipping tracking numbers and returns PackageInfo objects.
  * No external tracking API calls — just extracts tracking numbers + carrier URLs.
  */
-import { fetchAllAccountEmails } from "./gmailTools.js";
 // ─── Carrier patterns ───────────────────────────────────────────────────────
 const PATTERNS = [
     {
@@ -57,11 +56,13 @@ function extractTrackingNumbers(text) {
     return results;
 }
 /**
- * Scans all unread emails for tracking numbers.
- * Returns deduplicated list of PackageInfo objects.
+ * Scans emails for tracking numbers.
+ * Pass pre-fetched emails to avoid a redundant Gmail API call.
+ * If omitted, fetches fresh.
  */
-export async function getTrackedPackages() {
-    const emails = await fetchAllAccountEmails();
+export async function getTrackedPackages(prefetchedEmails) {
+    const { fetchAllAccountEmails } = await import("./gmailTools.js");
+    const emails = prefetchedEmails ?? await fetchAllAccountEmails();
     const packages = [];
     const seenTrackingNums = new Set();
     for (const email of emails) {

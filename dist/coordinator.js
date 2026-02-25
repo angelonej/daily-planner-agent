@@ -10,12 +10,11 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { pushNotification, startNotificationPolling } from "./tools/notificationTools.js";
 import { getUsageToday } from "./tools/usageTracker.js";
 import { getTrafficDuration } from "./tools/trafficTools.js";
-import { getTrackedPackages } from "./tools/packageTools.js";
 import cron from "node-cron";
 // Cache the morning briefing per user so chat can reference it all day
 const briefingCache = new Map();
 // ─── Dashboard briefing cache (TTL = 5 minutes) ──────────────────────────────
-const BRIEFING_TTL_MS = 5 * 60 * 1000;
+const BRIEFING_TTL_MS = 15 * 60 * 1000;
 let dashboardCache = null;
 let dashboardFetchInFlight = null;
 export function invalidateDashboardCache() {
@@ -187,6 +186,7 @@ function proactiveAnalysis(briefing) {
 }
 // ─── Morning Briefing ──────────────────────────────────────────────────────
 export async function buildMorningBriefing() {
+    const t0 = Date.now();
     console.log("⏳ Fetching morning briefing data...");
     const [calendar, tasks, emails, news, weather, googleTasks] = await Promise.allSettled([
         calendarAgent(),
@@ -196,6 +196,7 @@ export async function buildMorningBriefing() {
         getWeather(),
         listTasks(30),
     ]);
+    console.log(`⏳ Core fetches done in ${Date.now() - t0}ms`);
     const calendarData = calendar.status === "fulfilled" ? calendar.value : [];
     const tasksData = tasks.status === "fulfilled" ? tasks.value : [];
     const emailsData = emails.status === "fulfilled" ? emails.value : [];
@@ -215,19 +216,12 @@ export async function buildMorningBriefing() {
     if (googleTasks.status === "rejected")
         console.error("Google Tasks error:", googleTasks.reason);
     const importantEmails = filterImportant(emailsData);
-    // Run proactive analysis and package tracking in parallel (non-blocking)
-    const [suggestionsResult, packagesResult] = await Promise.allSettled([
-        Promise.resolve(proactiveAnalysis({
-            calendar: calendarData, emails: emailsData, importantEmails,
-            news: newsData, weather: weatherData, googleTasks: googleTasksData,
-            llmUsage: getUsageToday(), generatedAt: new Date().toISOString(),
-        })),
-        getTrackedPackages(),
-    ]);
-    const suggestions = suggestionsResult.status === "fulfilled" ? suggestionsResult.value : [];
-    const packages = packagesResult.status === "fulfilled" ? packagesResult.value : [];
-    if (packagesResult.status === "rejected")
-        console.error("Package tracking error:", packagesResult.reason);
+    // Proactive analysis is synchronous — zero extra latency
+    const suggestions = proactiveAnalysis({
+        calendar: calendarData, emails: emailsData, importantEmails,
+        news: newsData, weather: weatherData, googleTasks: googleTasksData,
+        llmUsage: getUsageToday(), generatedAt: new Date().toISOString(),
+    });
     const briefing = {
         calendar: calendarData,
         emails: emailsData,
@@ -238,8 +232,9 @@ export async function buildMorningBriefing() {
         llmUsage: getUsageToday(),
         generatedAt: new Date().toISOString(),
         suggestions,
-        packages,
+        packages: [], // loaded lazily via /api/packages — not blocking briefing
     };
+    console.log(`✅ Morning briefing built in ${Date.now() - t0}ms`);
     return briefing;
 }
 function formatMorningBriefingText(briefing) {

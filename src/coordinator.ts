@@ -10,7 +10,6 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { pushNotification, startNotificationPolling } from "./tools/notificationTools.js";
 import { getUsageToday } from "./tools/usageTracker.js";
 import { getTrafficDuration } from "./tools/trafficTools.js";
-import { getTrackedPackages } from "./tools/packageTools.js";
 import { MorningBriefing, ScheduleBlock } from "./types.js";
 import cron from "node-cron";
 
@@ -18,7 +17,7 @@ import cron from "node-cron";
 const briefingCache = new Map<string, MorningBriefing>();
 
 // ─── Dashboard briefing cache (TTL = 5 minutes) ──────────────────────────────
-const BRIEFING_TTL_MS = 5 * 60 * 1000;
+const BRIEFING_TTL_MS = 15 * 60 * 1000;
 let dashboardCache: { data: MorningBriefing; fetchedAt: number } | null = null;
 let dashboardFetchInFlight: Promise<MorningBriefing> | null = null;
 
@@ -203,6 +202,7 @@ function proactiveAnalysis(briefing: MorningBriefing): string[] {
 
 // ─── Morning Briefing ──────────────────────────────────────────────────────
 export async function buildMorningBriefing(): Promise<MorningBriefing> {
+  const t0 = Date.now();
   console.log("⏳ Fetching morning briefing data...");
 
   const [calendar, tasks, emails, news, weather, googleTasks] = await Promise.allSettled([
@@ -213,36 +213,30 @@ export async function buildMorningBriefing(): Promise<MorningBriefing> {
     getWeather(),
     listTasks(30),
   ]);
+  console.log(`⏳ Core fetches done in ${Date.now() - t0}ms`);
 
-  const calendarData   = calendar.status     === "fulfilled" ? calendar.value     : [];
-  const tasksData      = tasks.status        === "fulfilled" ? tasks.value        : [];
-  const emailsData     = emails.status       === "fulfilled" ? emails.value       : [];
-  const newsData       = news.status         === "fulfilled" ? news.value         : [];
-  const weatherData    = weather.status      === "fulfilled" ? weather.value      : undefined;
-  const googleTasksData = googleTasks.status === "fulfilled" ? googleTasks.value  : [];
+  const calendarData    = calendar.status     === "fulfilled" ? calendar.value     : [];
+  const tasksData       = tasks.status        === "fulfilled" ? tasks.value        : [];
+  const emailsData      = emails.status       === "fulfilled" ? emails.value       : [];
+  const newsData        = news.status         === "fulfilled" ? news.value         : [];
+  const weatherData     = weather.status      === "fulfilled" ? weather.value      : undefined;
+  const googleTasksData = googleTasks.status  === "fulfilled" ? googleTasks.value  : [];
 
-  if (calendar.status     === "rejected") console.error("Calendar error:",    calendar.reason);
-  if (tasks.status        === "rejected") console.error("Tasks error:",       tasks.reason);
-  if (emails.status       === "rejected") console.error("Email error:",       emails.reason);
-  if (news.status         === "rejected") console.error("News error:",        news.reason);
-  if (weather.status      === "rejected") console.error("Weather error:",     weather.reason);
-  if (googleTasks.status  === "rejected") console.error("Google Tasks error:",googleTasks.reason);
+  if (calendar.status    === "rejected") console.error("Calendar error:",     calendar.reason);
+  if (tasks.status       === "rejected") console.error("Tasks error:",        tasks.reason);
+  if (emails.status      === "rejected") console.error("Email error:",        emails.reason);
+  if (news.status        === "rejected") console.error("News error:",         news.reason);
+  if (weather.status     === "rejected") console.error("Weather error:",      weather.reason);
+  if (googleTasks.status === "rejected") console.error("Google Tasks error:", googleTasks.reason);
 
   const importantEmails = filterImportant(emailsData);
 
-  // Run proactive analysis and package tracking in parallel (non-blocking)
-  const [suggestionsResult, packagesResult] = await Promise.allSettled([
-    Promise.resolve(proactiveAnalysis({
-      calendar: calendarData, emails: emailsData, importantEmails,
-      news: newsData, weather: weatherData, googleTasks: googleTasksData,
-      llmUsage: getUsageToday(), generatedAt: new Date().toISOString(),
-    })),
-    getTrackedPackages(),
-  ]);
-
-  const suggestions = suggestionsResult.status === "fulfilled" ? suggestionsResult.value : [];
-  const packages    = packagesResult.status    === "fulfilled" ? packagesResult.value    : [];
-  if (packagesResult.status === "rejected") console.error("Package tracking error:", packagesResult.reason);
+  // Proactive analysis is synchronous — zero extra latency
+  const suggestions = proactiveAnalysis({
+    calendar: calendarData, emails: emailsData, importantEmails,
+    news: newsData, weather: weatherData, googleTasks: googleTasksData,
+    llmUsage: getUsageToday(), generatedAt: new Date().toISOString(),
+  });
 
   const briefing: MorningBriefing = {
     calendar:     calendarData,
@@ -254,9 +248,10 @@ export async function buildMorningBriefing(): Promise<MorningBriefing> {
     llmUsage:     getUsageToday(),
     generatedAt:  new Date().toISOString(),
     suggestions,
-    packages,
+    packages:     [], // loaded lazily via /api/packages — not blocking briefing
   };
 
+  console.log(`✅ Morning briefing built in ${Date.now() - t0}ms`);
   return briefing;
 }
 
