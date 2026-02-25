@@ -122,11 +122,11 @@ function extractTrackingNumbers(text) {
 /**
  * Scans emails for tracking numbers.
  * Pass pre-fetched emails to avoid a redundant Gmail API call.
- * If omitted, fetches fresh.
+ * daysBack controls how far back to search (default 7, max 30).
  */
-export async function getTrackedPackages(prefetchedEmails) {
-    const { fetchAllAccountEmails } = await import("./gmailTools.js");
-    const emails = prefetchedEmails ?? await fetchAllAccountEmails();
+export async function getTrackedPackages(prefetchedEmails, daysBack = 7) {
+    const { fetchShippingEmails } = await import("./gmailTools.js");
+    const emails = prefetchedEmails ?? await fetchShippingEmails(Math.min(daysBack, 30));
     const packages = [];
     const seenTrackingNums = new Set();
     for (const email of emails) {

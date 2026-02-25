@@ -225,10 +225,11 @@ export async function buildMorningBriefing() {
     if (googleTasks.status === "rejected")
         console.error("Google Tasks error:", googleTasks.reason);
     const importantEmails = filterImportant(emailsData);
-    // Scan emails for packages arriving today — reuse already-fetched emails, zero extra API calls
+    // Scan shipping emails for packages arriving/delivered today — uses dedicated shipping search
+    // so it catches read emails (delivered confirmations) not just unread
     let packagesToday = [];
     try {
-        const allPackages = await getTrackedPackages(emailsData.length ? emailsData : undefined);
+        const allPackages = await getTrackedPackages(undefined, 2); // last 2 days for briefing
         packagesToday = allPackages.filter((p) => p.arrivingToday);
     }
     catch (err) {

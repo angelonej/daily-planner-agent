@@ -212,3 +212,63 @@ export async function fetchAllAccountEmails() {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
 }
+// ─── Fetch shipping-related emails (read OR unread) for package tracking ─────
+// Searches ALL mail (not just unread) so delivered/read confirmation emails show up.
+export async function fetchShippingEmails(daysBack = 7) {
+    const accounts = [
+        process.env.GMAIL_ACCOUNT_1_ALIAS ?? "personal",
+        process.env.GMAIL_ACCOUNT_2_ALIAS ?? "work",
+    ];
+    // Build Gmail search query: shipping keywords within the date window
+    const afterDate = new Date();
+    afterDate.setDate(afterDate.getDate() - daysBack);
+    const afterStr = afterDate.toISOString().slice(0, 10).replace(/-/g, "/");
+    const shippingQuery = `(subject:(shipped OR delivered OR delivery OR tracking OR "out for delivery" OR "arriving" OR "order") OR from:(amazon OR ups OR fedex OR usps OR dhl)) after:${afterStr}`;
+    const results = await Promise.allSettled(accounts.map(async (alias) => {
+        const auth = buildOAuth2Client();
+        await loadTokens(alias, auth);
+        const gmail = google.gmail({ version: "v1", auth });
+        const listRes = await gmail.users.messages.list({
+            userId: "me",
+            q: shippingQuery,
+            maxResults: 50,
+        });
+        const messages = listRes.data.messages ?? [];
+        if (messages.length === 0)
+            return [];
+        const fetched = await Promise.allSettled(messages.map(async (m) => {
+            const msg = await gmail.users.messages.get({
+                userId: "me",
+                id: m.id,
+                format: "metadata",
+                metadataHeaders: ["Subject", "From", "Date"],
+            });
+            const headers = msg.data.payload?.headers ?? [];
+            const get = (name) => headers.find(h => h.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+            const dateRaw = get("Date");
+            const dateObj = dateRaw ? new Date(dateRaw) : new Date();
+            return {
+                id: m.id,
+                subject: get("Subject") || "(no subject)",
+                from: get("From") || "",
+                snippet: msg.data.snippet ?? "",
+                date: dateObj.toISOString(),
+                isRead: !(msg.data.labelIds ?? []).includes("UNREAD"),
+                isImportant: false,
+                account: alias,
+                labels: msg.data.labelIds ?? [],
+            };
+        }));
+        return fetched
+            .filter((r) => r.status === "fulfilled")
+            .map(r => r.value);
+    }));
+    const emails = [];
+    for (const result of results) {
+        if (result.status === "fulfilled")
+            emails.push(...result.value);
+        else
+            console.error("Shipping email fetch error:", result.reason);
+    }
+    return emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}

@@ -358,9 +358,42 @@ if (process.argv.includes("--cli")) {
     }
   });
 
-  // ─── Settings API (news topics stored in memory, persisted to .env-like file) ─
-  let runtimeNewsTopics: string[] = (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
-    .split(",").map(t => t.trim()).filter(Boolean);
+  // ─── Settings: persist to settings.json so they survive restarts ──────────
+  const SETTINGS_FILE = path.resolve("settings.json");
+
+  interface PersistedSettings {
+    newsTopics?: string[];
+    morningBriefingTime?: string;
+    eveningBriefingTime?: string;
+    vipSenders?: string[];
+    filterKeywords?: string[];
+    awsCostThreshold?: number;
+  }
+
+  function loadPersistedSettings(): PersistedSettings {
+    try {
+      if (fs.existsSync(SETTINGS_FILE)) {
+        return JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf-8"));
+      }
+    } catch { /* ignore parse errors */ }
+    return {};
+  }
+
+  function savePersistedSettings(s: PersistedSettings): void {
+    try { fs.writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2)); }
+    catch (e) { console.error("Failed to save settings.json:", e); }
+  }
+
+  // Apply persisted settings on startup
+  const _saved = loadPersistedSettings();
+  let runtimeNewsTopics: string[] = _saved.newsTopics ??
+    (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
+      .split(",").map(t => t.trim()).filter(Boolean);
+  if (_saved.vipSenders) setVipSenders(_saved.vipSenders);
+  if (_saved.filterKeywords) setFilterKeywords(_saved.filterKeywords);
+  if (_saved.awsCostThreshold) setCostThreshold(_saved.awsCostThreshold);
+  if (_saved.morningBriefingTime) process.env.MORNING_BRIEFING_TIME = _saved.morningBriefingTime;
+  if (_saved.eveningBriefingTime) process.env.EVENING_BRIEFING_TIME = _saved.eveningBriefingTime;
 
   app.get("/api/settings", (_req: Request, res: Response) => {
     res.json({
@@ -375,6 +408,7 @@ if (process.argv.includes("--cli")) {
       eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
       vipSenders: getVipSenders(),
       filterKeywords: getFilterKeywords(),
+      awsCostThreshold: getCostThreshold(),
     });
   });
 
@@ -403,9 +437,18 @@ if (process.argv.includes("--cli")) {
       process.env.EVENING_BRIEFING_TIME = eveningBriefingTime;
       rescheduled = true;
     }
-    if (rescheduled) {
-      rescheduleBriefingJobs();
-    }
+    if (rescheduled) rescheduleBriefingJobs();
+
+    // Persist everything to disk so it survives restarts
+    savePersistedSettings({
+      newsTopics: runtimeNewsTopics,
+      morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
+      eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
+      vipSenders: getVipSenders(),
+      filterKeywords: getFilterKeywords(),
+      awsCostThreshold: getCostThreshold(),
+    });
+
     invalidateDashboardCache();
     res.json({
       ok: true,
@@ -507,13 +550,12 @@ if (process.argv.includes("--cli")) {
   });
 
   // ─── Package tracking ─────────────────────────────────────────────────────────
-  app.get("/api/packages", async (_req: Request, res: Response) => {
+  app.get("/api/packages", async (req: Request, res: Response) => {
     try {
-      // Re-use already-fetched emails from the briefing cache to avoid a double Gmail API call
-      const cached = await getCachedBriefing().catch(() => null);
-      const prefetchedEmails = cached?.emails?.length ? cached.emails : undefined;
-      const packages = await getTrackedPackages(prefetchedEmails);
-      res.json({ packages });
+      const daysBack = Math.min(Number(req.query?.daysBack ?? 7), 30);
+      // For short lookbacks, try to reuse briefing cache emails; for longer ones always do a fresh shipping search
+      const packages = await getTrackedPackages(undefined, daysBack);
+      res.json({ packages, daysBack });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

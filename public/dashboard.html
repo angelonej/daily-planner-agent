@@ -591,8 +591,17 @@
       <!-- Packages Tab -->
       <div class="panel" id="panel-packages">
         <div class="card">
-          <div class="card-title">📦 Package Tracking <button class="refresh-btn" onclick="loadPackages()">⟳</button></div>
-          <div id="packages-list"><div class="empty-state">Click ⟳ to scan emails for tracking numbers</div></div>
+          <div class="card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            📦 Package Tracking
+            <select id="pkg-days-select" style="margin-left:4px;font-size:12px;padding:2px 6px;border-radius:6px;background:var(--surface);color:var(--text);border:1px solid var(--border)" onchange="loadPackages()">
+              <option value="2">Last 2 days</option>
+              <option value="7" selected>Last 7 days</option>
+              <option value="14">Last 2 weeks</option>
+              <option value="30">Last 30 days</option>
+            </select>
+            <button class="refresh-btn" onclick="loadPackages()">⟳</button>
+          </div>
+          <div id="packages-list"><div class="empty-state">Select a time range and click ⟳ to scan shipping emails</div></div>
         </div>
       </div>
 
@@ -1599,22 +1608,52 @@ function renderNews(news) {
 // ── Package tracking ──────────────────────────────────────────────────────
 async function loadPackages() {
   const el = document.getElementById('packages-list');
+  const daysBack = document.getElementById('pkg-days-select')?.value ?? '7';
   el.innerHTML = '<div class="spinner"></div>';
   try {
-    const res = await fetch('/api/packages');
+    const res = await fetch(`/api/packages?daysBack=${daysBack}`);
     const data = await res.json();
     const pkgs = data.packages || [];
     if (pkgs.length === 0) {
-      el.innerHTML = '<div class="empty-state">📦 No tracking numbers found in recent emails.<br><small style="color:var(--muted)">Tracking numbers are scanned from UPS, FedEx, USPS, and Amazon shipping emails.</small></div>';
+      el.innerHTML = `<div class="empty-state">📦 No shipping emails found in the last ${daysBack} days.<br><small style="color:var(--muted)">Scans UPS, FedEx, USPS, and Amazon shipping/delivery emails.</small></div>`;
       return;
     }
-    el.innerHTML = pkgs.map(p => `
+    // Group: arriving/delivered today first, then others
+    const today = pkgs.filter(p => p.arrivingToday);
+    const other = pkgs.filter(p => !p.arrivingToday);
+    const renderPkg = (p) => {
+      const subjectLower = (p.emailSubject||'').toLowerCase();
+      const isDelivered = subjectLower.includes('delivered');
+      const statusBadge = p.arrivingToday
+        ? (isDelivered
+            ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:#22c55e;color:#fff">✓ Delivered</span>`
+            : `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:#f59e0b;color:#fff">🚚 Today</span>`)
+        : (isDelivered
+            ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:#6b7280;color:#fff">✓ Delivered</span>`
+            : `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:#3b82f6;color:#fff">🚚 In Transit</span>`);
+      const dateStr = p.emailDate ? new Date(p.emailDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+      return `
       <div class="pkg-item">
-        <div class="pkg-carrier">${escapeHtml(p.carrier)}</div>
-        <div class="pkg-number"><a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener">${escapeHtml(p.trackingNumber)} ↗</a></div>
-        <div class="pkg-subject">${escapeHtml(p.emailSubject)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${escapeHtml(p.emailFrom)} · ${escapeHtml(p.emailDate)}</div>
-      </div>`).join('');
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent);color:#fff">${escapeHtml(p.carrier)}</span>
+          ${statusBadge}
+          <a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600">${escapeHtml(p.trackingNumber)} ↗</a>
+        </div>
+        <div class="pkg-subject" style="margin-top:3px">${escapeHtml(p.emailSubject)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px">${escapeHtml(p.emailFrom)} · ${dateStr}</div>
+      </div>`;
+    };
+    let html = '';
+    if (today.length > 0) {
+      html += `<div style="font-size:11px;font-weight:700;color:var(--accent);margin:4px 0 6px;text-transform:uppercase;letter-spacing:.5px">📦 Today</div>`;
+      html += today.map(renderPkg).join('');
+    }
+    if (other.length > 0) {
+      if (today.length > 0) html += `<div style="margin:10px 0 6px;border-top:1px solid var(--border)"></div>`;
+      html += `<div style="font-size:11px;font-weight:700;color:var(--muted);margin:4px 0 6px;text-transform:uppercase;letter-spacing:.5px">Recent (last ${daysBack}d)</div>`;
+      html += other.map(renderPkg).join('');
+    }
+    el.innerHTML = html;
   } catch(e) {
     el.innerHTML = '<div class="empty-state" style="color:var(--red)">Error loading packages</div>';
   }
