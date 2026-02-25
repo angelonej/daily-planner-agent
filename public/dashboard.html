@@ -1741,6 +1741,10 @@ async function saveSettings() {
 
 // Apply on load
 applyAssistantName();
+// Load briefing data immediately on page open
+loadBriefing(false);
+// Load AWS cost card
+loadAwsCost(false);
 // Delay non-critical init calls so they don't compete with the briefing fetch
 setTimeout(() => { loadTaskLists(); loadReminders(); }, 2000);
 // Close modal on overlay click
