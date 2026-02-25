@@ -1,0 +1,34 @@
+{
+  "name": "daily-planner-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node -r dotenv/config dist/index.js",
+    "dev": "ts-node --esm src/index.ts",
+    "cli": "node -r dotenv/config dist/index.js --cli",
+    "auth": "node --loader ts-node/esm src/auth/setupGoogle.ts",
+    "deploy": "bash scripts/deploy.sh",
+    "upload-tokens": "bash scripts/upload-tokens.sh",
+    "upload-tokens-ssm": "node --loader ts-node/esm src/auth/uploadTokensToSSM.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.997.0",
+    "@types/multer": "^2.0.0",
+    "@types/node-cron": "^3.0.11",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "googleapis": "^140.0.1",
+    "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.0.0",
+    "twilio": "^5.12.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.19.33",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
+  }
+}

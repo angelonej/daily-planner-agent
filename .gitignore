@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# environment variables — NEVER commit these
+.env
+
+# OAuth tokens — NEVER commit these (contain your account access)
+tokens/
+
+# logs
+*.log
+npm-debug.log*
+logs/*.log
+logs/*.gz
+
+# keep the logs directory itself
+!logs/.gitkeep

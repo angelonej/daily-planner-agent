@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Planner Agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f1117;
+      color: #e1e4e8;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 14px 20px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header .dot { width: 9px; height: 9px; border-radius: 50%; background: #3fb950; }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .bubble {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      line-height: 1.5;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bubble.user {
+      background: #1f6feb;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.agent {
+      background: #21262d;
+      border: 1px solid #30363d;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.system {
+      background: transparent;
+      border: 1px dashed #30363d;
+      color: #8b949e;
+      font-size: 12px;
+      align-self: center;
+      max-width: 90%;
+      text-align: center;
+    }
+    .bubble.thinking {
+      background: #21262d;
+      border: 1px solid #30363d;
+      align-self: flex-start;
+      color: #8b949e;
+      font-size: 13px;
+      border-bottom-left-radius: 4px;
+    }
+    .dots span {
+      animation: blink 1.2s infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+    .label {
+      font-size: 11px;
+      color: #8b949e;
+      margin-bottom: 2px;
+      padding: 0 4px;
+    }
+    .label.right { text-align: right; }
+
+    footer {
+      padding: 14px 20px;
+      background: #161b22;
+      border-top: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .top-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    #textInput {
+      flex: 1;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      color: #e1e4e8;
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #textInput:focus { border-color: #1f6feb; }
+    #textInput::placeholder { color: #484f58; }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 16px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.96); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #sendBtn {
+      background: #1f6feb;
+      color: #fff;
+    }
+    #morningBtn {
+      background: #238636;
+      color: #fff;
+      white-space: nowrap;
+    }
+    #clearBtn {
+      background: #30363d;
+      color: #8b949e;
+    }
+    #digestBtn {
+      background: #6f42c1;
+      color: #fff;
+      white-space: nowrap;
+    }
+    #recurringBtn {
+      background: #1a7f5a;
+      color: #fff;
+      white-space: nowrap;
+    }
+    #notifBtn {
+      background: #21262d;
+      border: 2px solid #30363d;
+      color: #e1e4e8;
+      font-size: 18px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      padding: 0;
+      position: relative;
+    }
+    #notifBtn.active { border-color: #3fb950; }
+    #notifBadge {
+      display: none;
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #da3633;
+      color: #fff;
+      font-size: 10px;
+      font-weight: bold;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      line-height: 16px;
+      text-align: center;
+    }
+
+    /* Notification toast */
+    #toastContainer {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-left: 4px solid #3fb950;
+      border-radius: 8px;
+      padding: 12px 16px;
+      max-width: 320px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      animation: slideIn 0.3s ease;
+      pointer-events: all;
+    }
+    .toast.urgent { border-left-color: #da3633; }
+    .toast-title { font-weight: 600; font-size: 14px; color: #e1e4e8; }
+    .toast-body  { font-size: 13px; color: #8b949e; margin-top: 2px; }
+    @keyframes slideIn { from { transform: translateX(110%); opacity:0; } to { transform: translateX(0); opacity:1; } }
+    @keyframes slideOut { to { transform: translateX(110%); opacity:0; } }
+
+    .voice-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #micBtn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #21262d;
+      border: 2px solid #30363d;
+      color: #e1e4e8;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #micBtn:hover { border-color: #1f6feb; }
+    #micBtn.recording {
+      background: #da3633;
+      border-color: #da3633;
+      box-shadow: 0 0 0 6px rgba(218,54,51,0.25);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 4px rgba(218,54,51,0.25)} 50%{box-shadow:0 0 0 10px rgba(218,54,51,0.1)} }
+
+    #voiceStatus {
+      font-size: 13px;
+      color: #8b949e;
+      flex: 1;
+    }
+
+    #audioPlayer {
+      display: none;
+    }
+
+    .transcript-tag {
+      font-size: 11px;
+      color: #8b949e;
+      font-style: italic;
+      margin-top: 2px;
+      padding: 0 4px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+<div id="toastContainer"></div>
+
+<header>
+  <div class="dot"></div>
+  <h1>🤖 Daily Planner Agent</h1>
+</header>
+
+<div id="chat">
+  <div class="bubble system">
+    Say hello, ask about your calendar, or press ☀️ for your morning briefing.<br/>
+    Hold 🎙 to speak, or type below.
+  </div>
+</div>
+
+<footer>
+  <div class="top-bar">
+    <input id="textInput" type="text" placeholder='Type a message or press 🎙 to speak…' autocomplete="off" />
+    <button id="sendBtn">Send</button>
+    <button id="morningBtn">☀️ Morning</button>
+    <button id="digestBtn" title="Send morning briefing to your email">📧 Email Digest</button>
+    <button id="recurringBtn" title="Analyze calendar for recurring patterns">🔄 Recurring</button>
+    <button id="clearBtn">Clear</button>
+    <button id="notifBtn" title="Enable browser notifications">🔔<span id="notifBadge"></span></button>
+  </div>
+  <div class="voice-bar">
+    <button id="micBtn" title="Click to start/stop listening">🎙</button>
+    <span id="voiceStatus">Click the mic button to speak</span>
+  </div>
+</footer>
+
+<script>
+  const chat        = document.getElementById('chat');
+  const textInput   = document.getElementById('textInput');
+  const sendBtn     = document.getElementById('sendBtn');
+  const morningBtn  = document.getElementById('morningBtn');
+  const digestBtn   = document.getElementById('digestBtn');
+  const recurringBtn= document.getElementById('recurringBtn');
+  const clearBtn    = document.getElementById('clearBtn');
+  const notifBtn    = document.getElementById('notifBtn');
+  const notifBadge  = document.getElementById('notifBadge');
+  const micBtn      = document.getElementById('micBtn');
+  const voiceStatus = document.getElementById('voiceStatus');
+  const toastContainer = document.getElementById('toastContainer');
+
+  const USER_ID = 'web-user';
+  let unreadNotifs = 0;
+
+  // ── Toast notifications ────────────────────────────────────────────────
+  function showToast(title, body, urgent = false) {
+    const toast = document.createElement('div');
+    toast.className = 'toast' + (urgent ? ' urgent' : '');
+    toast.innerHTML = `<div class="toast-title">${title}</div><div class="toast-body">${body}</div>`;
+    toastContainer.appendChild(toast);
+    // Also show browser notification if permission granted
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' });
+    }
+    // Badge count
+    unreadNotifs++;
+    notifBadge.style.display = 'block';
+    notifBadge.textContent = unreadNotifs > 9 ? '9+' : unreadNotifs;
+    // Auto-remove after 6 seconds
+    setTimeout(() => {
+      toast.style.animation = 'slideOut 0.3s ease forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, 6000);
+  }
+
+  // ── SSE: listen for server-push notifications ──────────────────────────
+  function connectSSE() {
+    const es = new EventSource('/notifications');
+    es.addEventListener('notification', (e) => {
+      try {
+        const alert = JSON.parse(e.data);
+        const urgent = alert.type === 'event_starting';
+        showToast(alert.title, alert.body, urgent);
+      } catch {}
+    });
+    es.addEventListener('error', () => {
+      // Reconnect after 5s on error
+      es.close();
+      setTimeout(connectSSE, 5000);
+    });
+  }
+  connectSSE();
+
+  // ── Notification bell: request browser permission ──────────────────────
+  notifBtn.addEventListener('click', async () => {
+    // Clear badge
+    unreadNotifs = 0;
+    notifBadge.style.display = 'none';
+
+    if (Notification.permission === 'granted') {
+      notifBtn.classList.add('active');
+      showToast('🔔 Notifications', 'Browser notifications are already enabled!');
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      showToast('🔕 Blocked', 'Browser notifications are blocked. Enable them in browser settings.');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      notifBtn.classList.add('active');
+      showToast('🔔 Notifications enabled', 'You will get alerts for upcoming events!');
+    }
+  });
+
+  // Auto-check permission on load
+  if (Notification.permission === 'granted') notifBtn.classList.add('active');
+
+  // ── Web Speech API setup ───────────────────────────────────────────────
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isListening = false;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onresult = (event) => {
+      const results = Array.from(event.results);
+      const transcript = results.map(r => r[0].transcript).join('');
+      if (event.results[event.results.length - 1].isFinal) {
+        voiceStatus.textContent = '⏳ Sending…';
+        sendText(transcript);
+      } else {
+        voiceStatus.textContent = '🎙 "' + transcript + '"';
+      }
+    };
+
+    recognition.onerror = (e) => {
+      voiceStatus.textContent = e.error === 'not-allowed'
+        ? '⚠️ Mic permission denied'
+        : '⚠️ Speech error: ' + e.error;
+      micBtn.classList.remove('recording');
+      isListening = false;
+    };
+
+    recognition.onend = () => {
+      micBtn.classList.remove('recording');
+      isListening = false;
+      voiceStatus.textContent = 'Click the mic button to speak';
+    };
+  } else {
+    voiceStatus.textContent = '⚠️ Voice not supported in this browser (use Chrome)';
+    micBtn.disabled = true;
+  }
+
+  // ── helpers ────────────────────────────────────────────────────────────
+  function addBubble(role, text) {
+    const wrap = document.createElement('div');
+
+    const label = document.createElement('div');
+    label.className = 'label' + (role === 'user' ? ' right' : '');
+    label.textContent = role === 'user' ? 'You' : 'Assistant';
+    wrap.appendChild(label);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble ' + role;
+    bubble.textContent = text;
+    wrap.appendChild(bubble);
+
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+    return bubble;
+  }
+
+  function addThinking() {
+    const wrap = document.createElement('div');
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = 'Assistant';
+    wrap.appendChild(label);
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble thinking';
+    bubble.innerHTML = '<span class="dots"><span>●</span><span>●</span><span>●</span></span>';
+    wrap.appendChild(bubble);
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+    return wrap;
+  }
+
+  function setButtons(disabled) {
+    sendBtn.disabled = disabled;
+    morningBtn.disabled = disabled;
+    digestBtn.disabled = disabled;
+    recurringBtn.disabled = disabled;
+    micBtn.disabled = disabled;
+  }
+
+  // ── Browser TTS (free, no API) ─────────────────────────────────────────
+  function speakText(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel(); // stop any current speech
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'en-US';
+    utt.rate = 1.05;
+    utt.pitch = 1;
+    // Prefer a natural-sounding voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.name.includes('Google US English') ||
+      v.name.includes('Samantha') ||
+      v.name.includes('Karen') ||
+      (v.lang === 'en-US' && v.localService)
+    );
+    if (preferred) utt.voice = preferred;
+    window.speechSynthesis.speak(utt);
+  }
+
+  // Voices load async — preload them
+  window.speechSynthesis?.getVoices();
+  window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
+
+  // ── text send ──────────────────────────────────────────────────────────
+  async function sendText(msg) {
+    if (!msg.trim()) return;
+    textInput.value = '';
+    addBubble('user', msg);
+    const thinking = addThinking();
+    setButtons(true);
+
+    try {
+      const res = await fetch('/voice-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg, userId: USER_ID }),
+      });
+      const data = await res.json();
+      thinking.remove();
+      const reply = data.reply || data.error || 'No response';
+      addBubble('agent', reply);
+      speakText(reply);
+    } catch (e) {
+      thinking.remove();
+      addBubble('agent', '⚠️ Network error: ' + e.message);
+    } finally {
+      setButtons(false);
+      voiceStatus.textContent = 'Click the mic button to speak';
+      textInput.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', () => sendText(textInput.value));
+  textInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) sendText(textInput.value); });
+  morningBtn.addEventListener('click', () => sendText('/morning'));
+  digestBtn.addEventListener('click', async () => {
+    setButtons(true);
+    digestBtn.textContent = '📧 Sending…';
+    try {
+      const res = await fetch('/send-digest', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        showToast('📧 Digest sent!', `Morning briefing emailed successfully.`);
+        addBubble('agent', '✅ Morning digest email sent!');
+      } else {
+        addBubble('agent', `❌ Email failed: ${data.error}`);
+      }
+    } catch (e) {
+      addBubble('agent', '⚠️ Could not send digest: ' + e.message);
+    } finally {
+      digestBtn.textContent = '📧 Email Digest';
+      setButtons(false);
+    }
+  });
+  recurringBtn.addEventListener('click', () => sendText('analyze my calendar for recurring patterns'));
+  clearBtn.addEventListener('click', async () => {
+    window.speechSynthesis?.cancel();
+    await fetch('/voice-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: '/clear', userId: USER_ID }),
+    });
+    chat.innerHTML = '<div class="bubble system">Conversation cleared.</div>';
+  });
+
+  // ── Mic button: click to toggle listening ──────────────────────────────
+  micBtn.addEventListener('click', () => {
+    if (!recognition) return;
+    if (isListening) {
+      recognition.stop();
+      isListening = false;
+      micBtn.classList.remove('recording');
+      voiceStatus.textContent = 'Click the mic button to speak';
+    } else {
+      window.speechSynthesis?.cancel(); // stop TTS before listening
+      recognition.start();
+      isListening = true;
+      micBtn.classList.add('recording');
+      voiceStatus.textContent = '🔴 Listening… speak now';
+    }
+  });
+</script>
+
+</body>
+</html>
