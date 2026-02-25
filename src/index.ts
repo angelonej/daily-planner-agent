@@ -177,7 +177,7 @@ if (process.argv.includes("--cli")) {
       (req.session as any).authenticated = true; // re-hydrate cookie session
       return next();
     }
-    const isApiCall = req.xhr || (req.headers.accept ?? "").includes("application/json") || req.path.startsWith("/voice-chat") || req.path.startsWith("/send-digest") || req.path.startsWith("/notifications");
+    const isApiCall = req.xhr || (req.headers.accept ?? "").includes("application/json") || req.path.startsWith("/voice-chat") || req.path.startsWith("/send-digest") || req.path.startsWith("/notifications") || req.path.startsWith("/api/");
     if (isApiCall) return res.status(401).json({ error: "Session expired. Please log in again.", redirect: "/login" });
     return res.redirect("/login");
   });

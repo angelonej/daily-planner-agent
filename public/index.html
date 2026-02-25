@@ -857,8 +857,11 @@
     closeDrawer();
     showToast('📰 Loading news...');
     try {
-      const r = await fetch('/api/briefing', { headers: { Authorization: 'Bearer ' + (localStorage.getItem('authToken') || '') } });
-      if (!r.ok) throw new Error('Failed to load briefing');
+      const r = await fetch('/api/briefing');
+      if (r.status === 401) { showToast('🔒 Session expired', 'Please log in again'); return; }
+      if (!r.ok) throw new Error('Server error ' + r.status);
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('Unexpected response from server');
       const data = await r.json();
       const news = data.news ?? [];
       if (!news.length || news.every(n => !n.articles?.length)) {
@@ -880,8 +883,11 @@
     closeDrawer();
     showToast('📧 Loading emails...');
     try {
-      const r = await fetch('/api/briefing', { headers: { Authorization: 'Bearer ' + (localStorage.getItem('authToken') || '') } });
-      if (!r.ok) throw new Error('Failed to load briefing');
+      const r = await fetch('/api/briefing');
+      if (r.status === 401) { showToast('🔒 Session expired', 'Please log in again'); return; }
+      if (!r.ok) throw new Error('Server error ' + r.status);
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('Unexpected response from server');
       const data = await r.json();
       const emails = data.emails ?? [];
       const important = data.importantEmails ?? [];
