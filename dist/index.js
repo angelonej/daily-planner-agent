@@ -1,4 +1,5 @@
 import express from "express";
+import session from "express-session";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 import readline from "readline";
@@ -39,7 +40,97 @@ else {
     const app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: false })); // needed for Twilio form posts
-    // Serve the web UI
+    // ─── Session & Auth ────────────────────────────────────────────────────
+    const APP_PASSWORD = process.env.APP_PASSWORD;
+    const SESSION_SECRET = process.env.SESSION_SECRET ?? "change-me-please";
+    app.use(session({
+        secret: SESSION_SECRET,
+        resave: false,
+        saveUninitialized: false,
+        cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: "lax" }
+    }));
+    // Login page
+    app.get("/login", (_req, res) => {
+        res.send(`<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login – Daily Planner</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0f1117;color:#e1e4e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      display:flex;align-items:center;justify-content:center;min-height:100vh;}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:32px 28px;width:100%;max-width:340px;}
+    h1{font-size:20px;margin-bottom:24px;text-align:center;}  
+    input{width:100%;background:#21262d;border:1px solid #30363d;border-radius:8px;
+      color:#e1e4e8;padding:12px 14px;font-size:16px;outline:none;margin-bottom:16px;}
+    input:focus{border-color:#1f6feb;}
+    button{width:100%;background:#1f6feb;color:#fff;border:none;border-radius:8px;
+      padding:12px;font-size:15px;font-weight:600;cursor:pointer;}
+    .err{color:#f85149;font-size:13px;margin-bottom:12px;text-align:center;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🤖 Daily Planner</h1>
+    <form method="POST" action="/login">
+      <input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password"/>
+      <button type="submit">Sign In</button>
+    </form>
+  </div>
+</body></html>`);
+    });
+    app.post("/login", (req, res) => {
+        const { password } = req.body;
+        if (!APP_PASSWORD || password === APP_PASSWORD) {
+            req.session.authenticated = true;
+            return res.redirect("/");
+        }
+        res.send(`<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login – Daily Planner</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0f1117;color:#e1e4e8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      display:flex;align-items:center;justify-content:center;min-height:100vh;}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:32px 28px;width:100%;max-width:340px;}
+    h1{font-size:20px;margin-bottom:24px;text-align:center;}
+    input{width:100%;background:#21262d;border:1px solid #30363d;border-radius:8px;
+      color:#e1e4e8;padding:12px 14px;font-size:16px;outline:none;margin-bottom:16px;}
+    input:focus{border-color:#1f6feb;}
+    button{width:100%;background:#1f6feb;color:#fff;border:none;border-radius:8px;
+      padding:12px;font-size:15px;font-weight:600;cursor:pointer;}
+    .err{color:#f85149;font-size:13px;margin-bottom:12px;text-align:center;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🤖 Daily Planner</h1>
+    <p class="err">❌ Incorrect password</p>
+    <form method="POST" action="/login">
+      <input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password"/>
+      <button type="submit">Sign In</button>
+    </form>
+  </div>
+</body></html>`);
+    });
+    app.get("/logout", (req, res) => {
+        req.session.destroy(() => res.redirect("/login"));
+    });
+    // Auth guard — skip for Twilio webhooks and health check
+    const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond"]);
+    app.use((req, res, next) => {
+        if (!APP_PASSWORD)
+            return next(); // no password set = open
+        if (OPEN_PATHS.has(req.path))
+            return next(); // public endpoints
+        if (req.session.authenticated)
+            return next(); // logged in
+        return res.redirect("/login");
+    });
+    // Serve the web UI (after auth guard)
     const publicDir = path.join(__dirname, "..", "public");
     app.use(express.static(publicDir));
     // Multer: kept for potential future use
