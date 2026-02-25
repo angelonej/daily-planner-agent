@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily Planner Agent</title>
+  <link rel="manifest" href="/manifest.json" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -912,6 +913,37 @@
       voiceStatus.textContent = '🔴 Listening… speak now';
     }
   });
+// ─── Service Worker + Web Push ────────────────────────────────────────────
+async function registerPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/service-worker.js');
+    // Get VAPID public key
+    const keyRes = await fetch('/vapid-public-key');
+    if (!keyRes.ok) return;
+    const { key } = await keyRes.json();
+    // Check if already subscribed
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: key,
+      });
+    }
+    // Send subscription to server
+    await fetch('/push-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub),
+    });
+    console.log('✅ Push notifications registered');
+  } catch (e) {
+    console.warn('Push registration failed:', e);
+  }
+}
+registerPush();
 </script>
 
 </body>

@@ -8,7 +8,7 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import { coordinatorAgent, buildMorningBriefing, startScheduledJobs } from "./coordinator.js";
-import { addNotificationClient, updateUserLocation } from "./tools/notificationTools.js";
+import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask } from "./tools/tasksTools.js";
 const __filename = fileURLToPath(import.meta.url);
@@ -121,7 +121,7 @@ else {
         req.session.destroy(() => res.redirect("/login"));
     });
     // Auth guard — skip for Twilio webhooks and health check
-    const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond"]);
+    const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key"]);
     app.use((req, res, next) => {
         if (!APP_PASSWORD)
             return next(); // no password set = open
@@ -376,8 +376,22 @@ else {
             res.status(500).json({ error: String(err) });
         }
     });
-    // ─── Health check ──────────────────────────────────────────────────────
+    // ─── Health check ────────────────────────────────────────────────────────
     app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+    // ─── Web Push: VAPID public key + subscription endpoint ────────────────────
+    app.get("/vapid-public-key", (_req, res) => {
+        const key = process.env.VAPID_PUBLIC_KEY;
+        if (!key)
+            return res.status(503).json({ error: "Push notifications not configured" });
+        res.json({ key });
+    });
+    app.post("/push-subscribe", (req, res) => {
+        const sub = req.body;
+        if (!sub?.endpoint)
+            return res.status(400).json({ error: "Invalid subscription" });
+        addPushSubscription(sub);
+        res.json({ ok: true });
+    });
     const PORT = Number(process.env.PORT ?? 3000);
     app.listen(PORT, () => {
         console.log(`🤖 Daily Planner Agent running on port ${PORT}`);

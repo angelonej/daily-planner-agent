@@ -7,9 +7,10 @@ import twilio from "twilio";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import webpush from "web-push";
 import { fileURLToPath } from "url";
 import { coordinatorAgent, buildMorningBriefing, startScheduledJobs } from "./coordinator.js";
-import { addNotificationClient, updateUserLocation } from "./tools/notificationTools.js";
+import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask } from "./tools/tasksTools.js";
 
@@ -131,7 +132,7 @@ if (process.argv.includes("--cli")) {
   });
 
   // Auth guard — skip for Twilio webhooks and health check
-  const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond"]);
+  const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key"]);
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!APP_PASSWORD) return next();                          // no password set = open
     if (OPEN_PATHS.has(req.path)) return next();              // public endpoints
@@ -411,8 +412,22 @@ if (process.argv.includes("--cli")) {
     }
   });
 
-  // ─── Health check ──────────────────────────────────────────────────────
+  // ─── Health check ────────────────────────────────────────────────────────
   app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
+
+  // ─── Web Push: VAPID public key + subscription endpoint ────────────────────
+  app.get("/vapid-public-key", (_req: Request, res: Response) => {
+    const key = process.env.VAPID_PUBLIC_KEY;
+    if (!key) return res.status(503).json({ error: "Push notifications not configured" });
+    res.json({ key });
+  });
+
+  app.post("/push-subscribe", (req: Request, res: Response) => {
+    const sub = req.body as webpush.PushSubscription;
+    if (!sub?.endpoint) return res.status(400).json({ error: "Invalid subscription" });
+    addPushSubscription(sub);
+    res.json({ ok: true });
+  });
 
   const PORT = Number(process.env.PORT ?? 3000);
   app.listen(PORT, () => {

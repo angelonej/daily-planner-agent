@@ -14,6 +14,50 @@
 import { getCalendarEvents } from "./calendarTools.js";
 import { getTrafficDuration } from "./trafficTools.js";
 import { randomUUID } from "crypto";
+import webpush from "web-push";
+import fs from "fs";
+import path from "path";
+// ─── Web Push: VAPID setup + subscription store ────────────────────────────
+const SUBS_FILE = path.resolve("data", "push-subscriptions.json");
+function loadSubscriptions() {
+    try {
+        if (!fs.existsSync(SUBS_FILE))
+            return [];
+        return JSON.parse(fs.readFileSync(SUBS_FILE, "utf-8"));
+    }
+    catch {
+        return [];
+    }
+}
+function saveSubscriptions(subs) {
+    try {
+        fs.mkdirSync(path.dirname(SUBS_FILE), { recursive: true });
+        fs.writeFileSync(SUBS_FILE, JSON.stringify(subs, null, 2), "utf-8");
+    }
+    catch (err) {
+        console.error("push-sub save error:", err);
+    }
+}
+export function addPushSubscription(sub) {
+    const subs = loadSubscriptions();
+    // Deduplicate by endpoint
+    const filtered = subs.filter((s) => s.endpoint !== sub.endpoint);
+    filtered.push(sub);
+    saveSubscriptions(filtered);
+}
+function initVapid() {
+    const pub = process.env.VAPID_PUBLIC_KEY;
+    const priv = process.env.VAPID_PRIVATE_KEY;
+    const mail = process.env.VAPID_EMAIL ?? "mailto:admin@example.com";
+    if (pub && priv) {
+        webpush.setVapidDetails(mail, pub, priv);
+        console.log("🔔 Web Push VAPID configured");
+    }
+    else {
+        console.warn("⚠️  VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY not set — push notifications disabled");
+    }
+}
+initVapid();
 // ─── Last known GPS location from mobile client ─────────────────────────
 let lastGpsLocation = null;
 export function updateUserLocation(lat, lng) {
@@ -47,8 +91,7 @@ export function removeNotificationClient(res) {
     sseClients.delete(res);
 }
 function broadcast(alert) {
-    if (sseClients.size === 0)
-        return;
+    // 1. SSE — push to open browser tabs
     const payload = `event: notification\ndata: ${JSON.stringify(alert)}\n\n`;
     for (const client of sseClients) {
         try {
@@ -58,7 +101,26 @@ function broadcast(alert) {
             sseClients.delete(client);
         }
     }
-    console.log(`🔔 Notification sent (${sseClients.size} clients): ${alert.title}`);
+    // 2. Web Push — push to subscribed browsers even when closed
+    const pub = process.env.VAPID_PUBLIC_KEY;
+    if (pub) {
+        const subs = loadSubscriptions();
+        const pushPayload = JSON.stringify({ title: alert.title, body: alert.body, tag: alert.id });
+        const dead = [];
+        for (const sub of subs) {
+            webpush.sendNotification(sub, pushPayload).catch((err) => {
+                if (err.statusCode === 410 || err.statusCode === 404)
+                    dead.push(sub.endpoint);
+                else
+                    console.error("Web Push send error:", err.message);
+            });
+        }
+        if (dead.length) {
+            // Remove expired subscriptions
+            saveSubscriptions(loadSubscriptions().filter((s) => !dead.includes(s.endpoint)));
+        }
+    }
+    console.log(`🔔 Notification sent (SSE: ${sseClients.size}, push subs: ${loadSubscriptions().length}): ${alert.title}`);
 }
 // ─── Track already-fired alerts so we don't spam ──────────────────────────
 const firedAlerts = new Set(); // key: `${eventId}-${alertType}`
