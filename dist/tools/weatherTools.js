@@ -57,7 +57,7 @@ export async function getWeather() {
         "precipitation_probability",
         "weather_code",
     ].join(","));
-    url.searchParams.set("forecast_days", "1");
+    url.searchParams.set("forecast_days", "7");
     url.searchParams.set("wind_speed_unit", "kmh");
     url.searchParams.set("temperature_unit", "celsius");
     url.searchParams.set("precipitation_unit", "mm");
@@ -104,6 +104,43 @@ export async function getWeather() {
         sunset: fmtTime(daily.sunset[0]),
         hourly: hourlyResult,
     };
+}
+export async function getWeatherForecast(days = 7) {
+    const lat = process.env.LATITUDE ?? "26.0112";
+    const lon = process.env.LONGITUDE ?? "-80.1495";
+    const tz = process.env.TIMEZONE ?? "America/New_York";
+    const url = new URL("https://api.open-meteo.com/v1/forecast");
+    url.searchParams.set("latitude", lat);
+    url.searchParams.set("longitude", lon);
+    url.searchParams.set("timezone", tz);
+    url.searchParams.set("daily", [
+        "temperature_2m_max",
+        "temperature_2m_min",
+        "precipitation_probability_max",
+        "uv_index_max",
+        "sunrise",
+        "sunset",
+        "weather_code",
+    ].join(","));
+    url.searchParams.set("forecast_days", String(Math.min(days, 16)));
+    url.searchParams.set("temperature_unit", "celsius");
+    const res = await fetch(url.toString());
+    if (!res.ok)
+        throw new Error(`Open-Meteo error: ${res.status}`);
+    const data = await res.json();
+    const daily = data.daily;
+    const fmtTime = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
+    return daily.time.map((dateStr, i) => ({
+        date: dateStr,
+        dayName: new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: tz }),
+        high: celsiusToF(daily.temperature_2m_max[i]),
+        low: celsiusToF(daily.temperature_2m_min[i]),
+        precipChance: daily.precipitation_probability_max[i] ?? 0,
+        condition: WMO_CODES[daily.weather_code[i]] ?? "Unknown",
+        uvIndex: Math.round(daily.uv_index_max[i] ?? 0),
+        sunrise: fmtTime(daily.sunrise[i]),
+        sunset: fmtTime(daily.sunset[i]),
+    }));
 }
 export function formatWeatherSummary(w) {
     const icon = getWeatherIcon(w.conditionCode, w.isDay);

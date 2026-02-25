@@ -16,6 +16,7 @@ import {
 } from "../tools/tasksTools.js";
 import { suggestRecurringEvents, formatRecurringSuggestions } from "../tools/recurringTools.js";
 import { sendDailyDigestEmail } from "../tools/digestEmail.js";
+import { getWeatherForecast } from "../tools/weatherTools.js";
 
 const openai = new OpenAI({
   apiKey: process.env.XAI_API_KEY,
@@ -33,6 +34,7 @@ If asked to summarize emails or news, use the briefing data provided.
 When the user asks to add, create, schedule, move, reschedule, cancel, or delete a calendar event, use the appropriate calendar tool.
 When the user asks about recurring events, patterns, or regular meetings, use suggest_recurring_events.
 When the user asks to send the daily digest, morning summary, or briefing email, use send_digest_email.
+When the user asks about weather (today, tomorrow, this week, will it rain, forecast, etc.), ALWAYS call get_weather with the appropriate number of days.
 For ambiguous requests (e.g. "move my dentist"), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
@@ -224,6 +226,20 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_weather",
+      description: "Get the weather forecast for today, tomorrow, or the next several days. Use for any weather question: 'weather tomorrow', 'forecast this week', 'will it rain Friday', 'what's the weather like', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Number of days to forecast (1=today only, 2=today+tomorrow, 7=full week). Default 3." },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Execute a tool call returned by the model ────────────────────────────
@@ -300,6 +316,11 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const result = await sendDailyDigestEmail(briefing, args.toEmail ? String(args.toEmail) : undefined);
         if (result.success) return JSON.stringify({ success: true, message: `Digest email sent! (id: ${result.messageId})` });
         return JSON.stringify({ success: false, error: result.error });
+      }
+      case "get_weather": {
+        const days = args.days ? Number(args.days) : 3;
+        const forecast = await getWeatherForecast(days);
+        return JSON.stringify(forecast);
       }
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
