@@ -129,7 +129,7 @@ export async function getCalendarEventsByRange(startIso: string, endIso: string)
     })
   );
 
-  allEvents.sort((a, b) => a.start.localeCompare(b.start));
+  allEvents.sort((a, b) => (a.startIso ?? a.start).localeCompare(b.startIso ?? b.start));
   return allEvents;
 }
 
@@ -181,7 +181,7 @@ export async function getCalendarEvents(daysAhead = 1): Promise<CalendarEvent[]>
   );
 
   // Sort all events by start time
-  allEvents.sort((a, b) => a.start.localeCompare(b.start));
+  allEvents.sort((a, b) => (a.startIso ?? a.start).localeCompare(b.startIso ?? b.start));
 
   return allEvents;
 }

@@ -98,7 +98,7 @@ export async function getCalendarEventsByRange(startIso, endIso) {
         }
         catch { }
     }));
-    allEvents.sort((a, b) => a.start.localeCompare(b.start));
+    allEvents.sort((a, b) => (a.startIso ?? a.start).localeCompare(b.startIso ?? b.start));
     return allEvents;
 }
 export async function getCalendarEvents(daysAhead = 1) {
@@ -141,7 +141,7 @@ export async function getCalendarEvents(daysAhead = 1) {
         }
     }));
     // Sort all events by start time
-    allEvents.sort((a, b) => a.start.localeCompare(b.start));
+    allEvents.sort((a, b) => (a.startIso ?? a.start).localeCompare(b.startIso ?? b.start));
     return allEvents;
 }
 // ─── Create a new event ────────────────────────────────────────────────────
