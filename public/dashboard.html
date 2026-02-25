@@ -744,8 +744,8 @@ function addBubble(role, text) {
   const row = document.createElement('div');
   row.className = 'msg-row' + (role === 'user' ? ' user' : '');
   const label = document.createElement('div');
-  label.className = 'msg-label';
-  label.textContent = role === 'user' ? 'You' : 'Assistant';
+  label.className = role === 'user' ? 'msg-label' : 'msg-label msg-label-agent';
+  label.textContent = role === 'user' ? 'You' : (localStorage.getItem('assistantName') || 'Assistant');
   const bubble = document.createElement('div');
   bubble.className = 'bubble ' + role;
   if (role === 'agent') bubble.innerHTML = renderMarkdown(text);
@@ -761,8 +761,8 @@ function addThinking() {
   const row = document.createElement('div');
   row.className = 'msg-row';
   const label = document.createElement('div');
-  label.className = 'msg-label';
-  label.textContent = 'Assistant';
+  label.className = 'msg-label msg-label-agent';
+  label.textContent = localStorage.getItem('assistantName') || 'Assistant';
   const bubble = document.createElement('div');
   bubble.className = 'bubble thinking';
   bubble.innerHTML = '<span class="dots"><span>●</span><span>●</span><span>●</span></span>';
@@ -1767,11 +1767,11 @@ function addKeywordRow(value='') {
 }
 
 function applyAssistantName() {
-  const name = localStorage.getItem('assistantName');
-  if (name) {
-    document.getElementById('chat-title').textContent = name;
-    document.getElementById('chat-subtitle').textContent = `Ask ${name} anything about your day`;
-  }
+  const name = localStorage.getItem('assistantName') || 'Assistant';
+  document.getElementById('chat-title').textContent = name;
+  document.getElementById('chat-subtitle').textContent = `Ask ${name} anything about your day`;
+  // Update all existing agent message labels in the chat
+  document.querySelectorAll('.msg-label-agent').forEach(el => { el.textContent = name; });
 }
 
 async function saveSettings() {
