@@ -12,7 +12,7 @@ import { fileURLToPath } from "url";
 import { coordinatorAgent, buildMorningBriefing, startScheduledJobs, rescheduleBriefingJobs } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
-import { completeTask as completeGoogleTask, createTask as createGoogleTask } from "./tools/tasksTools.js";
+import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -421,11 +421,20 @@ if (process.argv.includes("--cli")) {
     }
   });
 
+  app.get("/api/task-lists", async (_req: Request, res: Response) => {
+    try {
+      const lists = await getTaskLists();
+      res.json({ lists });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   app.post("/api/create-task", async (req: Request, res: Response) => {
-    const { title, notes, due } = req.body as { title?: string; notes?: string; due?: string };
+    const { title, notes, due, listId } = req.body as { title?: string; notes?: string; due?: string; listId?: string };
     if (!title) return res.status(400).json({ error: "title is required" });
     try {
-      const task = await createGoogleTask(title, { notes, due });
+      const task = await createGoogleTask(title, { notes, due, listId });
       res.json({ ok: true, task });
     } catch (err) {
       res.status(500).json({ error: String(err) });

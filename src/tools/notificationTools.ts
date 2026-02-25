@@ -15,6 +15,7 @@
 import { Response } from "express";
 import { getCalendarEvents } from "./calendarTools.js";
 import { getTrafficDuration } from "./trafficTools.js";
+import { listTasks } from "./tasksTools.js";
 import { NotificationAlert } from "../types.js";
 import { randomUUID } from "crypto";
 import webpush from "web-push";
@@ -251,6 +252,58 @@ function parseEventTime(formatted: string): number | null {
   return isNaN(ts) ? null : ts;
 }
 
+// ─── Task due-date reminders ───────────────────────────────────────────────
+async function checkUpcomingTasks(): Promise<void> {
+  try {
+    const tasks = await listTasks(50);
+    const now   = new Date();
+    const todayStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+    // Group overdue + due today
+    const dueNow = tasks.filter(t => {
+      if (!t.due) return false;
+      const dueDate = t.due.slice(0, 10); // Google Tasks due is ISO date at midnight UTC
+      return dueDate <= todayStr;
+    });
+
+    if (dueNow.length === 0) return;
+
+    // Fire one summary notification per day (first poll after 8 AM local)
+    const localHour = now.toLocaleString("en-US", {
+      hour: "numeric", hour12: false, timeZone: process.env.TIMEZONE ?? "America/New_York",
+    });
+    const hour = parseInt(localHour);
+    if (hour < 8) return; // don't fire before 8 AM
+
+    const dailyKey = `task-due-summary-${todayStr}`;
+    if (firedAlerts.has(dailyKey)) return;
+    firedAlerts.add(dailyKey);
+
+    // Group by list for a clean message
+    const byList = new Map<string, string[]>();
+    for (const t of dueNow) {
+      const list = t.listTitle || "Tasks";
+      if (!byList.has(list)) byList.set(list, []);
+      byList.get(list)!.push(t.title);
+    }
+
+    const lines: string[] = [];
+    for (const [list, titles] of byList) {
+      lines.push(`${list}: ${titles.slice(0, 3).join(", ")}${titles.length > 3 ? ` +${titles.length - 3} more` : ""}`);
+    }
+
+    broadcast({
+      id:        randomUUID(),
+      type:      "task_reminder",
+      title:     `📋 ${dueNow.length} task${dueNow.length > 1 ? "s" : ""} due today`,
+      body:      lines.join("\n"),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Task reminder check error:", err instanceof Error ? err.message : err);
+  }
+}
+
 // ─── Heartbeat to keep SSE connections alive ───────────────────────────────
 function sendHeartbeat(): void {
   if (sseClients.size === 0) return;
@@ -271,10 +324,15 @@ export function startNotificationPolling(): void {
   const pollSec = Math.max(15, Number(process.env.NOTIFICATION_POLL_SECONDS ?? 60));
   setInterval(checkUpcomingEvents, pollSec * 1_000);
 
+  // Task due-date reminders — check every 15 minutes
+  setInterval(checkUpcomingTasks, 15 * 60 * 1_000);
+  // Also fire once 30 seconds after startup (so morning reminders hit quickly)
+  setTimeout(checkUpcomingTasks, 30_000);
+
   // Heartbeat every 30 seconds (keeps SSE alive through proxies/nginx)
   setInterval(sendHeartbeat, 30_000);
 
-  console.log(`🔔 Notification polling started (calendar: every ${pollSec}s)`);
+  console.log(`🔔 Notification polling started (calendar: every ${pollSec}s, tasks: every 15min)`);
 }
 
 /**

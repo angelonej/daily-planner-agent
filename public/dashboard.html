@@ -472,10 +472,15 @@
       <div class="panel" id="panel-tasks">
         <div class="card">
           <div class="card-title">✅ Google Tasks <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <!-- List filter tabs -->
+          <div id="task-list-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
           <div id="tasks-list"></div>
           <div style="margin-top:10px">
-            <div style="display:flex;gap:6px">
-              <input id="new-task-input" class="topic-input" placeholder="Add task…" style="font-size:12px;padding:6px 10px" />
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <input id="new-task-input" class="topic-input" placeholder="Add task…" style="font-size:12px;padding:6px 10px;flex:1;min-width:0" />
+              <select id="new-task-list" class="topic-input" style="font-size:12px;padding:6px 8px;cursor:pointer;max-width:130px">
+                <option value="">Default list</option>
+              </select>
               <button class="btn-primary" style="padding:6px 12px;font-size:12px" onclick="addTask()">Add</button>
             </div>
           </div>
@@ -1028,17 +1033,73 @@ function renderWidgets() {
   }
 }
 
+let activeTaskList = 'all'; // 'all' or a listTitle
+
 function renderTasks() {
   const el = document.getElementById('tasks-list');
   if (!tasksData || tasksData.length === 0) { el.innerHTML = '<div class="empty-state">No tasks 🎉</div>'; return; }
-  el.innerHTML = tasksData.map(t => `
-    <div class="task-item" id="task-${t.id}">
-      <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
-      <div>
-        <div class="task-title">${escapeHtml(t.title)}</div>
-        ${t.due ? `<div class="task-due">Due ${new Date(t.due).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : ''}
-      </div>
-    </div>`).join('');
+
+  // Build list tabs
+  const tabsEl = document.getElementById('task-list-tabs');
+  const lists = ['all', ...new Set(tasksData.map(t => t.listTitle).filter(Boolean))];
+  tabsEl.innerHTML = lists.map(l => {
+    const count = l === 'all' ? tasksData.length : tasksData.filter(t => t.listTitle === l).length;
+    const active = l === activeTaskList;
+    return `<button onclick="setTaskListFilter('${escapeHtml(l)}')"
+      style="padding:3px 10px;font-size:11px;border-radius:20px;border:1px solid var(--border);cursor:pointer;
+             background:${active ? 'var(--accent)' : 'var(--surface)'};color:${active ? '#fff' : 'var(--text)'}"
+    >${l === 'all' ? 'All' : escapeHtml(l)} <span style="opacity:0.7">${count}</span></button>`;
+  }).join('');
+
+  // Filter tasks
+  const filtered = activeTaskList === 'all'
+    ? tasksData
+    : tasksData.filter(t => t.listTitle === activeTaskList);
+
+  if (filtered.length === 0) { el.innerHTML = '<div class="empty-state">No tasks in this list 🎉</div>'; return; }
+
+  // Group by list title when showing All
+  const grouped = new Map();
+  for (const t of filtered) {
+    const key = t.listTitle || 'Tasks';
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(t);
+  }
+
+  let html = '';
+  for (const [listName, tasks] of grouped) {
+    if (activeTaskList === 'all' && grouped.size > 1) {
+      html += `<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px">${escapeHtml(listName)}</div>`;
+    }
+    html += tasks.map(t => `
+      <div class="task-item" id="task-${t.id}">
+        <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
+        <div style="flex:1;min-width:0">
+          <div class="task-title">${escapeHtml(t.title)}</div>
+          ${t.due ? `<div class="task-due">Due ${new Date(t.due).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : ''}
+        </div>
+      </div>`).join('');
+  }
+  el.innerHTML = html;
+}
+
+function setTaskListFilter(list) {
+  activeTaskList = list;
+  renderTasks();
+}
+
+// Load task lists into the Add Task selector
+async function loadTaskLists() {
+  try {
+    const res = await fetch('/api/task-lists');
+    const data = await res.json();
+    const sel = document.getElementById('new-task-list');
+    if (data.lists && data.lists.length) {
+      sel.innerHTML = data.lists.map(l =>
+        `<option value="${escapeHtml(l.id)}">${escapeHtml(l.title)}</option>`
+      ).join('');
+    }
+  } catch (e) { /* silently ignore */ }
 }
 
 async function completeTask(taskId, listId, el) {
@@ -1065,14 +1126,16 @@ async function completeTask(taskId, listId, el) {
 
 async function addTask() {
   const input = document.getElementById('new-task-input');
+  const listSel = document.getElementById('new-task-list');
   const title = input.value.trim();
   if (!title) return;
   input.value = '';
   try {
+    const body = { title, listId: listSel.value || undefined };
     const res = await fetch('/api/create-task', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.ok) {
@@ -1215,7 +1278,7 @@ async function saveSettings() {
 
 // Apply on load
 applyAssistantName();
-
+loadTaskLists();
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();

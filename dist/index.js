@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
 import { coordinatorAgent, buildMorningBriefing, startScheduledJobs, rescheduleBriefingJobs } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
-import { completeTask as completeGoogleTask, createTask as createGoogleTask } from "./tools/tasksTools.js";
+import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
@@ -383,12 +383,21 @@ else {
             res.status(500).json({ error: String(err) });
         }
     });
+    app.get("/api/task-lists", async (_req, res) => {
+        try {
+            const lists = await getTaskLists();
+            res.json({ lists });
+        }
+        catch (err) {
+            res.status(500).json({ error: String(err) });
+        }
+    });
     app.post("/api/create-task", async (req, res) => {
-        const { title, notes, due } = req.body;
+        const { title, notes, due, listId } = req.body;
         if (!title)
             return res.status(400).json({ error: "title is required" });
         try {
-            const task = await createGoogleTask(title, { notes, due });
+            const task = await createGoogleTask(title, { notes, due, listId });
             res.json({ ok: true, task });
         }
         catch (err) {

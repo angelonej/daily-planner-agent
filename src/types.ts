@@ -86,7 +86,7 @@ export interface ChatMessage {
 // ─── Notifications ─────────────────────────────────────────────────────────
 export interface NotificationAlert {
   id: string;
-  type: "event_soon" | "event_starting" | "digest_ready" | "important_email";
+  type: "event_soon" | "event_starting" | "digest_ready" | "important_email" | "task_reminder";
   title: string;
   body: string;
   eventId?: string;
