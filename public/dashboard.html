@@ -490,7 +490,7 @@
         </div>
         <!-- Packages arriving today -->
         <div class="card" id="packages-today-card">
-          <div class="card-title">📦 Arriving Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
+          <div class="card-title">📦 Arriving / Delivered Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
           <div id="overview-packages"></div>
         </div>
         <!-- LLM Usage -->
@@ -1028,15 +1028,23 @@ function renderWidgets() {
   const pkgEl   = document.getElementById('overview-packages');
   if (packages && packages.length > 0) {
     pkgCard.style.display = '';
-    pkgEl.innerHTML = packages.map(p => `
+    pkgEl.innerHTML = packages.map(p => {
+      const subjectLower = (p.emailSubject||'').toLowerCase();
+      const isDelivered = subjectLower.includes('delivered') || subjectLower.includes('delivery');
+      const statusBadge = isDelivered
+        ? `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:#22c55e;color:#fff">✓ Delivered</span>`
+        : `<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;background:#f59e0b;color:#fff">🚚 En Route</span>`;
+      return `
       <div class="pkg-item">
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent);color:#fff">${escapeHtml(p.carrier)}</span>
+          ${statusBadge}
           <a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600">${escapeHtml(p.trackingNumber)} ↗</a>
         </div>
         <div class="pkg-subject" style="margin-top:3px">${escapeHtml(p.emailSubject)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:1px">${escapeHtml(p.emailFrom)}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } else {
     // Hide card entirely when no packages arriving today
     pkgCard.style.display = 'none';

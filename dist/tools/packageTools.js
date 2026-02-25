@@ -39,7 +39,7 @@ const SHIPPING_KEYWORDS = [
     "out for delivery", "on its way", "order shipped", "order update",
     "ups", "fedex", "usps", "amazon", "dhl", "arriving",
 ];
-// Keywords that strongly suggest the package arrives TODAY
+// Keywords that strongly suggest the package arrives or arrived TODAY
 const TODAY_KEYWORDS = [
     "out for delivery",
     "arriving today",
@@ -53,15 +53,34 @@ const TODAY_KEYWORDS = [
     "arriving by end of day",
     "arriving soon",
 ];
-/** Returns true if the email text strongly suggests delivery today */
+// Keywords that mean "delivered" — shown when the email is recent (today or yesterday)
+const DELIVERED_KEYWORDS = [
+    "delivered",
+    "your order has been delivered",
+    "your package has been delivered",
+    "package was delivered",
+    "order delivered",
+];
+/** Returns true if the email text strongly suggests delivery today or a recent delivery notification */
 function isArrivingToday(subject, snippet, emailDate) {
     const combined = `${subject} ${snippet}`.toLowerCase();
     if (TODAY_KEYWORDS.some((kw) => combined.includes(kw)))
         return true;
-    const today = new Date().toISOString().slice(0, 10);
-    const isToday = emailDate.startsWith(today) ||
-        emailDate.includes(new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-    if (isToday && (combined.includes("out for delivery") || combined.includes("on its way")))
+    // Check if the email was received today or yesterday
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const todayStr = now.toISOString().slice(0, 10);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    const isRecent = emailDate.startsWith(todayStr) ||
+        emailDate.startsWith(yesterdayStr) ||
+        emailDate.includes(now.toLocaleDateString("en-US", { month: "short", day: "numeric" })) ||
+        emailDate.includes(yesterday.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+    // Recent delivery confirmation = show it
+    if (isRecent && DELIVERED_KEYWORDS.some((kw) => combined.includes(kw)))
+        return true;
+    // Recent in-transit email
+    if (isRecent && (combined.includes("out for delivery") || combined.includes("on its way")))
         return true;
     return false;
 }
