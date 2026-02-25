@@ -855,7 +855,6 @@
   // ── TTS voice shortcut: read news headlines aloud ─────────────────────
   async function readNewsAloud() {
     closeDrawer();
-    showToast('📰 Loading news...');
     try {
       const r = await fetch('/api/briefing');
       if (r.status === 401) { showToast('🔒 Session expired', 'Please log in again'); return; }
@@ -865,23 +864,30 @@
       const data = await r.json();
       const news = data.news ?? [];
       if (!news.length || news.every(n => !n.articles?.length)) {
-        showToast('No news loaded yet'); return;
+        addBubble('agent', '📰 No news loaded yet. Try refreshing your briefing.');
+        return;
       }
-      const lines = ['Here are today\'s top headlines.'];
+      // Build chat bubble with headlines
+      const bubbleLines = ['📰 **Today\'s top headlines:**'];
+      const ttsLines = ['Here are today\'s top headlines.'];
       for (const section of news) {
         if (!section.articles?.length) continue;
-        lines.push(section.topic + ':');
-        for (const a of section.articles.slice(0, 3)) lines.push(a.title);
+        bubbleLines.push(`\n**${section.topic}**`);
+        ttsLines.push(section.topic + ':');
+        for (const a of section.articles.slice(0, 3)) {
+          bubbleLines.push(`• ${a.title}`);
+          ttsLines.push(a.title);
+        }
       }
-      speakText(lines.join('\n'));
-      showToast('📰 Reading news aloud');
-    } catch (e) { showToast('Could not load news'); }
+      addBubble('agent', bubbleLines.join('\n'));
+      chat.scrollTop = chat.scrollHeight;
+      speakText(ttsLines.join('\n'));
+    } catch (e) { showToast('📰 Could not load news', String(e)); }
   }
 
   // ── TTS voice shortcut: read today\'s emails aloud ──────────────────────
   async function readEmailsAloud() {
     closeDrawer();
-    showToast('📧 Loading emails...');
     try {
       const r = await fetch('/api/briefing');
       if (r.status === 401) { showToast('🔒 Session expired', 'Please log in again'); return; }
@@ -892,25 +898,35 @@
       const emails = data.emails ?? [];
       const important = data.importantEmails ?? [];
       if (!emails.length && !important.length) {
-        speakText('Your inbox is clear. No unread emails.'); return;
+        addBubble('agent', '📭 Your inbox is clear. No unread emails.');
+        speakText('Your inbox is clear. No unread emails.');
+        return;
       }
-      const lines = [`You have ${emails.length} unread email${emails.length !== 1 ? 's' : ''}.`];
+      // Build display text shown as a chat bubble
+      const lines = [`📧 **You have ${emails.length} unread email${emails.length !== 1 ? 's' : ''}.**`];
       if (important.length) {
-        lines.push(`${important.length} important:`);
+        lines.push(`\n⚠️ **${important.length} important:**`);
         for (const e of important.slice(0, 3)) {
           const sender = (e.from || 'Unknown').split('<')[0].trim() || 'Unknown';
-          lines.push(`From ${sender}: ${e.subject || '(no subject)'}`);
+          lines.push(`• From **${sender}**: ${e.subject || '(no subject)'}`);
         }
       }
       if (emails.length) {
-        lines.push('Other emails:');
+        lines.push(`\n📥 **Recent emails:**`);
         for (const e of emails.slice(0, 5)) {
           const sender = (e.from || 'Unknown').split('<')[0].trim() || 'Unknown';
-          lines.push(`From ${sender}: ${e.subject || '(no subject)'}`);
+          lines.push(`• From **${sender}**: ${e.subject || '(no subject)'}`);
         }
       }
-      speakText(lines.join('\n'));
-      showToast('📧 Reading emails aloud');
+      addBubble('agent', lines.join('\n'));
+      chat.scrollTop = chat.scrollHeight;
+      // TTS — may be blocked on iOS after await, but text is already shown above
+      const ttsLines = [
+        `You have ${emails.length} unread email${emails.length !== 1 ? 's' : ''}.`,
+        ...(important.map(e => `From ${(e.from||'Unknown').split('<')[0].trim()}: ${e.subject||'no subject'}`).slice(0,3)),
+        ...(emails.slice(0, 5).map(e => `From ${(e.from||'Unknown').split('<')[0].trim()}: ${e.subject||'no subject'}`))
+      ];
+      speakText(ttsLines.join('\n'));
     } catch (e) { showToast('📧 Could not load emails', String(e)); }
   }
 
