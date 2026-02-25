@@ -7,7 +7,7 @@ import twilio from "twilio";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
-import { coordinatorAgent, buildMorningBriefing, startScheduledJobs } from "./coordinator.js";
+import { coordinatorAgent, buildMorningBriefing, startScheduledJobs, rescheduleBriefingJobs } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask } from "./tools/tasksTools.js";
@@ -331,15 +331,34 @@ else {
                 process.env.GMAIL_ACCOUNT_1_ALIAS ?? "personal",
                 process.env.GMAIL_ACCOUNT_2_ALIAS ?? "work",
             ],
+            morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
+            eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
         });
     });
     app.post("/api/settings", (req, res) => {
-        const { newsTopics } = req.body;
+        const { newsTopics, morningBriefingTime, eveningBriefingTime } = req.body;
         if (Array.isArray(newsTopics)) {
             runtimeNewsTopics = newsTopics.map((t) => t.trim()).filter(Boolean);
             process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
         }
-        res.json({ ok: true, newsTopics: runtimeNewsTopics });
+        let rescheduled = false;
+        if (morningBriefingTime && /^\d{1,2}:\d{2}$/.test(morningBriefingTime)) {
+            process.env.MORNING_BRIEFING_TIME = morningBriefingTime;
+            rescheduled = true;
+        }
+        if (eveningBriefingTime && /^\d{1,2}:\d{2}$/.test(eveningBriefingTime)) {
+            process.env.EVENING_BRIEFING_TIME = eveningBriefingTime;
+            rescheduled = true;
+        }
+        if (rescheduled) {
+            rescheduleBriefingJobs();
+        }
+        res.json({
+            ok: true,
+            newsTopics: runtimeNewsTopics,
+            morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
+            eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
+        });
     });
     // ─── Live briefing JSON for dashboard widgets ──────────────────────────
     app.get("/api/briefing", async (_req, res) => {

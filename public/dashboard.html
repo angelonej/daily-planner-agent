@@ -536,6 +536,21 @@
     </div>
 
     <div class="setting-section">
+      <div class="setting-label">⏰ Briefing Schedule</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+        <div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">☀️ Morning Briefing</div>
+          <input id="morning-time-input" type="time" class="topic-input" style="width:100%" value="07:00" />
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">🌙 Evening Briefing</div>
+          <input id="evening-time-input" type="time" class="topic-input" style="width:100%" value="17:00" />
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Times are in your local timezone (America/New_York).</div>
+    </div>
+
+    <div class="setting-section">
       <div class="setting-label">ℹ️ Active Accounts</div>
       <div id="accounts-info" style="font-size:13px;color:var(--muted);line-height:1.8"></div>
     </div>
@@ -1132,6 +1147,10 @@ async function openSettings() {
   tl.innerHTML = '';
   settings.newsTopics.forEach(t => addTopicRow(t));
 
+  // Briefing times
+  if (settings.morningBriefingTime) document.getElementById('morning-time-input').value = settings.morningBriefingTime;
+  if (settings.eveningBriefingTime) document.getElementById('evening-time-input').value = settings.eveningBriefingTime;
+
   // Accounts info
   document.getElementById('accounts-info').innerHTML =
     settings.accounts.map(a => `✉️ <strong>${escapeHtml(a)}</strong> Gmail account`).join('<br>') +
@@ -1179,9 +1198,11 @@ async function saveSettings() {
   // Save news topics
   const topics = Array.from(document.querySelectorAll('#topic-list .topic-input'))
     .map(i => i.value.trim()).filter(Boolean);
+  const morningTime = document.getElementById('morning-time-input').value;
+  const eveningTime = document.getElementById('evening-time-input').value;
   const res = await fetch('/api/settings', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newsTopics: topics }),
+    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime }),
   });
   const data = await res.json();
   if (data.ok) {

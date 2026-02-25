@@ -25,12 +25,13 @@ function timeToCron(envVar, defaultHour, defaultMin = 0) {
     }
     return `${defaultMin} ${defaultHour} * * *`;
 }
-// ─── Scheduled jobs ────────────────────────────────────────────────────────
-export function startScheduledJobs() {
-    const tz = process.env.TIMEZONE ?? "America/New_York";
-    // Morning digest — default 7:00 AM, override with MORNING_BRIEFING_TIME=HH:MM
+// Hold references so we can stop/restart them
+let morningTask = null;
+let eveningTask = null;
+function scheduleMorningJob(tz) {
+    morningTask?.stop();
     const morningCron = timeToCron("MORNING_BRIEFING_TIME", 7, 0);
-    cron.schedule(morningCron, async () => {
+    morningTask = cron.schedule(morningCron, async () => {
         console.log("⏰ Cron: building morning briefing + sending digest email...");
         try {
             const briefing = await buildMorningBriefing();
@@ -51,9 +52,12 @@ export function startScheduledJobs() {
             console.error("Cron morning job error:", err);
         }
     }, { timezone: tz });
-    // Evening briefing — default 5:00 PM, override with EVENING_BRIEFING_TIME=HH:MM
+    console.log(`⏰ Morning briefing scheduled: ${morningCron} (${tz})`);
+}
+function scheduleEveningJob(tz) {
+    eveningTask?.stop();
     const eveningCron = timeToCron("EVENING_BRIEFING_TIME", 17, 0);
-    cron.schedule(eveningCron, async () => {
+    eveningTask = cron.schedule(eveningCron, async () => {
         console.log("⏰ Cron: sending evening briefing notification...");
         try {
             const briefing = await buildMorningBriefing();
@@ -69,7 +73,19 @@ export function startScheduledJobs() {
             console.error("Cron evening job error:", err);
         }
     }, { timezone: tz });
-    console.log(`⏰ Cron jobs scheduled (tz: ${tz}): morning=${morningCron}, evening=${eveningCron}`);
+    console.log(`⏰ Evening briefing scheduled: ${eveningCron} (${tz})`);
+}
+// ─── Reschedule cron jobs at runtime (called by /api/settings) ───────────────
+export function rescheduleBriefingJobs() {
+    const tz = process.env.TIMEZONE ?? "America/New_York";
+    scheduleMorningJob(tz);
+    scheduleEveningJob(tz);
+}
+// ─── Scheduled jobs ────────────────────────────────────────────────────────
+export function startScheduledJobs() {
+    const tz = process.env.TIMEZONE ?? "America/New_York";
+    scheduleMorningJob(tz);
+    scheduleEveningJob(tz);
     // Start SSE notification polling (calendar event reminders)
     startNotificationPolling();
 }

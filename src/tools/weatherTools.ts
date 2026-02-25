@@ -1,6 +1,8 @@
 /**
- * Weather via Open-Meteo (free, no API key required)
+ * Weather via Open-Meteo (primary, free, no API key required)
  * Docs: https://open-meteo.com/en/docs
+ *
+ * Falls back to wttr.in JSON API if Open-Meteo is unreachable.
  */
 
 import fetch from "node-fetch";
@@ -57,6 +59,102 @@ function kphToMph(kph: number): number {
   return Math.round(kph * 0.621371);
 }
 
+// ─── wttr.in fallback ─────────────────────────────────────────────────────────
+async function getWeatherFromWttr(locationName: string, tz: string): Promise<WeatherData> {
+  // wttr.in accepts city name or lat,lon — use location name directly
+  const query = encodeURIComponent(locationName);
+  const url = `https://wttr.in/${query}?format=j1`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "daily-planner-agent/1.0" },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`wttr.in error: ${res.status} ${res.statusText}`);
+  const data = await res.json() as any;
+
+  const cur  = data.current_condition?.[0];
+  const wDay = data.weather?.[0];
+  const hourlyRaw: any[] = wDay?.hourly ?? [];
+
+  const tempF      = parseInt(cur?.temp_F ?? "0");
+  const feelsF     = parseInt(cur?.FeelsLikeF ?? "0");
+  const humidity   = parseInt(cur?.humidity ?? "0");
+  const windMph    = parseInt(cur?.windspeedMiles ?? "0");
+  const wmoCode    = mapWttrCodeToWMO(parseInt(cur?.weatherCode ?? "0"));
+  const isDay      = parseInt(cur?.uvIndex ?? "0") > 0;
+  const precipIn   = parseFloat(cur?.precipMM ?? "0") / 25.4;
+  const highF      = parseInt(wDay?.maxtempF ?? "0");
+  const lowF       = parseInt(wDay?.mintempF ?? "0");
+  const precipChance = parseInt(wDay?.hourly?.[0]?.chanceofrain ?? "0");
+  const uvIndex    = parseInt(wDay?.uvIndex ?? "0");
+
+  // sunrise/sunset from wttr — format "06:47 AM" etc
+  const sunrise = wDay?.astronomy?.[0]?.sunrise ?? "7:00 AM";
+  const sunset  = wDay?.astronomy?.[0]?.sunset  ?? "7:00 PM";
+
+  // Build next 12 hours
+  const nowHour = new Date().getHours();
+  const hourlyResult: HourlyWeather[] = [];
+  for (const h of hourlyRaw) {
+    const hTime = parseInt(h.time) / 100;
+    if (hTime < nowHour || hourlyResult.length >= 12) continue;
+    const label = new Date().toLocaleTimeString("en-US", {
+      hour: "numeric", hour12: true, timeZone: tz,
+    });
+    hourlyResult.push({
+      time: `${hTime % 12 === 0 ? 12 : hTime % 12}${hTime < 12 ? " AM" : " PM"}`,
+      tempF: parseInt(h.tempF ?? "0"),
+      precipChance: parseInt(h.chanceofrain ?? "0"),
+      condition: WMO_CODES[mapWttrCodeToWMO(parseInt(h.weatherCode ?? "0"))] ?? "Unknown",
+    });
+  }
+
+  return {
+    location: locationName,
+    temperatureF: tempF,
+    feelsLikeF: feelsF,
+    humidity,
+    windSpeedMph: windMph,
+    condition: WMO_CODES[wmoCode] ?? cur?.weatherDesc?.[0]?.value ?? "Unknown",
+    conditionCode: wmoCode,
+    precipitationInch: Math.round(precipIn * 100) / 100,
+    isDay,
+    high: highF,
+    low: lowF,
+    precipChance,
+    uvIndex,
+    sunrise,
+    sunset,
+    hourly: hourlyResult,
+  };
+}
+
+// Map wttr.in weather codes (BBC codes) to approximate WMO codes
+function mapWttrCodeToWMO(code: number): number {
+  if (code === 113) return 0;   // Sunny/Clear
+  if (code === 116) return 2;   // Partly cloudy
+  if (code === 119) return 3;   // Cloudy
+  if (code === 122) return 3;   // Overcast
+  if (code === 143) return 45;  // Mist/Fog
+  if (code >= 176 && code <= 179) return 80; // Patchy rain
+  if (code >= 182 && code <= 185) return 71; // Patchy snow
+  if (code >= 200 && code <= 201) return 95; // Thunder
+  if (code >= 227 && code <= 230) return 73; // Blowing/Heavy snow
+  if (code >= 248 && code <= 260) return 45; // Fog/freezing fog
+  if (code >= 263 && code <= 266) return 51; // Light drizzle
+  if (code >= 281 && code <= 284) return 51; // Freezing drizzle
+  if (code >= 293 && code <= 296) return 61; // Light/Moderate rain
+  if (code >= 299 && code <= 305) return 63; // Moderate/Heavy rain
+  if (code >= 308 && code <= 314) return 65; // Heavy rain
+  if (code >= 317 && code <= 323) return 73; // Light/Moderate snow
+  if (code >= 326 && code <= 338) return 75; // Heavy snow
+  if (code >= 350 && code <= 353) return 80; // Light rain showers
+  if (code >= 356 && code <= 362) return 81; // Moderate/Heavy rain showers
+  if (code >= 365 && code <= 374) return 85; // Snow showers
+  if (code >= 386 && code <= 389) return 95; // Thunder + rain
+  if (code >= 392 && code <= 395) return 95; // Thunder + snow
+  return 0;
+}
+
 export async function getWeather(): Promise<WeatherData> {
   const lat  = process.env.LATITUDE  ?? "26.0112";   // Hollywood FL default
   const lon  = process.env.LONGITUDE ?? "-80.1495";
@@ -95,52 +193,57 @@ export async function getWeather(): Promise<WeatherData> {
   url.searchParams.set("temperature_unit", "celsius");
   url.searchParams.set("precipitation_unit", "mm");
 
-  const res  = await fetch(url.toString());
-  if (!res.ok) throw new Error(`Open-Meteo error: ${res.status} ${res.statusText}`);
-  const data = await res.json() as any;
+  try {
+    const res  = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`Open-Meteo error: ${res.status} ${res.statusText}`);
+    const data = await res.json() as any;
 
-  const cur   = data.current;
-  const daily = data.daily;
-  const hourly = data.hourly;
+    const cur   = data.current;
+    const daily = data.daily;
+    const hourly = data.hourly;
 
-  // Build next 12 hours of hourly data (skip past hours)
-  const nowHour = new Date().getHours();
-  const hourlyResult: HourlyWeather[] = [];
-  for (let i = nowHour; i < Math.min(nowHour + 12, 24); i++) {
-    if (!hourly.time[i]) break;
-    const timeLabel = new Date(hourly.time[i]).toLocaleTimeString("en-US", {
-      hour: "numeric", hour12: true, timeZone: tz,
-    });
-    hourlyResult.push({
-      time: timeLabel,
-      tempF: celsiusToF(hourly.temperature_2m[i]),
-      precipChance: hourly.precipitation_probability[i] ?? 0,
-      condition: WMO_CODES[hourly.weather_code[i]] ?? "Unknown",
-    });
+    // Build next 12 hours of hourly data (skip past hours)
+    const nowHour = new Date().getHours();
+    const hourlyResult: HourlyWeather[] = [];
+    for (let i = nowHour; i < Math.min(nowHour + 12, 24); i++) {
+      if (!hourly.time[i]) break;
+      const timeLabel = new Date(hourly.time[i]).toLocaleTimeString("en-US", {
+        hour: "numeric", hour12: true, timeZone: tz,
+      });
+      hourlyResult.push({
+        time: timeLabel,
+        tempF: celsiusToF(hourly.temperature_2m[i]),
+        precipChance: hourly.precipitation_probability[i] ?? 0,
+        condition: WMO_CODES[hourly.weather_code[i]] ?? "Unknown",
+      });
+    }
+
+    // Format sunrise/sunset
+    const fmtTime = (iso: string) =>
+      new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
+
+    return {
+      location: locationName,
+      temperatureF: celsiusToF(cur.temperature_2m),
+      feelsLikeF:   celsiusToF(cur.apparent_temperature),
+      humidity:     Math.round(cur.relative_humidity_2m),
+      windSpeedMph: kphToMph(cur.wind_speed_10m),
+      condition:    WMO_CODES[cur.weather_code] ?? "Unknown",
+      conditionCode: cur.weather_code,
+      precipitationInch: mmToInch(cur.precipitation),
+      isDay: Boolean(cur.is_day),
+      high:         celsiusToF(daily.temperature_2m_max[0]),
+      low:          celsiusToF(daily.temperature_2m_min[0]),
+      precipChance: daily.precipitation_probability_max[0] ?? 0,
+      uvIndex:      Math.round(daily.uv_index_max[0] ?? 0),
+      sunrise:      fmtTime(daily.sunrise[0]),
+      sunset:       fmtTime(daily.sunset[0]),
+      hourly:       hourlyResult,
+    };
+  } catch (primaryErr) {
+    console.warn(`⚠️  Open-Meteo failed (${(primaryErr as Error).message}) — falling back to wttr.in`);
+    return getWeatherFromWttr(locationName, tz);
   }
-
-  // Format sunrise/sunset
-  const fmtTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
-
-  return {
-    location: locationName,
-    temperatureF: celsiusToF(cur.temperature_2m),
-    feelsLikeF:   celsiusToF(cur.apparent_temperature),
-    humidity:     Math.round(cur.relative_humidity_2m),
-    windSpeedMph: kphToMph(cur.wind_speed_10m),
-    condition:    WMO_CODES[cur.weather_code] ?? "Unknown",
-    conditionCode: cur.weather_code,
-    precipitationInch: mmToInch(cur.precipitation),
-    isDay: Boolean(cur.is_day),
-    high:         celsiusToF(daily.temperature_2m_max[0]),
-    low:          celsiusToF(daily.temperature_2m_min[0]),
-    precipChance: daily.precipitation_probability_max[0] ?? 0,
-    uvIndex:      Math.round(daily.uv_index_max[0] ?? 0),
-    sunrise:      fmtTime(daily.sunrise[0]),
-    sunset:       fmtTime(daily.sunset[0]),
-    hourly:       hourlyResult,
-  };
 }
 
 export interface DailyForecast {
@@ -176,7 +279,7 @@ export async function getWeatherForecast(days = 7): Promise<DailyForecast[]> {
   url.searchParams.set("forecast_days", String(Math.min(days, 16)));
   url.searchParams.set("temperature_unit", "celsius");
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
   if (!res.ok) throw new Error(`Open-Meteo error: ${res.status}`);
   const data = await res.json() as any;
   const daily = data.daily;
