@@ -615,7 +615,7 @@
   function showToast(title, body, urgent = false) {
     const toast = document.createElement('div');
     toast.className = 'toast' + (urgent ? ' urgent' : '');
-    toast.innerHTML = `<div class="toast-title">${title}</div><div class="toast-body">${body}</div>`;
+    toast.innerHTML = `<div class="toast-title">${title}</div>${body != null ? `<div class="toast-body">${body}</div>` : ''}`;
     toastContainer.appendChild(toast);
     // Also show browser notification if permission granted
     if (Notification.permission === 'granted') {
@@ -911,7 +911,7 @@
       }
       speakText(lines.join('\n'));
       showToast('📧 Reading emails aloud');
-    } catch (e) { showToast('Could not load emails'); }
+    } catch (e) { showToast('📧 Could not load emails', String(e)); }
   }
 
   // Voices load async — preload them
