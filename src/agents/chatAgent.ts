@@ -21,6 +21,7 @@ import { getWeatherForecast } from "../tools/weatherTools.js";
 import { recordUsage, getUsageToday, getUsageHistory } from "../tools/usageTracker.js";
 import { getReminders, addReminder, deleteReminder, describeReminder } from "../tools/remindersTools.js";
 import { getTrackedPackages } from "../tools/packageTools.js";
+import { getAwsCostSummary, formatAwsCostSummary } from "../tools/awsCostTools.js";
 
 const openai = new OpenAI({
   apiKey: process.env.XAI_API_KEY,
@@ -51,6 +52,7 @@ When the user asks to delete, remove, or cancel a reminder, ALWAYS call delete_r
 When the user asks to find a free time slot, schedule something, when am I free, or find open time, ALWAYS call find_free_slot with the date and duration.
 When the user asks about packages, shipments, tracking, deliveries, or "where is my package", ALWAYS call track_packages.
 When the user asks for suggestions, tips, what should I know about today, or proactive advice, ALWAYS call get_suggestions.
+When the user asks about AWS costs, cloud spend, monthly bill, EC2 charges, or how much AWS is costing, ALWAYS call get_aws_cost.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
@@ -390,6 +392,14 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_aws_cost",
+      description: "Retrieve this month's AWS cloud spend: month-to-date total, projected end-of-month cost, yesterday's spend, daily average, and a breakdown by AWS service.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
 ];
 
 // ─── Execute a tool call returned by the model ────────────────────────────
@@ -627,6 +637,10 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           return JSON.stringify({ message: "No proactive suggestions right now — your day looks well-organized!" });
         }
         return JSON.stringify({ suggestions: briefing.suggestions });
+      }
+      case "get_aws_cost": {
+        const costData = await getAwsCostSummary();
+        return formatAwsCostSummary(costData);
       }
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });

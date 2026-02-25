@@ -493,6 +493,11 @@
           <div class="card-title">🤖 LLM Usage Today</div>
           <div id="overview-usage"><div class="empty-state">Loading…</div></div>
         </div>
+        <!-- AWS Cost -->
+        <div class="card">
+          <div class="card-title">☁️ AWS Cost <button class="refresh-btn" onclick="loadAwsCost(true)" title="Refresh AWS cost">⟳</button></div>
+          <div id="overview-aws-cost"><div class="empty-state">Loading…</div></div>
+        </div>
       </div>
 
       <!-- Calendar Tab -->
@@ -1153,6 +1158,58 @@ function renderWidgets() {
       </div>`;
   } else {
     usageEl.innerHTML = '<div class="empty-state">No usage recorded yet</div>';
+  }
+
+  // ── AWS Cost (loaded separately) ──
+  loadAwsCost(false);
+}
+
+let awsCostLoaded = false;
+async function loadAwsCost(forceRefresh) {
+  const el = document.getElementById('overview-aws-cost');
+  if (!el) return;
+  if (!forceRefresh && awsCostLoaded) return;
+  el.innerHTML = '<div class="empty-state">Loading…</div>';
+  try {
+    const url = forceRefresh ? '/api/aws-cost?refresh=1' : '/api/aws-cost';
+    const res = await fetch(url);
+    const d = await res.json();
+    if (!res.ok) {
+      const hint = d.hint ? `<div style="margin-top:6px;font-size:10px;color:var(--muted)">${d.hint}</div>` : '';
+      el.innerHTML = `<div class="empty-state" style="color:var(--red,#f85149)">${d.error || 'Error fetching AWS cost'}${hint}</div>`;
+      return;
+    }
+    awsCostLoaded = true;
+    const fmt = n => '$' + (n||0).toFixed(2);
+    const mtd = d.mtdTotalUSD || 0;
+    const forecast = d.forecastTotalUSD;
+    const yesterday = d.yesterdayUSD || 0;
+    const daily = d.dailyAvgUSD || 0;
+    const svcs = (d.byService || []).slice(0, 5);
+    const cachedNote = d.cached ? ' <span style="font-size:9px;color:var(--muted)">(cached)</span>' : '';
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
+        <div style="background:var(--surface2);border-radius:6px;padding:8px">
+          <div style="font-size:18px;font-weight:600;color:var(--accent)">${fmt(mtd)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">MTD ACTUAL${cachedNote}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:6px;padding:8px">
+          <div style="font-size:18px;font-weight:600;color:var(--accent2)">${forecast !== null && forecast !== undefined ? fmt(forecast) : 'N/A'}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">MONTH FORECAST</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Yesterday: ${fmt(yesterday)} &nbsp;·&nbsp; Daily avg: ${fmt(daily)}/day
+      </div>
+      ${svcs.length ? `<div style="font-size:10px">
+        <div style="font-weight:600;margin-bottom:4px;color:var(--muted)">TOP SERVICES</div>
+        ${svcs.map(s => `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--border,#30363d)">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">${s.service}</span>
+          <span style="font-weight:600">${fmt(s.amountUSD)}</span></div>`).join('')}
+      </div>` : ''}
+      <div style="font-size:9px;color:var(--muted);margin-top:6px">Period: ${d.periodStart} → ${d.periodEnd}</div>`;
+  } catch (e) {
+    if (el) el.innerHTML = `<div class="empty-state" style="color:var(--red,#f85149)">Failed to load: ${e.message}</div>`;
   }
 }
 

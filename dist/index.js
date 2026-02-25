@@ -13,6 +13,7 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
+import { getAwsCostSummary } from "./tools/awsCostTools.js";
 import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -456,6 +457,31 @@ else {
         }
         catch (err) {
             res.status(500).json({ error: String(err) });
+        }
+    });
+    // ─── AWS Cost Explorer ───────────────────────────────────────────────────────
+    // Simple 1-hour in-memory cache to limit Cost Explorer API calls ($0.01/1000)
+    let awsCostCache = null;
+    const AWS_COST_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+    app.get("/api/aws-cost", async (req, res) => {
+        const forceRefresh = req.query.refresh === "1";
+        if (!forceRefresh && awsCostCache && Date.now() - awsCostCache.fetchedAt < AWS_COST_CACHE_TTL_MS) {
+            return res.json({ ...awsCostCache.data, cached: true });
+        }
+        try {
+            const costData = await getAwsCostSummary();
+            awsCostCache = { data: costData, fetchedAt: Date.now() };
+            res.json({ ...costData, cached: false });
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const isIam = msg.includes("AccessDenied") || msg.includes("is not authorized");
+            res.status(isIam ? 403 : 500).json({
+                error: msg,
+                ...(isIam && {
+                    hint: "Add ce:GetCostAndUsage and ce:GetCostForecast to the EC2 instance role. Also ensure Cost Explorer is enabled in AWS Console → Billing → Cost Explorer.",
+                }),
+            });
         }
     });
     // ─── Health check ────────────────────────────────────────────────────────────

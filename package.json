@@ -13,6 +13,7 @@
     "upload-tokens-ssm": "node --loader ts-node/esm src/auth/uploadTokensToSSM.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-cost-explorer": "^3.997.0",
     "@aws-sdk/client-ssm": "^3.997.0",
     "@types/multer": "^2.0.0",
     "@types/node-cron": "^3.0.11",
