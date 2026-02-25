@@ -368,6 +368,7 @@ if (process.argv.includes("--cli")) {
     vipSenders?: string[];
     filterKeywords?: string[];
     awsCostThreshold?: number;
+    assistantName?: string;
   }
 
   function loadPersistedSettings(): PersistedSettings {
@@ -389,6 +390,7 @@ if (process.argv.includes("--cli")) {
   let runtimeNewsTopics: string[] = _saved.newsTopics ??
     (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
       .split(",").map(t => t.trim()).filter(Boolean);
+  let runtimeAssistantName: string = _saved.assistantName ?? process.env.ASSISTANT_NAME ?? "Assistant";
   if (_saved.vipSenders) setVipSenders(_saved.vipSenders);
   if (_saved.filterKeywords) setFilterKeywords(_saved.filterKeywords);
   if (_saved.awsCostThreshold) setCostThreshold(_saved.awsCostThreshold);
@@ -398,6 +400,7 @@ if (process.argv.includes("--cli")) {
   app.get("/api/settings", (_req: Request, res: Response) => {
     res.json({
       newsTopics: runtimeNewsTopics,
+      assistantName: runtimeAssistantName,
       timezone: process.env.TIMEZONE ?? "America/New_York",
       digestEmail: process.env.DIGEST_EMAIL_TO ?? "",
       accounts: [
@@ -413,8 +416,11 @@ if (process.argv.includes("--cli")) {
   });
 
   app.post("/api/settings", (req: Request, res: Response) => {
-    const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold } =
-      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string; vipSenders?: string[]; filterKeywords?: string[]; awsCostThreshold?: number };
+    const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold, assistantName } =
+      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string; vipSenders?: string[]; filterKeywords?: string[]; awsCostThreshold?: number; assistantName?: string };
+    if (typeof assistantName === "string" && assistantName.trim()) {
+      runtimeAssistantName = assistantName.trim();
+    }
     if (Array.isArray(newsTopics)) {
       runtimeNewsTopics = newsTopics.map((t: string) => t.trim()).filter(Boolean);
       process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
@@ -442,6 +448,7 @@ if (process.argv.includes("--cli")) {
     // Persist everything to disk so it survives restarts
     savePersistedSettings({
       newsTopics: runtimeNewsTopics,
+      assistantName: runtimeAssistantName,
       morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
       eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
       vipSenders: getVipSenders(),

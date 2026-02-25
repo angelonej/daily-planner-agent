@@ -348,6 +348,7 @@ else {
     let runtimeNewsTopics = _saved.newsTopics ??
         (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
             .split(",").map(t => t.trim()).filter(Boolean);
+    let runtimeAssistantName = _saved.assistantName ?? process.env.ASSISTANT_NAME ?? "Assistant";
     if (_saved.vipSenders)
         setVipSenders(_saved.vipSenders);
     if (_saved.filterKeywords)
@@ -361,6 +362,7 @@ else {
     app.get("/api/settings", (_req, res) => {
         res.json({
             newsTopics: runtimeNewsTopics,
+            assistantName: runtimeAssistantName,
             timezone: process.env.TIMEZONE ?? "America/New_York",
             digestEmail: process.env.DIGEST_EMAIL_TO ?? "",
             accounts: [
@@ -375,7 +377,10 @@ else {
         });
     });
     app.post("/api/settings", (req, res) => {
-        const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold } = req.body;
+        const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold, assistantName } = req.body;
+        if (typeof assistantName === "string" && assistantName.trim()) {
+            runtimeAssistantName = assistantName.trim();
+        }
         if (Array.isArray(newsTopics)) {
             runtimeNewsTopics = newsTopics.map((t) => t.trim()).filter(Boolean);
             process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
@@ -403,6 +408,7 @@ else {
         // Persist everything to disk so it survives restarts
         savePersistedSettings({
             newsTopics: runtimeNewsTopics,
+            assistantName: runtimeAssistantName,
             morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
             eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
             vipSenders: getVipSenders(),

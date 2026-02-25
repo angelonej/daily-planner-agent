@@ -1667,8 +1667,10 @@ async function openSettings() {
   const res = await fetch('/api/settings');
   const settings = await res.json();
 
-  // Assistant name
-  document.getElementById('assistant-name-input').value = localStorage.getItem('assistantName') ?? '';
+  // Assistant name — prefer server value, fall back to localStorage
+  const serverName = settings.assistantName || '';
+  if (serverName) localStorage.setItem('assistantName', serverName);
+  document.getElementById('assistant-name-input').value = serverName || localStorage.getItem('assistantName') || '';
 
   // Voice picker — wait for voices to be ready
   const sel = document.getElementById('voice-select');
@@ -1796,7 +1798,7 @@ async function saveSettings() {
   const awsCostThreshold = parseFloat(document.getElementById('aws-cost-threshold-input').value) || 50;
   const res = await fetch('/api/settings', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime, vipSenders, filterKeywords, awsCostThreshold }),
+    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime, vipSenders, filterKeywords, awsCostThreshold, assistantName: nameVal }),
   });
   const data = await res.json();
   if (data.ok) {
@@ -1808,6 +1810,10 @@ async function saveSettings() {
   }
 }
 
+// Sync assistantName from server on load so all devices stay in sync
+fetch('/api/settings').then(r => r.json()).then(s => {
+  if (s.assistantName) { localStorage.setItem('assistantName', s.assistantName); applyAssistantName(); }
+}).catch(() => {});
 // Apply on load
 applyAssistantName();
 // Load briefing data immediately on page open
