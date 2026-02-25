@@ -198,6 +198,35 @@ export async function searchEmails(
   return emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
+// ─── Mark messages as read for a given account ──────────────────────────────
+export async function markEmailsAsRead(
+  accountAlias: string,
+  query = "is:unread newer_than:1d"
+): Promise<{ marked: number }> {
+  const auth = buildOAuth2Client();
+  await loadTokens(accountAlias, auth);
+  const gmail = google.gmail({ version: "v1", auth });
+
+  const listRes = await gmail.users.messages.list({
+    userId: "me",
+    q: query,
+    maxResults: 50,
+  });
+
+  const messages = listRes.data.messages ?? [];
+  if (messages.length === 0) return { marked: 0 };
+
+  await gmail.users.messages.batchModify({
+    userId: "me",
+    requestBody: {
+      ids: messages.map((m) => m.id!),
+      removeLabelIds: ["UNREAD"],
+    },
+  });
+
+  return { marked: messages.length };
+}
+
 // ─── Fetch from BOTH configured Gmail accounts ───────────────────────────────
 export async function fetchAllAccountEmails(): Promise<Email[]> {
   const accounts = [

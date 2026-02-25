@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { ChatMessage, MorningBriefing } from "../types.js";
-import { fetchAllAccountEmails, searchEmails } from "../tools/gmailTools.js";
+import { fetchAllAccountEmails, searchEmails, markEmailsAsRead } from "../tools/gmailTools.js";
 import {
   createEvent,
   updateEvent,
@@ -41,6 +41,7 @@ When the user asks to send the daily digest, morning summary, or briefing email,
 When the user asks about weather (today, tomorrow, this week, will it rain, forecast, etc.), ALWAYS call get_weather with the appropriate number of days.
 When the user asks to check emails, show today's emails, list unread emails, or get recent emails, ALWAYS call list_emails.
 When the user asks for the last email from someone, emails about a topic, or to search emails, ALWAYS call search_emails with the appropriate Gmail query.
+When the user asks to mark emails as read, clear unread, or mark today's emails as read, ALWAYS call mark_emails_read.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
@@ -276,6 +277,21 @@ const CALENDAR_TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "mark_emails_read",
+      description: "Mark emails as read in Gmail. Use when the user asks to 'mark emails as read', 'mark today\'s emails as read', 'clear my unread', or 'mark all as read'. Can target a specific account or all accounts.",
+      parameters: {
+        type: "object",
+        properties: {
+          account: { type: "string", description: "Which account to mark: 'personal', 'work', or omit for both." },
+          query:   { type: "string", description: "Gmail query to select which emails to mark as read. Default: 'is:unread newer_than:1d' (today\'s unread). Use 'is:unread' for all unread." },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Execute a tool call returned by the model ────────────────────────────
@@ -386,6 +402,27 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
           account: e.account,
           isImportant: e.isImportant,
         })));
+      }
+      case "mark_emails_read": {
+        const accounts = args.account
+          ? [String(args.account)]
+          : [
+              process.env.GMAIL_ACCOUNT_1_ALIAS ?? "personal",
+              process.env.GMAIL_ACCOUNT_2_ALIAS ?? "work",
+            ];
+        const query = args.query ? String(args.query) : "is:unread newer_than:1d";
+        let totalMarked = 0;
+        const details: string[] = [];
+        for (const alias of accounts) {
+          try {
+            const { marked } = await markEmailsAsRead(alias, query);
+            totalMarked += marked;
+            details.push(`${alias}: ${marked} marked`);
+          } catch (e) {
+            details.push(`${alias}: error — ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        return JSON.stringify({ success: true, totalMarked, details });
       }
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
