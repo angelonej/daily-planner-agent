@@ -309,6 +309,7 @@ if (process.argv.includes("--cli")) {
     if (bodyText) {
       try {
         const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName);
+        return res.json({ transcript: bodyText.trim(), reply });
       } catch (err) {
         console.error("Voice-chat (text) error:", err);
         return res.status(500).json({ error: "Processing failed", details: String(err) });

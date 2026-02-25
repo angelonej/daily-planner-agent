@@ -277,6 +277,7 @@ else {
         if (bodyText) {
             try {
                 const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName);
+                return res.json({ transcript: bodyText.trim(), reply });
             }
             catch (err) {
                 console.error("Voice-chat (text) error:", err);
