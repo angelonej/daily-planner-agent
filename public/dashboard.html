@@ -347,6 +347,7 @@
       <button class="icon-btn" id="notifBtn" title="Notifications">🔔 <span id="notifBadge"></span></button>
       <button class="icon-btn" onclick="sendQuick('/morning')">☀️ Morning</button>
       <button class="icon-btn" id="digestBtn">📧 Send Digest</button>
+      <button class="icon-btn" id="muteBtn" title="Mute voice reading">🔊 Voice</button>
       <button class="icon-btn" id="settingsBtn">⚙️ Settings</button>
       <button class="icon-btn" onclick="window.location.href='/logout'">↩ Logout</button>
     </div>
@@ -654,8 +655,30 @@ function focusInput(prefix) {
 }
 
 // ── TTS ───────────────────────────────────────────────────────────────────
+let ttsEnabled = localStorage.getItem('ttsEnabled') !== 'false';
+function updateMuteBtn() {
+  const btn = document.getElementById('muteBtn');
+  if (!btn) return;
+  if (ttsEnabled) {
+    btn.textContent = '🔊 Voice';
+    btn.classList.remove('active');
+    btn.title = 'Click to mute voice reading';
+  } else {
+    btn.textContent = '🔇 Muted';
+    btn.classList.add('active');
+    btn.title = 'Click to enable voice reading';
+  }
+}
+document.getElementById('muteBtn').addEventListener('click', () => {
+  ttsEnabled = !ttsEnabled;
+  localStorage.setItem('ttsEnabled', ttsEnabled);
+  if (!ttsEnabled) window.speechSynthesis?.cancel();
+  updateMuteBtn();
+});
+updateMuteBtn();
+
 function speakText(text) {
-  if (!window.speechSynthesis) return;
+  if (!ttsEnabled || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
   utt.lang = 'en-US'; utt.rate = 1.05; utt.pitch = 1;
@@ -897,10 +920,24 @@ function renderTasks() {
 
 async function completeTask(taskId, listId, el) {
   el.classList.add('done');
-  setTimeout(async () => {
-    await sendText(`Mark task done (id:${taskId} list:${listId})`);
-    setTimeout(() => loadBriefing(false), 1500);
-  }, 400);
+  try {
+    const res = await fetch('/api/complete-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, listId }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ Task complete', 'Task marked as done');
+      setTimeout(() => loadBriefing(false), 600);
+    } else {
+      el.classList.remove('done');
+      showToast('❌ Error', data.error || 'Could not complete task');
+    }
+  } catch(e) {
+    el.classList.remove('done');
+    showToast('❌ Error', e.message);
+  }
 }
 
 async function addTask() {
@@ -908,8 +945,22 @@ async function addTask() {
   const title = input.value.trim();
   if (!title) return;
   input.value = '';
-  await sendText(`Add a task: ${title}`);
-  setTimeout(() => loadBriefing(false), 1500);
+  try {
+    const res = await fetch('/api/create-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ Task added', title);
+      setTimeout(() => loadBriefing(false), 600);
+    } else {
+      showToast('❌ Error', data.error || 'Could not add task');
+    }
+  } catch(e) {
+    showToast('❌ Error', e.message);
+  }
 }
 document.getElementById('new-task-input').addEventListener('keydown', e => { if(e.key === 'Enter') addTask(); });
 

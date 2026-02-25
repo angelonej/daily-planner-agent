@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 import { coordinatorAgent, buildMorningBriefing, startScheduledJobs } from "./coordinator.js";
 import { addNotificationClient } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
+import { completeTask as completeGoogleTask, createTask as createGoogleTask } from "./tools/tasksTools.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -371,6 +372,29 @@ if (process.argv.includes("--cli")) {
     try {
       const briefing = await buildMorningBriefing();
       res.json(briefing);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // ─── Direct task actions (bypasses AI for instant response) ────────────
+  app.post("/api/complete-task", async (req: Request, res: Response) => {
+    const { taskId, listId } = req.body as { taskId?: string; listId?: string };
+    if (!taskId || !listId) return res.status(400).json({ error: "taskId and listId are required" });
+    try {
+      await completeGoogleTask(taskId, listId);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post("/api/create-task", async (req: Request, res: Response) => {
+    const { title, notes, due } = req.body as { title?: string; notes?: string; due?: string };
+    if (!title) return res.status(400).json({ error: "title is required" });
+    try {
+      const task = await createGoogleTask(title, { notes, due });
+      res.json({ ok: true, task });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
