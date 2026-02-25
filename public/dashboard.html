@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Planner — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --surface2: #21262d;
+      --border:   #30363d;
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --accent:   #1f6feb;
+      --accent2:  #388bfd;
+      --green:    #3fb950;
+      --yellow:   #d29922;
+      --red:      #f85149;
+      --orange:   #db6d28;
+      --purple:   #a371f7;
+      --sidebar-w: 220px;
+      --right-w:   320px;
+    }
+
+    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+    /* ── Layout ── */
+    #app { display: grid; grid-template-columns: var(--sidebar-w) 1fr var(--right-w); grid-template-rows: 48px 1fr; height: 100vh; }
+
+    /* ── Top bar ── */
+    #topbar {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 14px;
+      z-index: 10;
+    }
+    #topbar .logo { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+    #topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+    #topbar .date-time { color: var(--muted); font-size: 12px; margin-left: 4px; }
+    #topbar .spacer { flex: 1; }
+    #topbar .top-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      padding: 5px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .icon-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+    .icon-btn.active { color: var(--green); border-color: var(--green); }
+    #notifBadge {
+      background: var(--red); color: #fff; border-radius: 10px;
+      padding: 1px 5px; font-size: 10px; font-weight: 700; display: none;
+    }
+
+    /* ── Left Sidebar ── */
+    #sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 12px 0;
+      overflow-y: auto;
+    }
+    .nav-section { padding: 0 12px; margin-bottom: 4px; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; padding: 8px 8px 4px; }
+    .nav-btn {
+      display: flex; align-items: center; gap: 9px;
+      width: 100%; padding: 8px 10px; border-radius: 8px;
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: background .15s, color .15s;
+      text-align: left;
+    }
+    .nav-btn:hover { background: var(--surface2); color: var(--text); }
+    .nav-btn.active { background: rgba(31,111,235,.15); color: var(--accent2); }
+    .nav-btn .icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+    .nav-btn .badge { margin-left: auto; background: var(--red); color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
+    .nav-btn .badge.green { background: var(--green); }
+    .nav-divider { height: 1px; background: var(--border); margin: 8px 12px; }
+    #sidebar .bottom { margin-top: auto; padding: 0 12px; }
+
+    /* ── Center: Chat ── */
+    #center {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    #chat-header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    #chat-header h2 { font-size: 14px; font-weight: 600; }
+    #chat-header .subtitle { color: var(--muted); font-size: 12px; }
+    #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
+
+    /* scrollbar */
+    #chat::-webkit-scrollbar { width: 6px; }
+    #chat::-webkit-scrollbar-track { background: transparent; }
+    #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .msg-row { display: flex; flex-direction: column; gap: 3px; }
+    .msg-row.user { align-items: flex-end; }
+    .msg-label { font-size: 11px; color: var(--muted); padding: 0 4px; }
+    .bubble {
+      max-width: 72%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      line-height: 1.55;
+      font-size: 13.5px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bubble.user { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .bubble.agent { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .bubble.system { background: transparent; border: 1px dashed var(--border); color: var(--muted); font-size: 12px; align-self: center; max-width: 90%; text-align: center; }
+    .bubble.thinking { background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 13px; border-bottom-left-radius: 4px; }
+    .bubble a { color: var(--accent2); text-decoration: underline; }
+    .bubble a:hover { color: #79c0ff; }
+    .bubble strong { font-weight: 600; }
+    .bubble code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+    .dots span { animation: blink 1.2s infinite; }
+    .dots span:nth-child(2) { animation-delay: .2s; }
+    .dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+    /* ── Input bar ── */
+    #input-area {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    #input-row { display: flex; gap: 8px; align-items: center; }
+    #textInput {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 22px; color: var(--text); padding: 10px 16px;
+      font-size: 14px; outline: none; transition: border-color .2s;
+    }
+    #textInput:focus { border-color: var(--accent); }
+    #textInput::placeholder { color: var(--muted); }
+    .send-btn {
+      background: var(--accent); color: #fff; border: none; border-radius: 50%;
+      width: 40px; height: 40px; font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, transform .1s; flex-shrink: 0;
+    }
+    .send-btn:hover { background: var(--accent2); }
+    .send-btn:active { transform: scale(.92); }
+    .send-btn:disabled { opacity: .4; cursor: not-allowed; }
+    #voice-status { font-size: 11px; color: var(--muted); margin-top: 5px; text-align: center; min-height: 14px; }
+
+    /* ── Right Panel ── */
+    #right {
+      border-left: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #right-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .rtab {
+      flex: 1; padding: 10px 4px; text-align: center; font-size: 11px; font-weight: 600;
+      color: var(--muted); background: none; border: none; cursor: pointer;
+      border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .rtab:hover { color: var(--text); }
+    .rtab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+    #right-content { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    #right-content::-webkit-scrollbar { width: 4px; }
+    #right-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .panel { display: none; flex-direction: column; gap: 12px; }
+    .panel.active { display: flex; }
+
+    /* ── Widget Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em;
+      margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+    }
+    .card-title .refresh-btn {
+      margin-left: auto; background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 13px; padding: 2px 4px; border-radius: 4px;
+      transition: color .15s, background .15s;
+    }
+    .card-title .refresh-btn:hover { color: var(--text); background: var(--surface2); }
+
+    /* Weather */
+    .weather-main { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+    .weather-icon { font-size: 40px; line-height: 1; }
+    .weather-temp { font-size: 36px; font-weight: 300; line-height: 1; }
+    .weather-temp span { font-size: 16px; font-weight: 500; color: var(--muted); }
+    .weather-desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .weather-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 8px; }
+    .weather-meta-item { font-size: 11px; color: var(--muted); display: flex; gap: 4px; }
+    .weather-meta-item strong { color: var(--text); }
+
+    /* Calendar */
+    .event-item { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .event-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .event-time { font-size: 11px; color: var(--muted); min-width: 70px; padding-top: 1px; white-space: nowrap; }
+    .event-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 4px; flex-shrink: 0; }
+    .event-title { font-size: 13px; font-weight: 500; line-height: 1.3; }
+    .event-loc { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    /* Tasks */
+    .task-item { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .task-item:last-child { border-bottom: none; }
+    .task-check {
+      width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 4px;
+      cursor: pointer; flex-shrink: 0; margin-top: 1px; transition: background .15s, border-color .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .task-check:hover { border-color: var(--green); }
+    .task-check.done { background: var(--green); border-color: var(--green); }
+    .task-check.done::after { content: "✓"; color: #fff; font-size: 10px; font-weight: 700; }
+    .task-title { font-size: 13px; line-height: 1.3; }
+    .task-due { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Email */
+    .email-item { padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .email-item:last-child { border-bottom: none; }
+    .email-item:hover .email-subject { color: var(--accent2); }
+    .email-from { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+    .email-from .imp { color: var(--yellow); font-size: 10px; }
+    .email-from .acct { background: var(--surface2); border-radius: 4px; padding: 1px 5px; font-size: 10px; }
+    .email-subject { font-size: 13px; font-weight: 500; }
+    .email-snippet { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* News */
+    .news-topic { font-size: 11px; font-weight: 700; color: var(--purple); text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 6px; }
+    .news-topic:first-child { margin-top: 0; }
+    .news-article { padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .news-article:last-child { border-bottom: none; }
+    .news-article a { color: var(--text); text-decoration: none; font-size: 13px; font-weight: 500; line-height: 1.4; display: block; }
+    .news-article a:hover { color: var(--accent2); }
+    .news-source { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Quick action chips */
+    .quick-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 0; }
+    .chip {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+      padding: 5px 12px; font-size: 12px; color: var(--muted); cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .chip:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+
+    /* ── Settings Modal ── */
+    #settings-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      z-index: 1000; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #settings-overlay.open { display: flex; }
+    #settings-modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      width: 520px; max-width: 95vw; max-height: 85vh; overflow-y: auto;
+      padding: 28px;
+    }
+    #settings-modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    #settings-modal .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+    .setting-section { margin-bottom: 24px; }
+    .setting-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+    .topic-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .topic-row { display: flex; gap: 8px; align-items: center; }
+    .topic-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); padding: 8px 12px; font-size: 13px; outline: none;
+    }
+    .topic-input:focus { border-color: var(--accent); }
+    .remove-btn {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--red); cursor: pointer; padding: 6px 10px; font-size: 14px;
+      transition: background .15s;
+    }
+    .remove-btn:hover { background: rgba(248,81,73,.1); }
+    .add-topic-btn {
+      background: none; border: 1px dashed var(--border); border-radius: 8px;
+      color: var(--muted); padding: 7px 14px; font-size: 13px; cursor: pointer;
+      width: 100%; transition: border-color .15s, color .15s;
+    }
+    .add-topic-btn:hover { border-color: var(--accent); color: var(--text); }
+    .modal-footer { display: flex; gap: 10px; margin-top: 4px; justify-content: flex-end; }
+    .btn-primary { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; }
+    .btn-secondary:hover { background: var(--border); }
+
+    /* Toast */
+    #toast-container { position: fixed; top: 60px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--green); border-radius: 8px; padding: 11px 15px; min-width: 260px; box-shadow: 0 4px 20px rgba(0,0,0,.5); animation: tSlide .3s ease; pointer-events: all; }
+    .toast.urgent { border-left-color: var(--red); }
+    .toast-title { font-weight: 600; font-size: 13px; }
+    .toast-body { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    @keyframes tSlide { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes tOut { to{transform:translateX(110%);opacity:0} }
+
+    /* Loading spinner */
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .empty-state { color: var(--muted); font-size: 12px; text-align: center; padding: 16px 0; }
+
+    /* Scrollbar right panel */
+    #right-content::-webkit-scrollbar { width: 4px; }
+    #right-content::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Top Bar ── -->
+  <header id="topbar">
+    <div class="logo"><div class="dot"></div> Daily Planner Agent</div>
+    <div class="date-time" id="clock"></div>
+    <div class="spacer"></div>
+    <div class="top-actions">
+      <button class="icon-btn" id="notifBtn" title="Notifications">🔔 <span id="notifBadge"></span></button>
+      <button class="icon-btn" onclick="sendQuick('/morning')">☀️ Morning</button>
+      <button class="icon-btn" id="digestBtn">📧 Send Digest</button>
+      <button class="icon-btn" id="settingsBtn">⚙️ Settings</button>
+      <button class="icon-btn" onclick="window.location.href='/logout'">↩ Logout</button>
+    </div>
+  </header>
+
+  <!-- ── Left Sidebar ── -->
+  <nav id="sidebar">
+    <div class="nav-section">
+      <div class="nav-label">Chat</div>
+      <button class="nav-btn active" onclick="sendQuick('/morning')"><span class="icon">☀️</span> Morning Briefing</button>
+      <button class="nav-btn" onclick="sendQuick('Check my emails')"><span class="icon">📧</span> Check Emails <span class="badge" id="emailBadge" style="display:none">0</span></button>
+      <button class="nav-btn" onclick="sendQuick('Show my tasks')"><span class="icon">✅</span> My Tasks <span class="badge green" id="taskBadge" style="display:none">0</span></button>
+      <button class="nav-btn" onclick="sendQuick('What is on my calendar today?')"><span class="icon">📅</span> Today's Calendar</button>
+      <button class="nav-btn" onclick="sendQuick('What is on my calendar this week?')"><span class="icon">🗓</span> This Week</button>
+      <button class="nav-btn" onclick="sendQuick('What is the weather today?')"><span class="icon">🌤</span> Weather</button>
+      <button class="nav-btn" onclick="sendQuick('What is the weather forecast this week?')"><span class="icon">🌦</span> Forecast</button>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">Actions</div>
+      <button class="nav-btn" onclick="focusInput('Schedule ')"><span class="icon">➕</span> Add Event</button>
+      <button class="nav-btn" onclick="focusInput('Add a task: ')"><span class="icon">📝</span> Add Task</button>
+      <button class="nav-btn" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
+      <button class="nav-btn" onclick="sendQuick('Analyze my calendar for recurring patterns')"><span class="icon">🔄</span> Recurring Events</button>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">News</div>
+      <button class="nav-btn" id="newsNavBtn" onclick="sendQuick('What is in the news today?')"><span class="icon">📰</span> Latest News</button>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="bottom nav-section">
+      <button class="nav-btn" onclick="clearChat()"><span class="icon">🗑</span> Clear Chat</button>
+    </div>
+  </nav>
+
+  <!-- ── Center: Chat ── -->
+  <main id="center">
+    <div id="chat-header">
+      <span style="font-size:20px">🤖</span>
+      <div>
+        <div id="chat-title" style="font-size:14px;font-weight:600">Daily Planner Agent</div>
+        <div class="subtitle" id="chat-subtitle">Ask me anything about your day</div>
+      </div>
+    </div>
+
+    <!-- Quick action chips -->
+    <div class="quick-chips">
+      <div class="chip" onclick="sendQuick('What is on my calendar today?')">📅 Today</div>
+      <div class="chip" onclick="sendQuick('Check my emails')">📧 Emails</div>
+      <div class="chip" onclick="sendQuick('Show my tasks')">✅ Tasks</div>
+      <div class="chip" onclick="sendQuick('What is the weather today?')">🌤 Weather</div>
+      <div class="chip" onclick="sendQuick('What is in the news today?')">📰 News</div>
+      <div class="chip" onclick="sendQuick('Analyze my calendar for recurring patterns')">🔄 Patterns</div>
+    </div>
+
+    <div id="chat">
+      <div class="msg-row"><div class="bubble system">Good morning! Ask me about your calendar, emails, tasks, weather, or news. Use the shortcuts on the left or type below.</div></div>
+    </div>
+
+    <div id="input-area">
+      <div id="input-row">
+        <input id="textInput" type="text" placeholder="Ask anything… schedule, emails, tasks, weather, news" autocomplete="off" />
+        <button class="send-btn" id="sendBtn" title="Send">➤</button>
+        <button class="send-btn" id="micBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:16px" title="Mic">🎙</button>
+      </div>
+      <div id="voice-status"></div>
+    </div>
+  </main>
+
+  <!-- ── Right Panel ── -->
+  <aside id="right">
+    <div id="right-tabs">
+      <button class="rtab active" data-panel="overview" onclick="switchTab('overview')">Overview</button>
+      <button class="rtab" data-panel="calendar" onclick="switchTab('calendar')">Calendar</button>
+      <button class="rtab" data-panel="tasks" onclick="switchTab('tasks')">Tasks</button>
+      <button class="rtab" data-panel="email" onclick="switchTab('email')">Email</button>
+      <button class="rtab" data-panel="news" onclick="switchTab('news')">News</button>
+    </div>
+    <div id="right-content">
+
+      <!-- Overview Tab -->
+      <div class="panel active" id="panel-overview">
+        <!-- Weather widget -->
+        <div class="card" id="weather-card">
+          <div class="card-title">🌤 Weather <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
+          <div id="weather-body"><div class="spinner"></div></div>
+        </div>
+        <!-- Today's events summary -->
+        <div class="card">
+          <div class="card-title">📅 Today's Events <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
+          <div id="overview-cal"></div>
+        </div>
+        <!-- Important emails -->
+        <div class="card">
+          <div class="card-title">⚠️ Important Emails</div>
+          <div id="overview-imp"></div>
+        </div>
+        <!-- Tasks summary -->
+        <div class="card">
+          <div class="card-title">✅ Tasks Due</div>
+          <div id="overview-tasks"></div>
+        </div>
+      </div>
+
+      <!-- Calendar Tab -->
+      <div class="panel" id="panel-calendar">
+        <div class="card">
+          <div class="card-title">📅 Today <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div id="cal-today"></div>
+        </div>
+      </div>
+
+      <!-- Tasks Tab -->
+      <div class="panel" id="panel-tasks">
+        <div class="card">
+          <div class="card-title">✅ Google Tasks <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div id="tasks-list"></div>
+          <div style="margin-top:10px">
+            <div style="display:flex;gap:6px">
+              <input id="new-task-input" class="topic-input" placeholder="Add task…" style="font-size:12px;padding:6px 10px" />
+              <button class="btn-primary" style="padding:6px 12px;font-size:12px" onclick="addTask()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Email Tab -->
+      <div class="panel" id="panel-email">
+        <div class="card">
+          <div class="card-title">📧 Unread Emails <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div id="email-list"></div>
+        </div>
+      </div>
+
+      <!-- News Tab -->
+      <div class="panel" id="panel-news">
+        <div class="card">
+          <div class="card-title">📰 Morning News <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div id="news-list"></div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+</div><!-- #app -->
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- ── Settings Modal ── -->
+<div id="settings-overlay">
+  <div id="settings-modal">
+    <h2>⚙️ Settings</h2>
+    <p class="subtitle">Customize your daily planner experience</p>
+
+    <div class="setting-section">
+      <div class="setting-label">📰 News Topics</div>
+      <div class="topic-list" id="topic-list"></div>
+      <button class="add-topic-btn" onclick="addTopicRow()">+ Add topic</button>
+    </div>
+
+    <div class="setting-section">
+      <div class="setting-label">ℹ️ Active Accounts</div>
+      <div id="accounts-info" style="font-size:13px;color:var(--muted);line-height:1.8"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeSettings()">Cancel</button>
+      <button class="btn-primary" onclick="saveSettings()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const USER_ID = 'web-user';
+let briefingData = null;
+let tasksData = [];
+
+// ── Clock ────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric'
+  }) + '  ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.rtab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+}
+
+// ── Markdown renderer ─────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderMarkdown(text) {
+  const links = [];
+  let html = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, label, url) => {
+    links.push(`<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`);
+    return `\x00L${links.length-1}\x00`;
+  });
+  html = escapeHtml(html);
+  html = html.replace(/\x00L(\d+)\x00/g, (_, i) => links[+i]);
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+function stripMd(text) {
+  return text.replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/`([^`]+)`/g,'$1');
+}
+
+// ── Chat bubbles ──────────────────────────────────────────────────────────
+const chat = document.getElementById('chat');
+
+function addBubble(role, text) {
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (role === 'user' ? ' user' : '');
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = role === 'user' ? 'You' : 'Assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + role;
+  if (role === 'agent') bubble.innerHTML = renderMarkdown(text);
+  else bubble.textContent = text;
+  row.appendChild(label);
+  row.appendChild(bubble);
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
+  return bubble;
+}
+
+function addThinking() {
+  const row = document.createElement('div');
+  row.className = 'msg-row';
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = 'Assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble thinking';
+  bubble.innerHTML = '<span class="dots"><span>●</span><span>●</span><span>●</span></span>';
+  row.appendChild(label);
+  row.appendChild(bubble);
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
+  return row;
+}
+
+// ── Send message ──────────────────────────────────────────────────────────
+const textInput = document.getElementById('textInput');
+const sendBtn   = document.getElementById('sendBtn');
+
+async function sendText(msg) {
+  if (!msg.trim()) return;
+  textInput.value = '';
+  addBubble('user', msg);
+  const thinking = addThinking();
+  sendBtn.disabled = true;
+
+  try {
+    const res = await fetch('/voice-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: msg, userId: USER_ID }),
+    });
+    if (res.status === 401) {
+      thinking.remove();
+      addBubble('agent', '🔒 Session expired — redirecting to login…');
+      setTimeout(() => window.location.href = '/login', 1500);
+      return;
+    }
+    const data = await res.json();
+    thinking.remove();
+    const reply = data.reply || data.error || 'No response';
+    addBubble('agent', reply);
+    speakText(stripMd(reply));
+    // Refresh widgets after AI actions
+    setTimeout(() => loadBriefing(false), 1200);
+  } catch (e) {
+    thinking.remove();
+    addBubble('agent', '⚠️ Network error: ' + e.message);
+  } finally {
+    sendBtn.disabled = false;
+    textInput.focus();
+  }
+}
+
+sendBtn.addEventListener('click', () => sendText(textInput.value));
+textInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(textInput.value); } });
+
+function sendQuick(msg) {
+  textInput.value = msg;
+  // If ends with space, just focus for user to type more
+  if (msg.endsWith(' ')) { textInput.focus(); return; }
+  sendText(msg);
+}
+function focusInput(prefix) {
+  textInput.value = prefix;
+  textInput.focus();
+  textInput.setSelectionRange(prefix.length, prefix.length);
+}
+
+// ── TTS ───────────────────────────────────────────────────────────────────
+function speakText(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'en-US'; utt.rate = 1.05; utt.pitch = 1;
+  const voices = window.speechSynthesis.getVoices();
+  const v = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha') || (v.lang === 'en-US' && v.localService));
+  if (v) utt.voice = v;
+  window.speechSynthesis.speak(utt);
+}
+window.speechSynthesis?.getVoices();
+window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
+
+// ── Mic ───────────────────────────────────────────────────────────────────
+const micBtn = document.getElementById('micBtn');
+const voiceStatus = document.getElementById('voice-status');
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null, isListening = false;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US'; recognition.interimResults = true; recognition.continuous = false;
+  recognition.onresult = e => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    if (e.results[e.results.length-1].isFinal) { voiceStatus.textContent = ''; sendText(transcript); }
+    else voiceStatus.textContent = '🎙 "' + transcript + '"';
+  };
+  recognition.onerror = e => {
+    voiceStatus.textContent = e.error === 'not-allowed' && location.protocol === 'http:' ? '⚠️ Mic requires HTTPS' : '⚠️ ' + e.error;
+    micBtn.style.background = 'var(--surface2)'; isListening = false;
+  };
+  recognition.onend = () => { micBtn.style.background = 'var(--surface2)'; isListening = false; voiceStatus.textContent = ''; };
+} else {
+  micBtn.disabled = true; voiceStatus.textContent = 'Voice not supported in this browser';
+}
+
+micBtn.addEventListener('click', () => {
+  if (!recognition) return;
+  if (isListening) { recognition.stop(); isListening = false; micBtn.style.background = 'var(--surface2)'; }
+  else { window.speechSynthesis?.cancel(); recognition.start(); isListening = true; micBtn.style.background = 'var(--red)'; voiceStatus.textContent = '🔴 Listening…'; }
+});
+
+// ── Clear chat ────────────────────────────────────────────────────────────
+async function clearChat() {
+  window.speechSynthesis?.cancel();
+  await fetch('/voice-chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text:'/clear', userId: USER_ID}) });
+  chat.innerHTML = '<div class="msg-row"><div class="bubble system">Conversation cleared.</div></div>';
+}
+
+// ── Digest ────────────────────────────────────────────────────────────────
+document.getElementById('digestBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('digestBtn');
+  btn.textContent = '📧 Sending…';
+  try {
+    const res = await fetch('/send-digest', { method: 'POST' });
+    const data = await res.json();
+    showToast(data.ok ? '📧 Digest Sent!' : '❌ Failed', data.ok ? 'Morning briefing emailed.' : data.error);
+  } finally { btn.textContent = '📧 Send Digest'; }
+});
+
+// ── SSE notifications ─────────────────────────────────────────────────────
+let unread = 0;
+function connectSSE() {
+  const es = new EventSource('/notifications');
+  es.addEventListener('notification', e => {
+    try {
+      const n = JSON.parse(e.data);
+      showToast(n.title, n.body, n.type === 'event_starting');
+    } catch {}
+  });
+  es.addEventListener('error', () => { es.close(); setTimeout(connectSSE, 5000); });
+}
+connectSSE();
+
+let unreadNotifs = 0;
+document.getElementById('notifBtn').addEventListener('click', () => {
+  unreadNotifs = 0;
+  const badge = document.getElementById('notifBadge');
+  badge.style.display = 'none';
+  if (Notification.permission !== 'granted') {
+    Notification.requestPermission().then(p => { if(p==='granted') showToast('🔔 Enabled','Browser notifications on!'); });
+  }
+});
+
+function showToast(title, body, urgent=false) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (urgent?' urgent':'');
+  t.innerHTML = `<div class="toast-title">${escapeHtml(title)}</div><div class="toast-body">${escapeHtml(body??'')}</div>`;
+  document.getElementById('toast-container').appendChild(t);
+  if (Notification.permission === 'granted') new Notification(title, { body });
+  unreadNotifs++;
+  const b = document.getElementById('notifBadge');
+  b.style.display = 'inline'; b.textContent = unreadNotifs > 9 ? '9+' : unreadNotifs;
+  setTimeout(() => { t.style.animation = 'tOut .3s forwards'; setTimeout(() => t.remove(), 300); }, 5000);
+}
+
+// ── Load briefing & render widgets ────────────────────────────────────────
+async function loadBriefing(showSpinner=true) {
+  try {
+    const res = await fetch('/api/briefing');
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    briefingData = await res.json();
+    renderWidgets();
+  } catch(e) { console.warn('Briefing load error:', e); }
+}
+
+function weatherIcon(condition) {
+  const c = (condition||'').toLowerCase();
+  if (c.includes('thunder')) return '⛈';
+  if (c.includes('snow')) return '❄️';
+  if (c.includes('rain') || c.includes('drizzle')) return '🌧';
+  if (c.includes('cloud') || c.includes('overcast')) return '☁️';
+  if (c.includes('fog') || c.includes('mist')) return '🌫';
+  if (c.includes('wind')) return '💨';
+  if (c.includes('partly')) return '⛅';
+  return '☀️';
+}
+
+function renderWidgets() {
+  if (!briefingData) return;
+  const { weather, calendar, emails, importantEmails, googleTasks, news } = briefingData;
+
+  // ── Weather ──
+  const wb = document.getElementById('weather-body');
+  if (weather) {
+    wb.innerHTML = `
+      <div class="weather-main">
+        <div class="weather-icon">${weatherIcon(weather.condition)}</div>
+        <div>
+          <div class="weather-temp">${weather.temperatureF}<span>°F</span></div>
+          <div class="weather-desc">${escapeHtml(weather.condition||'')} · Feels ${weather.feelsLikeF}°F</div>
+        </div>
+      </div>
+      <div class="weather-meta">
+        <div class="weather-meta-item">🌡 H:<strong>${weather.high}°</strong> L:<strong>${weather.low}°</strong></div>
+        <div class="weather-meta-item">💧 Rain <strong>${weather.precipChance}%</strong></div>
+        <div class="weather-meta-item">🌅 <strong>${weather.sunrise||'–'}</strong></div>
+        <div class="weather-meta-item">🌇 <strong>${weather.sunset||'–'}</strong></div>
+        <div class="weather-meta-item">☀️ UV <strong>${weather.uvIndex??'–'}</strong></div>
+        <div class="weather-meta-item">📍 <strong>${escapeHtml(weather.location||'')}</strong></div>
+      </div>`;
+  } else {
+    wb.innerHTML = '<div class="empty-state">Weather unavailable</div>';
+  }
+
+  // ── Calendar (overview + tab) ──
+  const calHtml = (events) => {
+    if (!events || events.length === 0) return '<div class="empty-state">No events today 🎉</div>';
+    return events.map(e => `
+      <div class="event-item">
+        <div class="event-time">${escapeHtml(e.start)}${e.end ? '–'+escapeHtml(e.end) : ''}</div>
+        <div class="event-dot"></div>
+        <div>
+          <div class="event-title">${escapeHtml(e.title)}</div>
+          ${e.location ? `<div class="event-loc">📍 ${escapeHtml(e.location)}</div>` : ''}
+        </div>
+      </div>`).join('');
+  };
+  document.getElementById('overview-cal').innerHTML = calHtml(calendar);
+  document.getElementById('cal-today').innerHTML = calHtml(calendar);
+
+  // ── Important emails (overview) ──
+  const ov_imp = document.getElementById('overview-imp');
+  if (importantEmails && importantEmails.length > 0) {
+    ov_imp.innerHTML = importantEmails.slice(0,4).map(e => `
+      <div class="email-item" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
+        <div class="email-from"><span class="imp">⚠️</span><span class="acct">${escapeHtml(e.account)}</span> ${escapeHtml(e.from)}</div>
+        <div class="email-subject">${escapeHtml(e.subject)}</div>
+      </div>`).join('');
+  } else {
+    ov_imp.innerHTML = '<div class="empty-state">No important emails ✅</div>';
+  }
+
+  // ── Email list (tab) ──
+  const emailHtml = (emails) => {
+    if (!emails || emails.length === 0) return '<div class="empty-state">Inbox clear ✅</div>';
+    return emails.slice(0,15).map(e => `
+      <div class="email-item" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
+        <div class="email-from">
+          ${e.isImportant ? '<span class="imp">⚠️</span>' : ''}
+          <span class="acct">${escapeHtml(e.account)}</span>
+          ${escapeHtml(e.from)}
+        </div>
+        <div class="email-subject">${escapeHtml(e.subject)}</div>
+        <div class="email-snippet">${escapeHtml(e.snippet||'')}</div>
+      </div>`).join('');
+  };
+  document.getElementById('email-list').innerHTML = emailHtml(emails);
+
+  // Email badge
+  const ec = emails ? emails.length : 0;
+  const eb = document.getElementById('emailBadge');
+  if (ec > 0) { eb.textContent = ec; eb.style.display = 'inline'; } else { eb.style.display = 'none'; }
+
+  // ── Tasks ──
+  tasksData = googleTasks || [];
+  renderTasks();
+
+  const tc = tasksData.length;
+  const tb = document.getElementById('taskBadge');
+  if (tc > 0) { tb.textContent = tc; tb.style.display = 'inline'; } else { tb.style.display = 'none'; }
+
+  // ── Tasks overview ──
+  const ov_tasks = document.getElementById('overview-tasks');
+  const dueSoon = tasksData.filter(t => t.due).slice(0,3);
+  if (dueSoon.length > 0) {
+    ov_tasks.innerHTML = dueSoon.map(t => `
+      <div class="task-item">
+        <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
+        <div>
+          <div class="task-title">${escapeHtml(t.title)}</div>
+          ${t.due ? `<div class="task-due">Due ${new Date(t.due).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : ''}
+        </div>
+      </div>`).join('');
+  } else if (tasksData.length > 0) {
+    ov_tasks.innerHTML = tasksData.slice(0,3).map(t => `
+      <div class="task-item">
+        <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
+        <div><div class="task-title">${escapeHtml(t.title)}</div></div>
+      </div>`).join('');
+  } else {
+    ov_tasks.innerHTML = '<div class="empty-state">No tasks 🎉</div>';
+  }
+
+  // ── News ──
+  renderNews(news);
+}
+
+function renderTasks() {
+  const el = document.getElementById('tasks-list');
+  if (!tasksData || tasksData.length === 0) { el.innerHTML = '<div class="empty-state">No tasks 🎉</div>'; return; }
+  el.innerHTML = tasksData.map(t => `
+    <div class="task-item" id="task-${t.id}">
+      <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
+      <div>
+        <div class="task-title">${escapeHtml(t.title)}</div>
+        ${t.due ? `<div class="task-due">Due ${new Date(t.due).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function completeTask(taskId, listId, el) {
+  el.classList.add('done');
+  setTimeout(async () => {
+    await sendText(`Mark task done (id:${taskId} list:${listId})`);
+    setTimeout(() => loadBriefing(false), 1500);
+  }, 400);
+}
+
+async function addTask() {
+  const input = document.getElementById('new-task-input');
+  const title = input.value.trim();
+  if (!title) return;
+  input.value = '';
+  await sendText(`Add a task: ${title}`);
+  setTimeout(() => loadBriefing(false), 1500);
+}
+document.getElementById('new-task-input').addEventListener('keydown', e => { if(e.key === 'Enter') addTask(); });
+
+function renderNews(news) {
+  const el = document.getElementById('news-list');
+  if (!news || news.length === 0) { el.innerHTML = '<div class="empty-state">No news loaded</div>'; return; }
+  el.innerHTML = news.map(n => `
+    <div class="news-topic">${escapeHtml(n.topic)}</div>
+    ${n.articles.length === 0
+      ? '<div class="empty-state" style="margin-bottom:8px">No articles</div>'
+      : n.articles.map(a => `
+        <div class="news-article">
+          <a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
+          <div class="news-source">${escapeHtml(a.source)} · ${a.publishedAt ? new Date(a.publishedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''}</div>
+        </div>`).join('')
+    }`).join('');
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+async function openSettings() {
+  const res = await fetch('/api/settings');
+  const settings = await res.json();
+  // Build topic rows
+  const tl = document.getElementById('topic-list');
+  tl.innerHTML = '';
+  settings.newsTopics.forEach(t => addTopicRow(t));
+  // Accounts info
+  document.getElementById('accounts-info').innerHTML =
+    settings.accounts.map(a => `✉️ <strong>${escapeHtml(a)}</strong> Gmail account`).join('<br>') +
+    `<br>🕐 Timezone: <strong>${escapeHtml(settings.timezone)}</strong>` +
+    (settings.digestEmail ? `<br>📧 Digest to: <strong>${escapeHtml(settings.digestEmail)}</strong>` : '');
+  document.getElementById('settings-overlay').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+}
+
+function addTopicRow(value='') {
+  const row = document.createElement('div');
+  row.className = 'topic-row';
+  row.innerHTML = `<input class="topic-input" placeholder="e.g. Artificial Intelligence" value="${escapeHtml(value)}" />
+    <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('topic-list').appendChild(row);
+  if (!value) row.querySelector('input').focus();
+}
+
+async function saveSettings() {
+  const topics = Array.from(document.querySelectorAll('#topic-list .topic-input'))
+    .map(i => i.value.trim()).filter(Boolean);
+  const res = await fetch('/api/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newsTopics: topics }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showToast('✅ Settings saved', `${data.newsTopics.length} news topics active`);
+    closeSettings();
+    setTimeout(() => loadBriefing(false), 300);
+  }
+}
+
+// Close modal on overlay click
+document.getElementById('settings-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('settings-overlay')) closeSettings();
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadBriefing(true);
+// Auto-refresh widgets every 5 minutes
+setInterval(() => loadBriefing(false), 5 * 60 * 1000);
+</script>
+</body>
+</html>

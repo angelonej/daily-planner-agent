@@ -143,6 +143,9 @@ if (process.argv.includes("--cli")) {
 
   // Serve the web UI (after auth guard)
   const publicDir = path.join(__dirname, "..", "public");
+  app.get("/dashboard", (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, "dashboard.html"));
+  });
   app.use(express.static(publicDir));
 
   // Multer: kept for potential future use
@@ -335,6 +338,41 @@ if (process.argv.includes("--cli")) {
       }
     } catch (err) {
       res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  // ─── Settings API (news topics stored in memory, persisted to .env-like file) ─
+  let runtimeNewsTopics: string[] = (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
+    .split(",").map(t => t.trim()).filter(Boolean);
+
+  app.get("/api/settings", (_req: Request, res: Response) => {
+    res.json({
+      newsTopics: runtimeNewsTopics,
+      timezone: process.env.TIMEZONE ?? "America/New_York",
+      digestEmail: process.env.DIGEST_EMAIL_TO ?? "",
+      accounts: [
+        process.env.GMAIL_ACCOUNT_1_ALIAS ?? "personal",
+        process.env.GMAIL_ACCOUNT_2_ALIAS ?? "work",
+      ],
+    });
+  });
+
+  app.post("/api/settings", (req: Request, res: Response) => {
+    const { newsTopics } = req.body as { newsTopics?: string[] };
+    if (Array.isArray(newsTopics)) {
+      runtimeNewsTopics = newsTopics.map((t: string) => t.trim()).filter(Boolean);
+      process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
+    }
+    res.json({ ok: true, newsTopics: runtimeNewsTopics });
+  });
+
+  // ─── Live briefing JSON for dashboard widgets ──────────────────────────
+  app.get("/api/briefing", async (_req: Request, res: Response) => {
+    try {
+      const briefing = await buildMorningBriefing();
+      res.json(briefing);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
     }
   });
 
