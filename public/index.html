@@ -416,7 +416,7 @@
 <div id="chat">
   <div class="bubble system">
     Say hello, ask about your calendar, or press ☀️ for your morning briefing.<br/>
-    Hold 🎙 to speak, or type below.
+    Tap 🎙 to speak, or type below.
   </div>
 </div>
 
@@ -739,12 +739,14 @@
       .replace(/https?:\/\/\S+/g, '')             // bare URLs
       .replace(/\*\*([^*]+)\*\*/g, '$1')          // **bold**
       .replace(/`([^`]+)`/g, '$1')                // `code`
+      .replace(/\[[^\]]*\]/g, '')                 // [anything in brackets]
+      .replace(/\([^)]*\)/g, '')                  // (anything in parens)
       .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')     // emoji supplementary plane
       .replace(/[\u2600-\u27BF]/gu, '')            // misc symbols, dingbats
       .replace(/[\u2300-\u23FF]/gu, '')            // misc technical
       .replace(/[\uFE00-\uFE0F]/gu, '')            // variation selectors
       .replace(/[\u200B-\u200D\uFEFF]/gu, '')      // zero-width chars
-      .replace(/\s{2,}/g, ' ')
+      .replace(/[ \t]{2,}/g, ' ')                  // collapse extra spaces (preserve newlines)
       .trim();
   }
 
@@ -797,10 +799,7 @@
   function speakText(text) {
     if (!ttsEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel(); // stop any current speech
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'en-US';
-    utt.rate = 1.05;
-    utt.pitch = 1;
+
     // Prefer a natural-sounding voice if available
     const voices = window.speechSynthesis.getVoices();
     const preferred = voices.find(v =>
@@ -809,8 +808,20 @@
       v.name.includes('Karen') ||
       (v.lang === 'en-US' && v.localService)
     );
-    if (preferred) utt.voice = preferred;
-    window.speechSynthesis.speak(utt);
+
+    // Split on newlines; each non-empty line becomes its own utterance
+    // so the browser's natural pause between utterances mimics a newline break
+    const lines = text.split(/\n+/).map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) return;
+
+    lines.forEach((line, i) => {
+      const utt = new SpeechSynthesisUtterance(line);
+      utt.lang = 'en-US';
+      utt.rate = 1.05;
+      utt.pitch = 1;
+      if (preferred) utt.voice = preferred;
+      window.speechSynthesis.speak(utt);
+    });
   }
 
   // Voices load async — preload them

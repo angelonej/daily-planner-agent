@@ -754,6 +754,8 @@ function stripMd(text) {
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')   // markdown links → label only
     .replace(/\*\*([^*]+)\*\*/g, '$1')           // bold
     .replace(/`([^`]+)`/g, '$1')                 // inline code
+    .replace(/\[[^\]]*\]/g, '')                  // [anything in brackets]
+    .replace(/\([^)]*\)/g, '')                   // (anything in parens)
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')      // emoji (supplementary plane: 🎵🏠🧠🐶 etc)
     .replace(/[\u2600-\u27BF]/gu, '')             // Misc symbols, Dingbats, arrows (☀️✅🔔 etc)
     .replace(/[\u2300-\u23FF]/gu, '')             // Misc Technical (⏰⏳ etc)
@@ -761,7 +763,7 @@ function stripMd(text) {
     .replace(/[\u2700-\u27BF]/gu, '')             // Dingbats
     .replace(/[\uFE00-\uFE0F]/gu, '')             // variation selectors (invisible ️ suffix)
     .replace(/[\u200B-\u200D\uFEFF]/gu, '')       // zero-width chars
-    .replace(/\s{2,}/g, ' ')                      // collapse extra spaces left by removed emoji
+    .replace(/[ \t]{2,}/g, ' ')                   // collapse extra spaces (preserve newlines)
     .trim();
 }
 
@@ -920,17 +922,23 @@ if (window.speechSynthesis) {
 function speakText(text) {
   if (!ttsEnabled || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'en-US';
-  utt.rate = parseFloat(localStorage.getItem('ttsRate') ?? '1.05');
-  utt.pitch = 1;
+  const rate = parseFloat(localStorage.getItem('ttsRate') ?? '1.05');
   const savedVoice = localStorage.getItem('ttsVoice');
   const voices = getVoices();
   const v = savedVoice
     ? (voices.find(v => v.name === savedVoice) ?? pickDefaultVoice(voices))
     : pickDefaultVoice(voices);
-  if (v) utt.voice = v;
-  window.speechSynthesis.speak(utt);
+  // Split on newlines so each line gets a natural pause between it
+  const lines = text.split(/\n+/).map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 0) return;
+  lines.forEach(line => {
+    const utt = new SpeechSynthesisUtterance(line);
+    utt.lang = 'en-US';
+    utt.rate = rate;
+    utt.pitch = 1;
+    if (v) utt.voice = v;
+    window.speechSynthesis.speak(utt);
+  });
 }
 
 function previewVoice() {
