@@ -8,7 +8,7 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import { coordinatorAgent, buildMorningBriefing, startScheduledJobs } from "./coordinator.js";
-import { addNotificationClient } from "./tools/notificationTools.js";
+import { addNotificationClient, updateUserLocation } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask } from "./tools/tasksTools.js";
 const __filename = fileURLToPath(import.meta.url);
@@ -287,10 +287,21 @@ else {
     app.post("/tts", (_req, res) => {
         res.status(501).json({ message: "TTS is handled client-side via Web Speech API" });
     });
-    // ─── SSE: real-time push notifications ────────────────────────────────
+    // ─── SSE: real-time push notifications ────────────────────────────────────
     app.get("/notifications", (req, res) => {
         addNotificationClient(res);
         // When client disconnects, res "close" event cleans it up inside addNotificationClient
+    });
+    // ─── GPS location update from mobile client ──────────────────────────
+    app.post("/update-location", (req, res) => {
+        const { lat, lng } = req.body;
+        if (typeof lat === "number" && typeof lng === "number") {
+            updateUserLocation(lat, lng);
+            res.json({ ok: true });
+        }
+        else {
+            res.status(400).json({ ok: false, error: "lat and lng required" });
+        }
     });
     // ─── Send digest email on demand ──────────────────────────────────────
     app.post("/send-digest", async (_req, res) => {

@@ -563,6 +563,25 @@
   const USER_ID = 'web-user';
   let unreadNotifs = 0;
 
+  // ── GPS location sharing (silent, for traffic-aware alerts) ───────────
+  function sendGpsLocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        fetch('/update-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        }).catch(() => {}); // silent fail
+      },
+      () => {}, // permission denied — silent
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  }
+  // Send on load, then every 15 minutes
+  sendGpsLocation();
+  setInterval(sendGpsLocation, 15 * 60 * 1000);
+
   // ── Toast notifications ────────────────────────────────────────────────
   function showToast(title, body, urgent = false) {
     const toast = document.createElement('div');

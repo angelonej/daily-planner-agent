@@ -14,6 +14,20 @@
 import { getCalendarEvents } from "./calendarTools.js";
 import { getTrafficDuration } from "./trafficTools.js";
 import { randomUUID } from "crypto";
+// ─── Last known GPS location from mobile client ─────────────────────────
+let lastGpsLocation = null;
+export function updateUserLocation(lat, lng) {
+    lastGpsLocation = { lat, lng, timestamp: Date.now() };
+}
+/** Returns GPS coords as "lat,lng" if fresh (< 2 hours), otherwise null */
+function getFreshGpsOrigin() {
+    if (!lastGpsLocation)
+        return null;
+    const ageMs = Date.now() - lastGpsLocation.timestamp;
+    if (ageMs > 2 * 60 * 60 * 1000)
+        return null; // stale
+    return `${lastGpsLocation.lat},${lastGpsLocation.lng}`;
+}
 // ─── SSE client registry ───────────────────────────────────────────────────
 const sseClients = new Set();
 export function addNotificationClient(res) {
@@ -79,7 +93,9 @@ async function checkUpcomingEvents() {
                     // Run async — don't block the poll loop
                     void (async () => {
                         try {
-                            const traffic = await getTrafficDuration(home, ev.location);
+                            // Use fresh GPS if available, otherwise fall back to home address
+                            const origin = getFreshGpsOrigin() ?? home;
+                            const traffic = await getTrafficDuration(origin, ev.location);
                             if (!traffic)
                                 return;
                             // Lead time = travel time + 10 min buffer, minimum 20 min
