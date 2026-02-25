@@ -155,10 +155,8 @@ export async function createCalendarEvent(params) {
             end: toGoogleDateTime(params.endIso),
         },
     });
-    return {
-        eventId: res.data.id ?? "",
-        link: res.data.htmlLink ?? "",
-    };
+    const eventId = res.data.id ?? "";
+    return { eventId, link: "" };
 }
 // ─── Update an existing event by ID ───────────────────────────────────────
 export async function updateCalendarEvent(params) {

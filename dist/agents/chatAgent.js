@@ -16,6 +16,7 @@ You have access to their morning briefing (calendar events, emails, news) and ca
 When answering questions, reference their actual data when relevant.
 Keep responses brief and actionable. Use bullet points for lists.
 When including links, always use markdown format: [View Event](https://...) — never paste raw URLs.
+Do NOT include Google Calendar event links in responses — just confirm the event title and time.
 If asked to summarize emails or news, use the briefing data provided.
 When the user asks to add, create, schedule, move, reschedule, cancel, or delete a calendar event, use the appropriate calendar tool.
 When the user asks about recurring events, patterns, or regular meetings, use suggest_recurring_events.
@@ -271,7 +272,7 @@ async function executeTool(name, args) {
                     location: args.location ? String(args.location) : undefined,
                     description: args.description ? String(args.description) : undefined,
                 });
-                return JSON.stringify({ success: true, eventId: result.eventId, link: result.link });
+                return JSON.stringify({ success: true, eventId: result.eventId });
             }
             case "update_calendar_event": {
                 await updateEvent({

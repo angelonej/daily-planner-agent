@@ -199,10 +199,8 @@ export async function createCalendarEvent(params: CreateEventParams): Promise<{ 
     },
   });
 
-  return {
-    eventId: res.data.id ?? "",
-    link: res.data.htmlLink ?? "",
-  };
+  const eventId = res.data.id ?? "";
+  return { eventId, link: "" };
 }
 
 // ─── Update an existing event by ID ───────────────────────────────────────
