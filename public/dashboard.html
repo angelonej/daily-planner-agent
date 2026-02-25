@@ -1179,24 +1179,95 @@ function updateReminderForm() {
 }
 updateReminderForm(); // init on load
 
+// Returns the next Date a reminder fires on or after `from`, or null if > 31 days away
+function nextOccurrence(r, from) {
+  const [h, m] = r.time.split(':').map(Number);
+  const d = new Date(from);
+  d.setSeconds(0, 0);
+
+  if (r.frequency === 'daily') {
+    const t = new Date(from);
+    t.setHours(h, m, 0, 0);
+    if (t <= from) t.setDate(t.getDate() + 1);
+    return t;
+  }
+
+  if (r.frequency === 'weekly') {
+    const target = r.dayOfWeek ?? 0;
+    const t = new Date(from);
+    t.setHours(h, m, 0, 0);
+    const diff = (target - t.getDay() + 7) % 7;
+    t.setDate(t.getDate() + (diff === 0 && t <= from ? 7 : diff));
+    return t;
+  }
+
+  if (r.frequency === 'monthly') {
+    const dom = r.dayOfMonth ?? 1;
+    for (let i = 0; i < 2; i++) {
+      const t = new Date(from.getFullYear(), from.getMonth() + i, dom, h, m, 0, 0);
+      if (t > from) return t;
+    }
+    return null;
+  }
+
+  if (r.frequency === 'yearly') {
+    const dom = r.dayOfMonth ?? 1;
+    const mon = (r.month ?? 1) - 1;
+    for (let i = 0; i < 2; i++) {
+      const t = new Date(from.getFullYear() + i, mon, dom, h, m, 0, 0);
+      if (t > from) return t;
+    }
+    return null;
+  }
+
+  return null;
+}
+
 async function loadReminders() {
   const el = document.getElementById('reminders-list');
   try {
     const res = await fetch('/api/reminders');
     const data = await res.json();
-    const reminders = data.reminders || [];
-    if (reminders.length === 0) {
+    const all = data.reminders || [];
+    if (all.length === 0) {
       el.innerHTML = '<div class="empty-state">No reminders yet.<br><small style="color:var(--muted)">Add one below or ask the agent.</small></div>';
       return;
     }
-    el.innerHTML = reminders.map(r => {
+
+    const now = new Date();
+    const cutoff = new Date(now.getTime() + 31 * 24 * 60 * 60 * 1000);
+
+    // Attach next occurrence, filter to within 31 days, sort by soonest
+    const upcoming = all
+      .map(r => ({ r, next: nextOccurrence(r, now) }))
+      .filter(({ next }) => next && next <= cutoff)
+      .sort((a, b) => a.next - b.next);
+
+    if (upcoming.length === 0) {
+      el.innerHTML = '<div class="empty-state">No reminders due in the next month.<br><small style="color:var(--muted)">All reminders are shown when they are within 30 days.</small></div>';
+      return;
+    }
+
+    const todayStr = now.toDateString();
+    const tomorrowStr = new Date(now.getTime() + 86400000).toDateString();
+
+    el.innerHTML = upcoming.map(({ r, next }) => {
       const schedule = describeReminderJS(r);
-      const color = r.active ? 'var(--green)' : 'var(--muted)';
+      const color = r.active ? 'var(--green,#3fb950)' : 'var(--muted)';
+      // Friendly "due in" label
+      const diffMs = next - now;
+      const diffDays = Math.floor(diffMs / 86400000);
+      let whenLabel;
+      if (next.toDateString() === todayStr) whenLabel = '⚡ Today';
+      else if (next.toDateString() === tomorrowStr) whenLabel = '📅 Tomorrow';
+      else whenLabel = `📅 In ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+
       return `<div class="task-item" style="align-items:flex-start" id="rem-${r.id}">
         <div style="font-size:18px;line-height:1;padding-top:2px">🔔</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${escapeHtml(r.title)}</div>
           <div style="font-size:11px;color:${color};margin-top:2px">${escapeHtml(schedule)}</div>
+          <div style="font-size:11px;color:var(--accent2,#e3b341);margin-top:1px">${whenLabel} · ${next.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
           ${r.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escapeHtml(r.notes)}</div>` : ''}
         </div>
         <button onclick="deleteReminder('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 4px" title="Delete">✕</button>
