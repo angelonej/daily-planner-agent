@@ -256,6 +256,58 @@
       padding: 0 4px;
       text-align: right;
     }
+
+    /* ── Mobile responsive ── */
+    @media (max-width: 600px) {
+      header { padding: 10px 14px; }
+      header h1 { font-size: 15px; }
+
+      #chat { padding: 12px; gap: 10px; }
+
+      .bubble { max-width: 88%; font-size: 14px; }
+
+      footer { padding: 10px 12px; gap: 8px; }
+
+      .top-bar {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      #textInput {
+        flex: 1 1 100%;
+        order: -1;
+        font-size: 16px; /* prevents iOS zoom */
+        padding: 12px 14px;
+      }
+
+      #sendBtn {
+        flex: 1;
+        min-width: 0;
+      }
+
+      #morningBtn, #digestBtn, #recurringBtn, #clearBtn {
+        flex: 1 1 calc(50% - 6px);
+        min-width: 0;
+        font-size: 12px;
+        padding: 10px 8px;
+      }
+
+      #notifBtn {
+        flex-shrink: 0;
+      }
+
+      .voice-bar { gap: 10px; }
+
+      #voiceStatus { font-size: 12px; }
+
+      #toastContainer {
+        top: auto;
+        bottom: 16px;
+        right: 8px;
+        left: 8px;
+      }
+      .toast { max-width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -278,11 +330,11 @@
   <div class="top-bar">
     <input id="textInput" type="text" placeholder='Type a message or press 🎙 to speak…' autocomplete="off" />
     <button id="sendBtn">Send</button>
-    <button id="morningBtn">☀️ Morning</button>
-    <button id="digestBtn" title="Send morning briefing to your email">📧 Email Digest</button>
-    <button id="recurringBtn" title="Analyze calendar for recurring patterns">🔄 Recurring</button>
-    <button id="clearBtn">Clear</button>
     <button id="notifBtn" title="Enable browser notifications">🔔<span id="notifBadge"></span></button>
+    <button id="morningBtn">☀️ Morning</button>
+    <button id="digestBtn" title="Send morning briefing to your email">📧 Digest</button>
+    <button id="recurringBtn" title="Analyze calendar for recurring patterns">🔄 Recurring</button>
+    <button id="clearBtn">🗑 Clear</button>
   </div>
   <div class="voice-bar">
     <button id="micBtn" title="Click to start/stop listening">🎙</button>
