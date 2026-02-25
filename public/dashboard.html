@@ -452,13 +452,13 @@
   <!-- ── Right Panel ── -->
   <aside id="right">
     <div id="right-tabs">
-      <button class="rtab active" data-panel="overview" onclick="switchTab('overview')">Overview</button>
-      <button class="rtab" data-panel="calendar" onclick="switchTab('calendar')">Calendar</button>
-      <button class="rtab" data-panel="tasks" onclick="switchTab('tasks')">Tasks</button>
-      <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')">🔔</button>
-      <button class="rtab" data-panel="email" onclick="switchTab('email')">Email</button>
-      <button class="rtab" data-panel="news" onclick="switchTab('news')">News</button>
-      <button class="rtab" data-panel="packages" onclick="switchTab('packages')">📦</button>
+      <button class="rtab active" data-panel="overview" onclick="switchTab('overview')" title="Overview">🏠</button>
+      <button class="rtab" data-panel="calendar" onclick="switchTab('calendar')" title="Calendar">📅</button>
+      <button class="rtab" data-panel="tasks" onclick="switchTab('tasks')" title="Tasks">✅</button>
+      <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')" title="Reminders">🔔</button>
+      <button class="rtab" data-panel="email" onclick="switchTab('email')" title="Email">✉️</button>
+      <button class="rtab" data-panel="news" onclick="switchTab('news')" title="News">📰</button>
+      <button class="rtab" data-panel="packages" onclick="switchTab('packages')" title="Packages">📦</button>
     </div>
     <div id="right-content">
 
@@ -1116,7 +1116,9 @@ function renderWidgets() {
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent);color:#fff">${escapeHtml(p.carrier)}</span>
           ${statusBadge}
-          <a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600">${escapeHtml(p.trackingNumber)} ↗</a>
+          ${p.trackingUrl && p.trackingUrl !== '#'
+            ? `<a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:var(--accent2)">${escapeHtml(p.trackingNumber)} ↗</a>`
+            : `<span style="font-size:12px;color:var(--muted)">${escapeHtml(p.trackingNumber)}</span>`}
         </div>
         <div class="pkg-subject" style="margin-top:3px">${escapeHtml(p.emailSubject)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:1px">${escapeHtml(p.emailFrom)}</div>
@@ -1704,7 +1706,9 @@ async function loadPackages() {
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--accent);color:#fff">${escapeHtml(p.carrier)}</span>
           ${statusBadge}
-          <a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600">${escapeHtml(p.trackingNumber)} ↗</a>
+          ${p.trackingUrl && p.trackingUrl !== '#'
+            ? `<a href="${escapeHtml(p.trackingUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:var(--accent2)">${escapeHtml(p.trackingNumber)} ↗</a>`
+            : `<span style="font-size:12px;color:var(--muted)">${escapeHtml(p.trackingNumber)}</span>`}
         </div>
         <div class="pkg-subject" style="margin-top:3px">${escapeHtml(p.emailSubject)}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:1px">${escapeHtml(p.emailFrom)} · ${dateStr}</div>

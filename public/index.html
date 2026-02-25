@@ -450,6 +450,13 @@
     </div>
     <div class="drawer-row">
       <button id="notifBtn" class="drawer-row-btn">🔔 Notifications<span id="notifBadge"></span></button>
+    </div>
+    <div id="notif-history" style="display:none;padding:8px 0">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Recent Alerts</div>
+      <div id="notif-history-list"><div style="font-size:12px;color:var(--muted);text-align:center;padding:12px 0">No notifications yet</div></div>
+      <button onclick="document.getElementById('notif-history').style.display='none'" style="width:100%;margin-top:8px;padding:6px;background:var(--surface2);border:none;border-radius:6px;color:var(--muted);font-size:12px;cursor:pointer">Hide ▲</button>
+    </div>
+    <div class="drawer-row">
       <button id="muteBtn" class="drawer-row-btn">🔊 Voice On</button>
     </div>
   </div>
@@ -625,24 +632,42 @@
 
   // SSE connection defined at bottom of script (needs auth token)
 
-  // ── Notification bell: request browser permission ──────────────────────
+  // Track recent notifications for history panel
+  const recentMobileAlerts = [];
+  function addToMobileNotifHistory(title, body) {
+    recentMobileAlerts.unshift({ title, body, time: new Date() });
+    if (recentMobileAlerts.length > 30) recentMobileAlerts.pop();
+    const list = document.getElementById('notif-history-list');
+    if (list) {
+      list.innerHTML = recentMobileAlerts.map(a =>
+        `<div style="padding:7px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600">${a.title}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">${a.body || ''}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${a.time.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+        </div>`
+      ).join('');
+    }
+  }
+
+  // ── Notification bell: toggle history + request browser permission ─────
   notifBtn.addEventListener('click', async () => {
     // Clear badge
     unreadNotifs = 0;
     notifBadge.style.display = 'none';
-
-    if (Notification.permission === 'granted') {
+    // Toggle notification history panel
+    const hist = document.getElementById('notif-history');
+    hist.style.display = hist.style.display === 'none' ? 'block' : 'none';
+    // Request permission if not yet granted
+    if (Notification.permission === 'default') {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        notifBtn.classList.add('active');
+        showToast('🔔 Notifications enabled', 'You will get alerts for upcoming events!');
+      }
+    } else if (Notification.permission === 'granted') {
       notifBtn.classList.add('active');
-      return; // already enabled — just clear the badge, no toast
-    }
-    if (Notification.permission === 'denied') {
-      showToast('🔕 Blocked', 'Browser notifications are blocked. Enable them in browser settings.');
-      return;
-    }
-    const perm = await Notification.requestPermission();
-    if (perm === 'granted') {
-      notifBtn.classList.add('active');
-      showToast('🔔 Notifications enabled', 'You will get alerts for upcoming events!');
+    } else {
+      showToast('🔕 Blocked', 'Enable notifications in browser settings.');
     }
   });
 
@@ -973,6 +998,7 @@ function connectSSE() {
     try {
       const alert = JSON.parse(e.data);
       showToast(alert.title, alert.body, alert.type === 'event_starting');
+      addToMobileNotifHistory(alert.title, alert.body);
     } catch {}
   });
   es.addEventListener('error', () => { es.close(); setTimeout(connectSSE, 5000); });

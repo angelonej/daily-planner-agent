@@ -99,8 +99,23 @@ function detectCarrierFromEmail(from, subject) {
         return "USPS";
     return "Unknown";
 }
-function looksLikeShippingEmail(subject, snippet) {
+// Senders/subjects to always exclude — not real shipments
+const EXCLUSION_PATTERNS = [
+    /informed delivery/i,
+    /delivery status notification/i,
+    /mailer-daemon/i,
+    /mail delivery subsystem/i,
+    /undeliverable/i,
+    /delivery failure/i,
+    /bounce/i,
+    /your daily digest/i,
+];
+function looksLikeShippingEmail(subject, snippet, from) {
     const combined = `${subject} ${snippet}`.toLowerCase();
+    const all = `${from ?? ''} ${subject} ${snippet}`;
+    // Exclude noise emails that match shipping keywords but aren't real shipments
+    if (EXCLUSION_PATTERNS.some((p) => p.test(all)))
+        return false;
     return SHIPPING_KEYWORDS.some((kw) => combined.includes(kw));
 }
 function extractTrackingNumbers(text) {
@@ -130,7 +145,7 @@ export async function getTrackedPackages(prefetchedEmails, daysBack = 7) {
     const packages = [];
     const seenTrackingNums = new Set();
     for (const email of emails) {
-        if (!looksLikeShippingEmail(email.subject, email.snippet))
+        if (!looksLikeShippingEmail(email.subject, email.snippet, email.from))
             continue;
         const combined = `${email.subject} ${email.snippet}`;
         const found = extractTrackingNumbers(combined);
