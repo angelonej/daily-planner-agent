@@ -505,6 +505,24 @@
     <p class="subtitle">Customize your daily planner experience</p>
 
     <div class="setting-section">
+      <div class="setting-label">🤖 Assistant Name</div>
+      <input id="assistant-name-input" class="topic-input" placeholder="e.g. Aria, Max, Nova…" style="width:100%" />
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Shown in the chat header and used to greet you.</div>
+    </div>
+
+    <div class="setting-section">
+      <div class="setting-label">🔊 Voice</div>
+      <select id="voice-select" class="topic-input" style="width:100%;cursor:pointer">
+        <option value="">Loading voices…</option>
+      </select>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="voice-rate" type="range" min="0.6" max="1.6" step="0.05" style="flex:1;accent-color:var(--accent)" />
+        <span style="font-size:12px;color:var(--muted);min-width:70px" id="voice-rate-label">Speed: 1.05×</span>
+        <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="previewVoice()">▶ Preview</button>
+      </div>
+    </div>
+
+    <div class="setting-section">
       <div class="setting-label">📰 News Topics</div>
       <div class="topic-list" id="topic-list"></div>
       <button class="add-topic-btn" onclick="addTopicRow()">+ Add topic</button>
@@ -677,18 +695,30 @@ document.getElementById('muteBtn').addEventListener('click', () => {
 });
 updateMuteBtn();
 
+function getVoices() { return window.speechSynthesis?.getVoices() ?? []; }
+
 function speakText(text) {
   if (!ttsEnabled || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'en-US'; utt.rate = 1.05; utt.pitch = 1;
-  const voices = window.speechSynthesis.getVoices();
-  const v = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha') || (v.lang === 'en-US' && v.localService));
+  utt.lang = 'en-US';
+  utt.rate = parseFloat(localStorage.getItem('ttsRate') ?? '1.05');
+  utt.pitch = 1;
+  const savedVoice = localStorage.getItem('ttsVoice');
+  const voices = getVoices();
+  const v = savedVoice
+    ? voices.find(v => v.name === savedVoice)
+    : voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha') || (v.lang === 'en-US' && v.localService));
   if (v) utt.voice = v;
   window.speechSynthesis.speak(utt);
 }
 window.speechSynthesis?.getVoices();
 window.speechSynthesis?.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
+
+function previewVoice() {
+  const name = localStorage.getItem('assistantName') || 'Assistant';
+  speakText(`Hi, I'm ${name}. Here is your daily briefing.`);
+}
 
 // ── Mic ───────────────────────────────────────────────────────────────────
 const micBtn = document.getElementById('micBtn');
@@ -985,10 +1015,34 @@ document.getElementById('settingsBtn').addEventListener('click', openSettings);
 async function openSettings() {
   const res = await fetch('/api/settings');
   const settings = await res.json();
+
+  // Assistant name
+  document.getElementById('assistant-name-input').value = localStorage.getItem('assistantName') ?? '';
+
+  // Voice picker
+  const sel = document.getElementById('voice-select');
+  const voices = getVoices();
+  const savedVoice = localStorage.getItem('ttsVoice') ?? '';
+  sel.innerHTML = voices.length === 0
+    ? '<option value="">No voices found — try Chrome/Edge</option>'
+    : voices.map(v =>
+        `<option value="${escapeHtml(v.name)}" ${v.name === savedVoice ? 'selected' : ''}>${escapeHtml(v.name)} (${v.lang})</option>`
+      ).join('');
+
+  // Speed slider
+  const rateSlider = document.getElementById('voice-rate');
+  const savedRate = parseFloat(localStorage.getItem('ttsRate') ?? '1.05');
+  rateSlider.value = savedRate;
+  document.getElementById('voice-rate-label').textContent = `Speed: ${savedRate.toFixed(2)}×`;
+  rateSlider.oninput = () => {
+    document.getElementById('voice-rate-label').textContent = `Speed: ${parseFloat(rateSlider.value).toFixed(2)}×`;
+  };
+
   // Build topic rows
   const tl = document.getElementById('topic-list');
   tl.innerHTML = '';
   settings.newsTopics.forEach(t => addTopicRow(t));
+
   // Accounts info
   document.getElementById('accounts-info').innerHTML =
     settings.accounts.map(a => `✉️ <strong>${escapeHtml(a)}</strong> Gmail account`).join('<br>') +
@@ -1010,7 +1064,30 @@ function addTopicRow(value='') {
   if (!value) row.querySelector('input').focus();
 }
 
+function applyAssistantName() {
+  const name = localStorage.getItem('assistantName');
+  if (name) {
+    document.getElementById('chat-title').textContent = name;
+    document.getElementById('chat-subtitle').textContent = `Ask ${name} anything about your day`;
+  }
+}
+
 async function saveSettings() {
+  // Save assistant name
+  const nameVal = document.getElementById('assistant-name-input').value.trim();
+  if (nameVal) localStorage.setItem('assistantName', nameVal);
+  else localStorage.removeItem('assistantName');
+
+  // Save voice
+  const voiceVal = document.getElementById('voice-select').value;
+  if (voiceVal) localStorage.setItem('ttsVoice', voiceVal);
+  else localStorage.removeItem('ttsVoice');
+
+  // Save rate
+  const rateVal = parseFloat(document.getElementById('voice-rate').value);
+  localStorage.setItem('ttsRate', rateVal.toFixed(2));
+
+  // Save news topics
   const topics = Array.from(document.querySelectorAll('#topic-list .topic-input'))
     .map(i => i.value.trim()).filter(Boolean);
   const res = await fetch('/api/settings', {
@@ -1019,11 +1096,15 @@ async function saveSettings() {
   });
   const data = await res.json();
   if (data.ok) {
-    showToast('✅ Settings saved', `${data.newsTopics.length} news topics active`);
+    applyAssistantName();
+    showToast('✅ Settings saved', nameVal ? `Assistant renamed to ${nameVal}` : 'Settings updated');
     closeSettings();
     setTimeout(() => loadBriefing(false), 300);
   }
 }
+
+// Apply on load
+applyAssistantName();
 
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
