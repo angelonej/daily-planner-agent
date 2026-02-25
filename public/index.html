@@ -459,14 +459,6 @@
     <div class="drawer-row">
       <button id="muteBtn" class="drawer-row-btn">🔊 Voice On</button>
     </div>
-    <div class="drawer-grid" style="margin-top:8px">
-      <button class="drawer-btn" onclick="readNewsAloud()">
-        <span class="btn-icon">📰</span><span class="btn-label">Read News</span>
-      </button>
-      <button class="drawer-btn" onclick="readEmailsAloud()">
-        <span class="btn-icon">📧</span><span class="btn-label">Read Emails</span>
-      </button>
-    </div>
   </div>
 
   <!-- Quick Ask panel -->
@@ -486,6 +478,7 @@
     <div class="section-label">📧 Email</div>
     <div class="chip-grid">
       <button class="chip-btn" onclick="quickAsk('Check my emails')"><span class="ci">📥</span><span class="cl">Check Inbox</span></button>
+      <button class="chip-btn" onclick="readEmailsAloud()"><span class="ci">🔊</span><span class="cl">Read Emails</span></button>
       <button class="chip-btn" onclick="quickFocus('Search my emails for ')"><span class="ci">🔍</span><span class="cl">Search Email</span></button>
     </div>
     <div class="section-label">🌤 Weather &amp; News</div>
@@ -493,6 +486,7 @@
       <button class="chip-btn" onclick="quickAsk('What is the weather today?')"><span class="ci">🌤</span><span class="cl">Weather</span></button>
       <button class="chip-btn" onclick="quickAsk('What is the weather forecast this week?')"><span class="ci">🌦</span><span class="cl">Forecast</span></button>
       <button class="chip-btn" onclick="quickAsk('What is in the news today?')"><span class="ci">📰</span><span class="cl">News</span></button>
+      <button class="chip-btn" onclick="readNewsAloud()"><span class="ci">🔊</span><span class="cl">Read News</span></button>
       <button class="chip-btn" onclick="quickAsk('Give me a quick summary of today')"><span class="ci">📋</span><span class="cl">Summary</span></button>
     </div>
   </div>
