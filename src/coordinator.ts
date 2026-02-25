@@ -8,6 +8,7 @@ import { getWeather, formatWeatherSummary } from "./tools/weatherTools.js";
 import { listTasks } from "./tools/tasksTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { pushNotification, startNotificationPolling } from "./tools/notificationTools.js";
+import { getUsageToday } from "./tools/usageTracker.js";
 import { MorningBriefing, ScheduleBlock } from "./types.js";
 import cron from "node-cron";
 
@@ -82,6 +83,7 @@ export async function buildMorningBriefing(): Promise<MorningBriefing> {
     news:         newsData,
     weather:      weatherData,
     googleTasks:  googleTasksData,
+    llmUsage:     getUsageToday(),
     generatedAt:  new Date().toISOString(),
   };
 
@@ -138,6 +140,10 @@ function formatMorningBriefingText(briefing: MorningBriefing): string {
           .join("\n")
       : "  No news loaded.";
 
+  const usageSection = briefing.llmUsage
+    ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens used today across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(4)}`
+    : "  No usage data yet.";
+
   const scheduleWarning = !review.valid ? "\n⚠️ Schedule conflict detected!\n" : "";
 
   return `
@@ -160,6 +166,9 @@ ${taskSection}
 
 📰 MORNING NEWS
 ${newsSection}
+
+🤖 LLM USAGE TODAY
+${usageSection}
 
 💬 Chat with me anytime — ask about your emails, schedule, tasks, or anything else!
 `.trim();

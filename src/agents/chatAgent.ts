@@ -18,6 +18,7 @@ import {
 import { suggestRecurringEvents, formatRecurringSuggestions } from "../tools/recurringTools.js";
 import { sendDailyDigestEmail } from "../tools/digestEmail.js";
 import { getWeatherForecast } from "../tools/weatherTools.js";
+import { recordUsage } from "../tools/usageTracker.js";
 
 const openai = new OpenAI({
   apiKey: process.env.XAI_API_KEY,
@@ -491,9 +492,12 @@ export async function chatAgent(
       temperature: 0.3,
     });
 
+    // Track token usage for billing visibility
+    recordUsage(response.usage, model);
+
     const choice = response.choices[0];
     const assistantMsg = choice.message;
-    console.log(`🤖 Grok finish_reason: ${choice.finish_reason}, tool_calls: ${assistantMsg.tool_calls?.length ?? 0}`);
+    console.log(`🤖 Grok finish_reason: ${choice.finish_reason}, tool_calls: ${assistantMsg.tool_calls?.length ?? 0}, tokens: ${response.usage?.total_tokens ?? "?"}`);
     messages.push(assistantMsg);
 
     if (choice.finish_reason === "tool_calls" && assistantMsg.tool_calls) {

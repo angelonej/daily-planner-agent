@@ -103,6 +103,15 @@ export interface RecurringSuggestion {
   suggestedRule: string;          // Human-readable: "Weekly on Monday at 9am"
 }
 
+export interface LlmUsage {
+  date: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  calls: number;
+  estimatedCostUSD: number;
+}
+
 export interface MorningBriefing {
   calendar: CalendarEvent[];
   emails: Email[];
@@ -110,5 +119,6 @@ export interface MorningBriefing {
   news: NewsResult[];
   weather?: WeatherData;
   googleTasks: GoogleTask[];
+  llmUsage?: LlmUsage;
   generatedAt: string;
 }
