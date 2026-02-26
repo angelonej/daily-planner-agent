@@ -377,7 +377,6 @@
     <div class="logo"><div class="dot"></div> Daily Planner Agent</div>
     <div class="date-time" id="clock"></div>
     <div class="spacer"></div>
-    <span id="last-updated" style="font-size:11px;color:var(--muted);margin-right:4px"></span>
     <div class="top-actions">
       <button class="icon-btn" id="notifBtn" title="Notifications">🔔 <span id="notifBadge"></span></button>
       <button class="icon-btn" id="settingsBtn">⚙️ Settings</button>
@@ -1071,9 +1070,6 @@ async function loadBriefing(forceRefresh=false) {
     const res = await fetch(url);
     if (res.status === 401) { window.location.href = '/login'; return; }
     briefingData = await res.json();
-    const ts = briefingData._fetchedAt ? new Date(briefingData._fetchedAt) : new Date();
-    const el = document.getElementById('last-updated');
-    if (el) el.textContent = 'Updated ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     renderWidgets();
   } catch(e) { console.warn('Briefing load error:', e); }
 }
