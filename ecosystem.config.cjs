@@ -12,7 +12,8 @@ module.exports = {
       script: "./dist/index.js",
       interpreter: "node",
       // Raise Node's V8 heap limit (default ~512 MB causes OOM on t3.micro)
-      interpreter_args: "--max-old-space-size=768",
+      // -r dotenv/config ensures .env is loaded before any module initializes
+      interpreter_args: "--max-old-space-size=768 -r dotenv/config",
 
       // Restart automatically if it crashes or exceeds memory ceiling
       autorestart: true,
