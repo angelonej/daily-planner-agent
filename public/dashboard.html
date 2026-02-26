@@ -44,7 +44,7 @@
     }
     #topbar .logo { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
     #topbar .logo .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
-    #topbar .date-time { color: var(--muted); font-size: 12px; margin-left: 4px; }
+    #topbar .date-time { color: var(--muted); font-size: 12px; margin-right: 8px; }
     #topbar .spacer { flex: 1; }
     #topbar .top-actions { display: flex; align-items: center; gap: 8px; }
     .icon-btn {
@@ -375,8 +375,8 @@
   <!-- ── Top Bar ── -->
   <header id="topbar">
     <div class="logo"><div class="dot"></div> Daily Planner Agent</div>
-    <div class="date-time" id="clock"></div>
     <div class="spacer"></div>
+    <div class="date-time" id="clock"></div>
     <div class="top-actions">
       <button class="icon-btn" id="notifBtn" title="Notifications">🔔 <span id="notifBadge"></span></button>
       <button class="icon-btn" id="settingsBtn">⚙️ Settings</button>
