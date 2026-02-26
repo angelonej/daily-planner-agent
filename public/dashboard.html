@@ -305,24 +305,17 @@
     /* Today's Priorities Card */
     #suggestions-banner {
       display: none;
-      background: linear-gradient(135deg, #1a2412 0%, #1c2a14 100%);
-      border: 1px solid #3a5a1a;
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
     }
-    #suggestions-banner .sug-title { font-size: 11px; font-weight: 700; color: #7ee787; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
     #suggestions-banner .sug-chip {
       display: block; width: 100%; text-align: left;
-      background: rgba(126,231,135,.07); border: 1px solid rgba(126,231,135,.2);
-      border-radius: 7px; color: #cae8a0; font-size: 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 7px; color: var(--text); font-size: 12px;
       padding: 7px 10px; margin-bottom: 5px; cursor: pointer;
       transition: background .15s, border-color .15s; line-height: 1.4;
     }
     #suggestions-banner .sug-chip:last-child { margin-bottom: 0; }
-    #suggestions-banner .sug-chip:hover { background: rgba(126,231,135,.15); border-color: rgba(126,231,135,.4); }
-    #suggestions-dismiss { float: right; background: none; border: none; color: #7ee787; cursor: pointer; font-size: 14px; padding: 0 2px; margin-top: -2px; }
-    #sug-loading { font-size: 11px; color: #7ee787; opacity: 0.6; padding: 4px 0; }
+    #suggestions-banner .sug-chip:hover { background: var(--hover); border-color: var(--accent); }
+    #sug-loading { font-size: 11px; color: var(--muted); opacity: 0.7; padding: 4px 0; }
 
     /* Package tracking */
     .pkg-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -504,11 +497,10 @@
 
       <!-- Overview Tab -->
       <div class="panel active" id="panel-overview">
-        <!-- Proactive suggestions banner -->
-        <div id="suggestions-banner">
-          <button id="suggestions-dismiss" onclick="dismissSuggestions()" title="Dismiss">✕</button>
-          <div class="sug-title">🎯 Today's Priorities</div>
-          <div id="suggestions-list"></div>
+        <!-- Today's Priorities card -->
+        <div class="card" id="suggestions-banner">
+          <div class="card-title">🎯 Today's Priorities <button class="refresh-btn" onclick="refreshSuggestions()" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="suggestions" onclick="toggleCard('suggestions')" title="Collapse">▼</button></div>
+          <div class="card-body" id="suggestions-body"><div id="suggestions-list"><div id="sug-loading">⏳ Loading…</div></div></div>
         </div>
         <!-- Weather widget -->
         <div class="card" id="weather-card">
@@ -1205,22 +1197,18 @@ function renderWidgets() {
   const banner = document.getElementById('suggestions-banner');
   const sugList = document.getElementById('suggestions-list');
   function renderSugChips(items) {
-    if (!items || items.length === 0) return;
+    if (!items || items.length === 0) { sugList.innerHTML = '<div id="sug-loading" style="color:var(--muted);font-size:12px">No priorities right now. Check back later.</div>'; return; }
     sugList.innerHTML = items.map(s =>
       `<button class="sug-chip" onclick="sendQuick(this.dataset.msg)" data-msg="${escapeHtml(s)}">${escapeHtml(s)}</button>`
     ).join('');
-    banner.style.display = 'block';
   }
-  if (!banner.dataset.dismissed) {
-    // Show rule-based suggestions from briefing immediately
-    if (suggestions && suggestions.length > 0) renderSugChips(suggestions);
-    else { sugList.innerHTML = '<div id="sug-loading">⏳ Loading priorities…</div>'; banner.style.display = 'block'; }
-    // Then upgrade async with AI suggestions
-    fetch('/api/suggestions')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d && d.suggestions && d.suggestions.length) renderSugChips(d.suggestions); })
-      .catch(() => {});
-  }
+  // Show rule-based immediately, then upgrade with AI
+  if (suggestions && suggestions.length > 0) renderSugChips(suggestions);
+  fetch('/api/suggestions')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && d.suggestions && d.suggestions.length) renderSugChips(d.suggestions); })
+    .catch(() => {});
+  banner.style.display = '';
 
   // ── Packages arriving today (overview card) ──
   const pkgCard = document.getElementById('packages-today-card');
@@ -1287,7 +1275,10 @@ function renderWidgets() {
         </div>
       </div>`).join('');
   };
-  document.getElementById('overview-cal').innerHTML = calHtml(calendar);
+  // Overview: future events only; Calendar tab: all events today
+  const nowMs = Date.now();
+  const futureEvents = (calendar || []).filter(e => !e.startIso || new Date(e.startIso).getTime() > nowMs);
+  document.getElementById('overview-cal').innerHTML = futureEvents.length > 0 ? calHtml(futureEvents) : '<div class="empty-state">No more events today 🎉</div>';
   document.getElementById('cal-today').innerHTML = calHtml(calendar);
 
   // ── Important emails (overview) ──
@@ -1798,11 +1789,32 @@ async function loadPackages() {
   }
 }
 
-function dismissSuggestions() {
-  const banner = document.getElementById('suggestions-banner');
-  banner.style.display = 'none';
-  banner.dataset.dismissed = '1';
+function refreshSuggestions() {
+  const sugList = document.getElementById('suggestions-list');
+  if (sugList) sugList.innerHTML = '<div id="sug-loading" style="color:var(--muted);font-size:12px">⏳ Refreshing…</div>';
+  fetch('/api/suggestions/push', { method: 'POST' })
+    .then(() => fetch('/api/suggestions'))
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (d && d.suggestions && d.suggestions.length) {
+        sugList.innerHTML = d.suggestions.map(s =>
+          `<button class="sug-chip" onclick="sendQuick(this.dataset.msg)" data-msg="${escapeHtml(s)}">${escapeHtml(s)}</button>`
+        ).join('');
+      }
+    }).catch(() => {});
 }
+// Auto-refresh priorities every 15 minutes
+setInterval(() => {
+  fetch('/api/suggestions')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (!d || !d.suggestions || !d.suggestions.length) return;
+      const sugList = document.getElementById('suggestions-list');
+      if (sugList) sugList.innerHTML = d.suggestions.map(s =>
+        `<button class="sug-chip" onclick="sendQuick(this.dataset.msg)" data-msg="${escapeHtml(s)}">${escapeHtml(s)}</button>`
+      ).join('');
+    }).catch(() => {});
+}, 15 * 60 * 1000);
 
 // ── Settings ──────────────────────────────────────────────────────────────
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
