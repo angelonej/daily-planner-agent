@@ -529,7 +529,7 @@
         </div>
         <!-- Important emails -->
         <div class="card">
-          <div class="card-title">⚠️ Important Emails <button class="collapse-btn" data-collapse="overview-imp" onclick="toggleCard('overview-imp')" title="Collapse">▼</button></div>
+          <div class="card-title">⚠️ Important Emails <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="overview-imp" onclick="toggleCard('overview-imp')" title="Collapse">▼</button></div>
           <div class="card-body" id="overview-imp-body"><div id="overview-imp"></div></div>
         </div>
         <!-- Packages arriving today -->
@@ -1259,6 +1259,7 @@ function renderWidgets() {
   // ── Packages arriving today (overview card) ──
   const pkgCard = document.getElementById('packages-today-card');
   const pkgEl   = document.getElementById('overview-packages');
+  autoExpandIfNew('overview-packages', (packages||[]).length, 'packages');
   if (packages && packages.length > 0) {
     pkgCard.style.display = '';
     pkgEl.innerHTML = packages.map(p => {
@@ -1336,8 +1337,10 @@ function renderWidgets() {
   const futureEvents = (calendar || []).filter(e => eventStartMs(e) === 0 || eventStartMs(e) > nowMs);
   document.getElementById('overview-cal').innerHTML = futureEvents.length > 0 ? calHtml(futureEvents) : '<div class="empty-state">No more events today 🎉</div>';
   document.getElementById('cal-today').innerHTML = calHtml(calendar);
+  autoExpandIfNew('overview-cal', futureEvents.length, 'cal');
 
   // ── Important emails (overview) ──
+  autoExpandIfNew('overview-imp', (importantEmails||[]).length, 'imp');
   const ov_imp = document.getElementById('overview-imp');
   if (importantEmails && importantEmails.length > 0) {
     ov_imp.innerHTML = importantEmails.slice(0,4).map(e => `
@@ -1407,6 +1410,26 @@ function renderWidgets() {
 
   // ── AWS Cost (loaded separately) ──
   loadAwsCost(false);
+}
+
+// Track previous item counts for auto-expand on new items
+const _prevCounts = { cal: -1, tasks: -1, imp: -1, packages: -1 };
+
+function autoExpandIfNew(cardId, newCount, prevKey) {
+  if (_prevCounts[prevKey] === -1) { _prevCounts[prevKey] = newCount; return; } // first load, no expand
+  if (newCount > _prevCounts[prevKey]) {
+    // New item arrived — expand the card
+    const body = document.getElementById(cardId + '-body');
+    const btn  = document.querySelector(`[data-collapse="${cardId}"]`);
+    if (body && body.classList.contains('collapsed')) {
+      body.classList.remove('collapsed');
+      if (btn) btn.textContent = '▼';
+      const stored = JSON.parse(localStorage.getItem('cardCollapsed') || '{}');
+      stored[cardId] = false;
+      localStorage.setItem('cardCollapsed', JSON.stringify(stored));
+    }
+  }
+  _prevCounts[prevKey] = newCount;
 }
 
 let awsCostLoaded = false;
@@ -1840,11 +1863,34 @@ function refreshSuggestions() {
       }
     }).catch(() => {});
 }
-// Auto-refresh priorities, calendar, and tasks every 15 minutes
+// Auto-refresh right pane cards every 5 minutes (light: tasks + calendar from live endpoints)
+async function refreshRightPane() {
+  // Tasks — live endpoint
+  await renderOverviewTasks().catch(() => {});
+  // Calendar — re-filter from cached briefing (fast, no server round-trip)
+  if (briefingData) {
+    const nowMs2 = Date.now();
+    function eventStartMs2(e) {
+      if (e.startIso) return new Date(e.startIso).getTime();
+      if (e.start) { const t = new Date(`${new Date().toLocaleDateString('en-CA')} ${e.start}`); if (!isNaN(t)) return t.getTime(); }
+      return 0;
+    }
+    const futureEvt = (briefingData.calendar || []).filter(e => eventStartMs2(e) === 0 || eventStartMs2(e) > nowMs2);
+    const calEl = document.getElementById('overview-cal');
+    if (calEl) {
+      const prevCalCount = _prevCounts.cal;
+      calEl.innerHTML = futureEvt.length > 0
+        ? futureEvt.map(e => `<div class="event-item"><div class="event-time">${escapeHtml(e.start)}${e.end?'–'+escapeHtml(e.end):''}</div><div class="event-dot"></div><div><div class="event-title">${escapeHtml(e.title)}</div>${e.location?`<div class="event-loc">📍 ${escapeHtml(e.location)}</div>`:''}</div></div>`).join('')
+        : '<div class="empty-state">No more events today 🎉</div>';
+      autoExpandIfNew('overview-cal', futureEvt.length, 'cal');
+    }
+  }
+}
+setInterval(refreshRightPane, 5 * 60 * 1000);
+
+// Full briefing refresh + suggestions every 15 minutes
 setInterval(() => {
-  // Refresh calendar + tasks from server
   loadBriefing(false);
-  // Refresh suggestions
   fetch('/api/suggestions')
     .then(r => r.ok ? r.json() : null)
     .then(d => {

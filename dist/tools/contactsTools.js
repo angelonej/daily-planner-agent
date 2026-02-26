@@ -4,8 +4,8 @@
  * Searches Google Contacts (People API v1) by name.
  * Returns name, phone numbers, and email addresses.
  *
- * Scope needed: https://www.googleapis.com/auth/contacts.readonly
- * Uses people.connections.list (works with readonly scope).
+ * Scope needed: https://www.googleapis.com/auth/contacts
+ * Uses people.connections.list.
  */
 import { google } from "googleapis";
 import { buildOAuth2Client } from "./gmailTools.js";
