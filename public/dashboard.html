@@ -732,8 +732,8 @@ window.fetch = function(input, init = {}) {
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent = now.toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric'
-  }) + '  ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    weekday: 'short', month: 'short', day: 'numeric'
+  }) + '  ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 updateClock();
 setInterval(updateClock, 1000);

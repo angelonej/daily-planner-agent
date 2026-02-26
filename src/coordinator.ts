@@ -394,12 +394,13 @@ async function formatEveningBriefingText(briefing: MorningBriefing): Promise<str
   const home = process.env.HOME_ADDRESS;
   const work = process.env.WORK_ADDRESS;
 
-  // Tomorrow's calendar events
-  const tmrStart = new Date();
-  tmrStart.setDate(tmrStart.getDate() + 1);
-  tmrStart.setHours(0, 0, 0, 0);
-  const tmrEnd = new Date(tmrStart);
-  tmrEnd.setHours(23, 59, 59, 999);
+  const tz = process.env.TIMEZONE ?? "America/New_York";
+
+  // Compute tomorrow's date in the user's timezone
+  const todayLocal = new Date().toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
+  const [ty, tm, td] = todayLocal.split("-").map(Number);
+  const tmrStart = new Date(ty, tm - 1, td + 1, 0, 0, 0, 0);
+  const tmrEnd = new Date(ty, tm - 1, td + 1, 23, 59, 59, 999);
   const tomorrowStr = tmrStart.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   let tomorrowEvents: string;
