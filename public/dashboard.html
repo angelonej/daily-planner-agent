@@ -1910,8 +1910,10 @@ async function saveSettings() {
   });
   const data = await res.json();
   if (data.ok) {
+    const prevName = localStorage.getItem('assistantName');
     applyAssistantName();
-    showToast('✅ Settings saved', nameVal ? `Assistant renamed to ${nameVal}` : 'Settings updated');
+    const renamed = nameVal && nameVal !== prevName;
+    showToast('✅ Settings saved', renamed ? `Assistant renamed to ${nameVal}` : 'Settings updated');
     closeSettings();
     awsCostLoaded = false; // force re-render with new threshold
     setTimeout(() => { loadBriefing(false); loadAwsCost(false); }, 300);
