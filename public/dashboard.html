@@ -1103,11 +1103,18 @@ connectSSE();
 
 let unreadNotifs = 0;
 
+function dismissToast(t) {
+  if (t._dismissed) return;
+  t._dismissed = true;
+  t.style.animation = 'tOut .3s forwards';
+  setTimeout(() => t.remove(), 300);
+}
+
 function showToast(title, body, urgent=false) {
   const t = document.createElement('div');
   t.className = 'toast' + (urgent?' urgent':'');
   t.innerHTML = `<div class="toast-title">${escapeHtml(title)}</div><div class="toast-body">${escapeHtml(body??'')}</div>`;
-  t.addEventListener('click', () => t.remove());
+  t.addEventListener('click', () => dismissToast(t));
   document.getElementById('toast-container').appendChild(t);
   if (Notification.permission === 'granted') {
     const n = new Notification(title, { body, icon: '/icons/icon-192.png', tag: title });
@@ -1116,8 +1123,15 @@ function showToast(title, body, urgent=false) {
   unreadNotifs++;
   const b = document.getElementById('notifBadge');
   b.style.display = 'inline'; b.textContent = unreadNotifs > 9 ? '9+' : unreadNotifs;
-  setTimeout(() => { t.style.animation = 'tOut .3s forwards'; setTimeout(() => t.remove(), 300); }, 5000);
+  setTimeout(() => dismissToast(t), 5000);
 }
+
+// Clear any stale toasts when returning from background
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    document.querySelectorAll('#toast-container .toast').forEach(t => dismissToast(t));
+  }
+});
 
 // ── Load briefing & render widgets ────────────────────────────────────────
 async function loadBriefing(forceRefresh=false) {

@@ -659,10 +659,19 @@
   setInterval(sendGpsLocation, 15 * 60 * 1000);
 
   // ── Toast notifications ────────────────────────────────────────────────
+  function dismissToast(toast) {
+    if (toast._dismissed) return;
+    toast._dismissed = true;
+    toast.style.animation = 'slideOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }
+
   function showToast(title, body, urgent = false) {
     const toast = document.createElement('div');
     toast.className = 'toast' + (urgent ? ' urgent' : '');
     toast.innerHTML = `<div class="toast-title">${title}</div>${body != null ? `<div class="toast-body">${body}</div>` : ''}`;
+    // Tap anywhere on the toast to dismiss immediately
+    toast.addEventListener('click', () => dismissToast(toast));
     toastContainer.appendChild(toast);
     // Also show browser notification if permission granted
     if (Notification.permission === 'granted') {
@@ -672,12 +681,17 @@
     unreadNotifs++;
     notifBadge.style.display = 'block';
     notifBadge.textContent = unreadNotifs > 9 ? '9+' : unreadNotifs;
-    // Auto-remove after 6 seconds
-    setTimeout(() => {
-      toast.style.animation = 'slideOut 0.3s ease forwards';
-      setTimeout(() => toast.remove(), 300);
-    }, 6000);
+    // Auto-remove after 6 seconds (timer may be paused in background on mobile)
+    const timer = setTimeout(() => dismissToast(toast), 6000);
+    toast._timer = timer;
   }
+
+  // When returning to the app after being in background, clear all lingering toasts
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      toastContainer.querySelectorAll('.toast').forEach(t => dismissToast(t));
+    }
+  });
 
   // SSE connection defined at bottom of script (needs auth token)
 
