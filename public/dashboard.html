@@ -550,7 +550,8 @@
       <!-- Tasks Tab -->
       <div class="panel" id="panel-tasks">
         <div class="card">
-          <div class="card-title">✅ Google Tasks <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
+          <div class="card-title">✅ Google Tasks <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button><button class="collapse-btn has-refresh" data-collapse="tasks-list-card" onclick="toggleCard('tasks-list-card')" title="Collapse">▼</button></div>
+          <div class="card-body" id="tasks-list-card-body">
           <!-- List filter tabs -->
           <div id="task-list-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
           <div id="tasks-list"></div>
@@ -563,6 +564,7 @@
               <button class="btn-primary" style="padding:6px 12px;font-size:12px" onclick="addTask()">Add</button>
             </div>
           </div>
+          </div><!-- /card-body -->
         </div>
       </div>
 
@@ -1823,8 +1825,11 @@ function refreshSuggestions() {
       }
     }).catch(() => {});
 }
-// Auto-refresh priorities every 15 minutes
+// Auto-refresh priorities, calendar, and tasks every 15 minutes
 setInterval(() => {
+  // Refresh calendar + tasks from server
+  loadBriefing(false);
+  // Refresh suggestions
   fetch('/api/suggestions')
     .then(r => r.ok ? r.json() : null)
     .then(d => {
