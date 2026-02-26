@@ -11,7 +11,7 @@ import fs from "fs";
 import path from "path";
 import webpush from "web-push";
 import { fileURLToPath } from "url";
-import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs, generateAiSuggestions } from "./coordinator.js";
+import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs, generateAiSuggestions, pushSuggestionsNow } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
@@ -190,7 +190,7 @@ if (process.argv.includes("--cli")) {
   });
 
   // Auth guard — skip for Twilio webhooks and health check
-  const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key", "/api/briefing", "/api/calendar", "/api/suggestions"]);
+  const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key", "/api/briefing", "/api/calendar", "/api/suggestions", "/api/suggestions/push"]);
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!APP_PASSWORD) return next();
     if (OPEN_PATHS.has(req.path)) return next();
@@ -563,6 +563,17 @@ if (process.argv.includes("--cli")) {
     } catch (err) {
       console.error("❌ /api/suggestions error:", err);
       res.status(500).json({ suggestions: [], error: String(err) });
+    }
+  });
+
+  // ─── Manual trigger: push suggestion notification now ──────────────────
+  app.post("/api/suggestions/push", async (_req: Request, res: Response) => {
+    try {
+      const suggestions = await pushSuggestionsNow();
+      res.json({ ok: true, suggestions });
+    } catch (err) {
+      console.error("❌ /api/suggestions/push error:", err);
+      res.status(500).json({ ok: false, error: String(err) });
     }
   });
 

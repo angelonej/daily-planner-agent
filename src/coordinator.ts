@@ -190,6 +190,22 @@ export function startScheduledJobs(): void {
   }, 5_000);
 }
 
+// ─── Manual trigger: push suggestions notification now ────────────────────────
+export async function pushSuggestionsNow(): Promise<string[]> {
+  console.log("🔔 Manual trigger: generating proactive suggestions...");
+  const briefing = await getCachedBriefing();
+  suggestionsCache = null; // force fresh generation
+  const suggestions = await generateAiSuggestions(briefing);
+  if (suggestions.length > 0) {
+    pushNotification({
+      type: "suggestion",
+      title: "💡 Daily suggestions ready",
+      body: suggestions[0],
+    });
+  }
+  return suggestions;
+}
+
 // ─── Proactive Suggestions ────────────────────────────────────────────────────
 /**
  * Analyzes the morning briefing and returns an array of actionable suggestion strings.

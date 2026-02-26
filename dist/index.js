@@ -10,7 +10,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs, generateAiSuggestions } from "./coordinator.js";
+import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs, generateAiSuggestions, pushSuggestionsNow } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
@@ -187,7 +187,7 @@ else {
         req.session.destroy(() => res.redirect("/login"));
     });
     // Auth guard — skip for Twilio webhooks and health check
-    const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key", "/api/briefing", "/api/calendar", "/api/suggestions"]);
+    const OPEN_PATHS = new Set(["/login", "/health", "/webhook", "/whatsapp", "/voice/incoming", "/voice/respond", "/vapid-public-key", "/api/briefing", "/api/calendar", "/api/suggestions", "/api/suggestions/push"]);
     app.use((req, res, next) => {
         if (!APP_PASSWORD)
             return next();
@@ -530,6 +530,17 @@ else {
         catch (err) {
             console.error("❌ /api/suggestions error:", err);
             res.status(500).json({ suggestions: [], error: String(err) });
+        }
+    });
+    // ─── Manual trigger: push suggestion notification now ──────────────────
+    app.post("/api/suggestions/push", async (_req, res) => {
+        try {
+            const suggestions = await pushSuggestionsNow();
+            res.json({ ok: true, suggestions });
+        }
+        catch (err) {
+            console.error("❌ /api/suggestions/push error:", err);
+            res.status(500).json({ ok: false, error: String(err) });
         }
     });
     // ─── Calendar events (for sidebar badge counts) ────────────────────────
