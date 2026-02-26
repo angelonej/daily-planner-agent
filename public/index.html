@@ -356,6 +356,17 @@
       border: 1px solid #6e1a1a !important;
       color: #f85149;
     }
+    #footerStopBtn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid #6e1a1a !important;
+      background: #3d1f1f;
+      color: #f85149;
+      font-size: 18px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
 
     /* Notification toast */
     #toastContainer {
@@ -855,6 +866,8 @@
     digestBtn.disabled = disabled;
     eveningBtn.disabled = disabled;
     micBtn.disabled = disabled;
+    sendBtn.style.display       = disabled ? 'none' : '';
+    footerStopBtn.style.display = disabled ? '' : 'none';
   }
 
   // ── Browser TTS (free, no API) ─────────────────────────────────────────
@@ -977,12 +990,15 @@
     addBubble('user', msg);
     const thinking = addThinking();
     setButtons(true);
+    const abort = new AbortController();
+    window._currentAbort = abort;
 
     try {
       const res = await fetch('/voice-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: msg, userId: USER_ID }),
+        signal: abort.signal,
       });
       if (res.status === 401) {
         thinking.remove();
@@ -997,7 +1013,7 @@
       speakText(stripMarkdown(reply));
     } catch (e) {
       thinking.remove();
-      addBubble('agent', '⚠️ Network error: ' + e.message);
+      if (e.name !== 'AbortError') addBubble('agent', '⚠️ Network error: ' + e.message);
     } finally {
       setButtons(false);
       voiceStatus.textContent = 'Click the mic button to speak';
@@ -1008,6 +1024,13 @@
   }
 
   sendBtn.addEventListener('click', () => sendText(textInput.value, true));
+
+  const footerStopBtn = document.getElementById('footerStopBtn');
+  footerStopBtn.addEventListener('click', () => {
+    window.speechSynthesis?.cancel();
+    if (window._currentAbort) window._currentAbort.abort();
+    setButtons(false);
+  });
   textInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) sendText(textInput.value, true); });
   morningBtn.addEventListener('click', () => sendText('/morning'));
   eveningBtn.addEventListener('click', () => sendText('/evening'));
