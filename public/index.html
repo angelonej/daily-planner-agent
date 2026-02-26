@@ -1147,6 +1147,71 @@ async function registerPush() {
 registerPush();
 connectSSE();
 
+// ── Auto-briefing on startup ───────────────────────────────────────────
+// Show a briefing summary bubble automatically when the app opens,
+// unless the user already has a conversation in this session.
+(async function autoBriefOnStartup() {
+  // Don't run if there are already messages in the chat
+  if (chat.querySelectorAll('.msg-row').length > 0) return;
+  // Throttle: only show once per session (not on every page reload)
+  const lastBriefKey = 'lastAutoBriefDate';
+  const today = new Date().toLocaleDateString('en-CA');
+  if (localStorage.getItem(lastBriefKey) === today) return;
+
+  try {
+    const r = await fetch('/api/briefing');
+    if (!r.ok) return;
+    const data = await r.json();
+    const hour = new Date().getHours();
+    const isEvening = hour >= 17;
+    const name = localStorage.getItem('assistantName') || 'Assistant';
+
+    const lines = [];
+
+    if (isEvening) {
+      lines.push(`🌙 **Good evening!** Here's your end-of-day snapshot.`);
+    } else {
+      lines.push(`☀️ **Good morning!** Here's your day at a glance.`);
+    }
+
+    // Weather
+    const w = data.weather;
+    if (w) lines.push(`\n🌤 **Weather:** ${w.condition}, ${w.temperatureF}°F (H:${w.high}° L:${w.low}°) · Rain ${w.precipChance}%`);
+
+    // Calendar
+    const cal = data.calendar || [];
+    if (cal.length > 0) {
+      lines.push(`\n📅 **Today's events (${cal.length}):**`);
+      cal.slice(0, 4).forEach(e => lines.push(`• ${e.start} — ${e.title}${e.location ? ' @ ' + e.location : ''}`));
+      if (cal.length > 4) lines.push(`• …and ${cal.length - 4} more`);
+    } else {
+      lines.push(`\n📅 **Calendar:** No events today.`);
+    }
+
+    // Important emails
+    const imp = data.importantEmails || [];
+    if (imp.length > 0) {
+      lines.push(`\n⚠️ **${imp.length} important email${imp.length > 1 ? 's' : ''}:**`);
+      imp.slice(0, 3).forEach(e => lines.push(`• ${(e.from||'').split('<')[0].trim()}: ${e.subject}`));
+    }
+
+    // Tasks due
+    const tasks = (data.googleTasks || []).filter(t => t.due);
+    if (tasks.length > 0) {
+      lines.push(`\n✅ **${tasks.length} task${tasks.length > 1 ? 's' : ''} due:**`);
+      tasks.slice(0, 3).forEach(t => lines.push(`• ${t.title}`));
+    }
+
+    lines.push(`\nAsk me anything about your day!`);
+
+    addBubble('agent', lines.join('\n'));
+    localStorage.setItem(lastBriefKey, today);
+  } catch (e) {
+    // Silently fail — don't show an error bubble on startup
+    console.warn('Auto-brief failed:', e);
+  }
+})();
+
 // SSE also needs the auth token (EventSource can't send headers — use query param)
 function connectSSE() {
   const tok = localStorage.getItem('authToken');
