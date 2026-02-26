@@ -542,6 +542,11 @@
     .hc-suggestion-chip:last-child { margin-bottom: 0; }
     .hc-suggestion-chip:active { background: #161b22; border-color: #1f6feb; }
 
+    /* ── Home card: mobile only ── */
+    @media (min-width: 768px) {
+      #home-card { display: none !important; }
+    }
+
     /* ── Mobile responsive ── */
     @media (max-width: 600px) {
       header { padding: 10px 14px; }
