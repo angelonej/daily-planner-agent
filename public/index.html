@@ -1240,20 +1240,24 @@ async function renderHomeCard() {
 
   const now   = new Date();
   const hour  = now.getHours();
-  const today = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
+  // Build YYYY-MM-DD without relying on locale formatting (avoids locale mismatch bugs)
+  const today = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0');
 
   // Determine time period and whether this is the FIRST open of that period
   // morning = before 12, evening = 17+, otherwise afternoon
   const period = hour < 12 ? 'morning' : hour >= 17 ? 'evening' : 'afternoon';
-  const lsKey  = `homeCard_${period}_seen`;           // e.g. homeCard_morning_seen
+  const lsKey  = `homeCard_${period}_seen`;
   const seenToday = localStorage.getItem(lsKey) === today;
+  console.log(`[homeCard] period=${period} today=${today} stored=${localStorage.getItem(lsKey)} seenToday=${seenToday}`);
   // Only show for morning/evening first open of the day — hide entirely otherwise
   const showFull = !seenToday && (period === 'morning' || period === 'evening');
   if (!showFull) {
-    // Already seen the briefing for this period (or it's afternoon) — stay hidden
     _homeCardVisible = false;
     return;
   }
+  // Mark as seen IMMEDIATELY before any async work so a fast refresh can't sneak through
   localStorage.setItem(lsKey, today);
   // Reveal the card with animation
   card.classList.remove('hidden');
