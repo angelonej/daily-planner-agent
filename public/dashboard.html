@@ -303,9 +303,6 @@
     .chip:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
 
     /* Today's Priorities Card */
-    #suggestions-banner {
-      display: none;
-    }
     #suggestions-banner .sug-chip {
       display: block; width: 100%; text-align: left;
       background: var(--surface2); border: 1px solid var(--border);
@@ -1208,7 +1205,7 @@ function renderWidgets() {
     .then(r => r.ok ? r.json() : null)
     .then(d => { if (d && d.suggestions && d.suggestions.length) renderSugChips(d.suggestions); })
     .catch(() => {});
-  banner.style.display = '';
+  banner.style.display = 'block';
 
   // ── Packages arriving today (overview card) ──
   const pkgCard = document.getElementById('packages-today-card');
