@@ -1287,8 +1287,11 @@ async function loadAwsCost(forceRefresh) {
     const mtd      = d.mtdTotalUSD || 0;
     const forecast = d.forecastTotalUSD;
     const threshold = d.threshold || 50;
-    const overBudget = ((forecast ?? mtd) >= threshold);
-    if (sidebarEl) sidebarEl.textContent = `${overBudget ? '⚠️ ' : ''}${fmt(mtd)} MTD · ${forecast != null ? fmt(forecast) + ' fcst' : 'N/A'}`;  
+    // If CE forecast unavailable, estimate: daily avg × 30 days
+    const estForecast = forecast != null ? forecast : (d.dailyAvgUSD > 0 ? d.dailyAvgUSD * 30 : null);
+    const overBudget = ((estForecast ?? mtd) >= threshold);
+    const fcstStr = forecast != null ? fmt(forecast) + ' fcst' : (estForecast != null ? '~' + fmt(estForecast) : '');
+    if (sidebarEl) sidebarEl.textContent = `${overBudget ? '⚠️ ' : ''}${fmt(mtd)} MTD${fcstStr ? ' · ' + fcstStr : ''}`;  
   } catch (e) {
     if (sidebarEl) sidebarEl.textContent = 'AWS: failed';
   }
