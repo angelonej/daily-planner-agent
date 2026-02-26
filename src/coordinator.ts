@@ -216,27 +216,27 @@ function proactiveAnalysis(briefing: MorningBriefing): string[] {
   const events = briefing.calendar;
   const tasks  = briefing.googleTasks;
   const weather = briefing.weather;
+  const nowMs = Date.now();
 
-  // ── Back-to-back meetings (< 5 min gap) ──────────────────────────────────
+  // ── Back-to-back meetings (< 5 min gap, not yet started) ─────────────────
   for (let i = 0; i < events.length - 1; i++) {
     const a = events[i];
     const b = events[i + 1];
     if (!a.startIso || !b.startIso) continue;
-    // find a's end time from the formatted string is tricky; use b's start vs a's start+estimated
-    // Use the end ISO if available — if not, skip
-    const aEndMs = a.startIso ? new Date(a.startIso).getTime() + 60 * 60_000 : null; // rough 1hr estimate
+    const aEndMs = new Date(a.startIso).getTime() + 60 * 60_000; // rough 1hr estimate
     const bStartMs = new Date(b.startIso).getTime();
-    if (aEndMs && bStartMs - aEndMs < 5 * 60_000 && bStartMs > aEndMs) {
+    if (bStartMs < nowMs) continue; // both already passed
+    if (bStartMs - aEndMs < 5 * 60_000 && bStartMs > aEndMs) {
       suggestions.push(`📆 Back-to-back meetings: "${a.title}" runs into "${b.title}" with little buffer.`);
     }
   }
 
-  // ── Events with location but no preceding travel buffer ──────────────────
+  // ── Events with location but no preceding travel buffer (not yet started) ─
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
     if (!ev.location || !ev.startIso) continue;
     const evStartMs = new Date(ev.startIso).getTime();
-    // Check if the prior event ends close to this one's start
+    if (evStartMs < nowMs) continue; // already started
     const prior = events[i - 1];
     if (prior && prior.startIso) {
       const priorEndMs = new Date(prior.startIso).getTime() + 60 * 60_000;
@@ -247,7 +247,7 @@ function proactiveAnalysis(briefing: MorningBriefing): string[] {
   }
 
   // ── Overdue tasks (due > 3 days ago) ──────────────────────────────────────
-  const todayMs = Date.now();
+  const todayMs = nowMs;
   const overdue = tasks.filter((t) => {
     if (!t.due || t.status === "completed") return false;
     const dueMs = new Date(t.due).getTime();
@@ -258,17 +258,24 @@ function proactiveAnalysis(briefing: MorningBriefing): string[] {
     suggestions.push(`⚠️ ${overdue.length} overdue task${overdue.length > 1 ? "s" : ""}: ${titles}${overdue.length > 3 ? " and more" : ""}.`);
   }
 
-  // ── Rain today + outdoor/offsite event ──────────────────────────────────
+  // ── Rain today + outdoor/offsite event (future only) ─────────────────────────
   if (weather && weather.precipChance >= 60) {
-    const outdoorEvents = events.filter(e => e.location && !e.location.toLowerCase().includes("zoom") && !e.location.toLowerCase().includes("teams") && !e.location.toLowerCase().includes("meet"));
+    const outdoorEvents = events.filter(e =>
+      e.location &&
+      e.startIso && new Date(e.startIso).getTime() > nowMs &&
+      !e.location.toLowerCase().includes("zoom") &&
+      !e.location.toLowerCase().includes("teams") &&
+      !e.location.toLowerCase().includes("meet")
+    );
     if (outdoorEvents.length > 0) {
       suggestions.push(`🌧️ ${weather.precipChance}% chance of rain — "${outdoorEvents[0].title}" is at an in-person location. Consider an umbrella.`);
     }
   }
 
-  // ── Heavy meeting day (4+ events) ────────────────────────────────────────
-  if (events.length >= 4) {
-    suggestions.push(`🔥 Heavy meeting day — ${events.length} events on your calendar. Block focus time if possible.`);
+  // ── Heavy meeting day — count only future events ────────────────────────
+  const futureEvents = events.filter(e => e.startIso && new Date(e.startIso).getTime() > nowMs);
+  if (futureEvents.length >= 3) {
+    suggestions.push(`🔥 ${futureEvents.length} meetings still ahead today. Block focus time if possible.`);
   }
 
   return suggestions;
@@ -296,8 +303,13 @@ export async function generateAiSuggestions(briefing: MorningBriefing): Promise<
   const ruleBased = proactiveAnalysis(briefing);
 
   // Build a compact briefing summary for the LLM prompt
+  const tz = process.env.TIMEZONE ?? "America/New_York";
+  const nowStr = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
   const calSummary = briefing.calendar.slice(0, 6)
-    .map(e => `- ${e.start}–${e.end}: ${e.title}${e.location ? ` @ ${e.location}` : ""}`).join("\n") || "No events today";
+    .map(e => {
+      const isPast = e.startIso && new Date(e.startIso).getTime() < Date.now();
+      return `- ${e.start}–${e.end}: ${e.title}${e.location ? ` @ ${e.location}` : ""}${isPast ? " [PAST]" : ""}`;
+    }).join("\n") || "No events today";
   const taskSummary = briefing.googleTasks.filter(t => t.status !== "completed").slice(0, 8)
     .map(t => `- ${t.title}${t.due ? ` (due ${new Date(t.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })})` : ""}`).join("\n") || "No open tasks";
   const emailSummary = briefing.importantEmails.slice(0, 5)
@@ -306,11 +318,12 @@ export async function generateAiSuggestions(briefing: MorningBriefing): Promise<
     ? `${briefing.weather.condition}, ${briefing.weather.temperatureF}°F, rain ${briefing.weather.precipChance}%`
     : "Unknown";
 
-  const prompt = `You are a smart daily planner assistant. Based on today's data, generate 3 to 5 SHORT, specific, actionable suggestions the user should act on today. Each suggestion should be a single sentence under 12 words. Focus on what matters most — conflicts, urgent emails, overdue tasks, preparation needed, or time blocks to protect.
+  const prompt = `You are a smart daily planner assistant. Current time is ${nowStr}. Based on today's data, generate 3 to 5 SHORT, specific, actionable suggestions the user should act on RIGHT NOW or later today. Each suggestion should be a single sentence under 12 words. IMPORTANT: ignore any calendar events marked [PAST] — only suggest things that are still upcoming or actionable. Focus on what matters most — upcoming conflicts, urgent emails, overdue tasks, preparation needed, or time blocks to protect.
 
 Today's data:
+Current time: ${nowStr}
 Weather: ${weatherLine}
-Calendar:\n${calSummary}
+Calendar (events marked [PAST] have already happened):\n${calSummary}
 Open Tasks:\n${taskSummary}
 Important Emails:\n${emailSummary}
 
