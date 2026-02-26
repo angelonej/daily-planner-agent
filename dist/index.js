@@ -13,7 +13,7 @@ import { fileURLToPath } from "url";
 import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs, generateAiSuggestions, pushSuggestionsNow } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
-import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists } from "./tools/tasksTools.js";
+import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists, listTasks } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
 import { getAwsCostSummary, getCostThreshold, setCostThreshold } from "./tools/awsCostTools.js";
@@ -573,6 +573,15 @@ else {
         try {
             const lists = await getTaskLists();
             res.json({ lists });
+        }
+        catch (err) {
+            res.status(500).json({ error: String(err) });
+        }
+    });
+    app.get("/api/tasks", async (_req, res) => {
+        try {
+            const tasks = await listTasks(50);
+            res.json({ tasks });
         }
         catch (err) {
             res.status(500).json({ error: String(err) });

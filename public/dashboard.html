@@ -524,7 +524,7 @@
         </div>
         <!-- Tasks summary -->
         <div class="card">
-          <div class="card-title">✅ Tasks Due <button class="collapse-btn" data-collapse="overview-tasks" onclick="toggleCard('overview-tasks')" title="Collapse">▼</button></div>
+          <div class="card-title">✅ Tasks Due <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="overview-tasks" onclick="toggleCard('overview-tasks')" title="Collapse">▼</button></div>
           <div class="card-body" id="overview-tasks-body"><div id="overview-tasks"></div></div>
         </div>
         <!-- Important emails -->
@@ -1211,6 +1211,30 @@ function weatherIcon(condition) {
   return '☀️';
 }
 
+async function renderOverviewTasks() {
+  const ov_tasks = document.getElementById('overview-tasks');
+  if (!ov_tasks) return;
+  // Prefer live tasks from the API; fall back to briefing cache
+  let items = tasksData || [];
+  try {
+    const r = await fetch('/api/tasks');
+    if (r.ok) { const d = await r.json(); if (d.tasks && d.tasks.length) items = d.tasks; }
+  } catch(e) {}
+  if (items.length === 0) { ov_tasks.innerHTML = '<div class="empty-state">No tasks 🎉</div>'; return; }
+  // Sort: due-date items first, then undated
+  const withDue    = items.filter(t => t.due).sort((a,b) => new Date(a.due) - new Date(b.due));
+  const withoutDue = items.filter(t => !t.due);
+  const show = [...withDue, ...withoutDue].slice(0, 5);
+  ov_tasks.innerHTML = show.map(t => `
+    <div class="task-item">
+      <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
+      <div>
+        <div class="task-title">${escapeHtml(t.title)}</div>
+        ${t.due ? `<div class="task-due">Due ${new Date(t.due).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
 function renderWidgets() {
   if (!briefingData) return;
   const { weather, calendar, emails, importantEmails, googleTasks, news, llmUsage, suggestions, packages } = briefingData;
@@ -1299,7 +1323,17 @@ function renderWidgets() {
   };
   // Overview: future events only; Calendar tab: all events today
   const nowMs = Date.now();
-  const futureEvents = (calendar || []).filter(e => !e.startIso || new Date(e.startIso).getTime() > nowMs);
+  function eventStartMs(e) {
+    if (e.startIso) return new Date(e.startIso).getTime();
+    // Fall back: parse display time like "5:00 PM" against today's date
+    if (e.start) {
+      const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+      const t = new Date(`${today} ${e.start}`);
+      if (!isNaN(t)) return t.getTime();
+    }
+    return 0; // all-day or unparseable → always show
+  }
+  const futureEvents = (calendar || []).filter(e => eventStartMs(e) === 0 || eventStartMs(e) > nowMs);
   document.getElementById('overview-cal').innerHTML = futureEvents.length > 0 ? calHtml(futureEvents) : '<div class="empty-state">No more events today 🎉</div>';
   document.getElementById('cal-today').innerHTML = calHtml(calendar);
 
@@ -1357,27 +1391,8 @@ function renderWidgets() {
   const tb = document.getElementById('taskBadge');
   if (tc > 0) { tb.textContent = tc; tb.style.display = 'inline'; } else { tb.style.display = 'none'; }
 
-  // ── Tasks overview ──
-  const ov_tasks = document.getElementById('overview-tasks');
-  const dueSoon = tasksData.filter(t => t.due).slice(0,3);
-  if (dueSoon.length > 0) {
-    ov_tasks.innerHTML = dueSoon.map(t => `
-      <div class="task-item">
-        <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
-        <div>
-          <div class="task-title">${escapeHtml(t.title)}</div>
-          ${t.due ? `<div class="task-due">Due ${new Date(t.due).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>` : ''}
-        </div>
-      </div>`).join('');
-  } else if (tasksData.length > 0) {
-    ov_tasks.innerHTML = tasksData.slice(0,3).map(t => `
-      <div class="task-item">
-        <div class="task-check" onclick="completeTask('${t.id}','${t.listId}',this)"></div>
-        <div><div class="task-title">${escapeHtml(t.title)}</div></div>
-      </div>`).join('');
-  } else {
-    ov_tasks.innerHTML = '<div class="empty-state">No tasks 🎉</div>';
-  }
+  // ── Tasks overview — always fetch live ──
+  renderOverviewTasks();
 
   // ── News ──
   renderNews(news);
