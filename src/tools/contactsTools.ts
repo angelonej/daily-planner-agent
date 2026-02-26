@@ -4,7 +4,7 @@
  * Searches Google Contacts (People API v1) by name.
  * Returns name, phone numbers, and email addresses.
  *
- * Scope needed: https://www.googleapis.com/auth/contacts.readonly
+ * Scope needed: https://www.googleapis.com/auth/contacts
  * Re-run `npm run auth -- personal` after adding scope.
  */
 

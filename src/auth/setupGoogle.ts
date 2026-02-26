@@ -25,7 +25,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",    // send digest emails
   "https://www.googleapis.com/auth/calendar",      // read + write
   "https://www.googleapis.com/auth/tasks",         // Google Tasks read + write
-  "https://www.googleapis.com/auth/contacts.readonly", // read contacts (People API)
+  "https://www.googleapis.com/auth/contacts",         // read contacts (People API)
 ];
 
 const REDIRECT_URI = "http://localhost:4242/oauth2callback";
