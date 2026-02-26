@@ -620,6 +620,16 @@ if (process.argv.includes("--cli")) {
     }
   });
 
+  app.get("/api/test-contacts", async (_req: Request, res: Response) => {
+    try {
+      const { searchContacts } = await import("./tools/contactsTools.js");
+      const contacts = await searchContacts("a", 3);
+      res.json({ ok: true, count: contacts.length, contacts });
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message, detail: String(err) });
+    }
+  });
+
   app.post("/api/create-task", async (req: Request, res: Response) => {
     const { title, notes, due, listId } = req.body as { title?: string; notes?: string; due?: string; listId?: string };
     if (!title) return res.status(400).json({ error: "title is required" });
