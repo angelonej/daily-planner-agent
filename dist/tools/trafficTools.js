@@ -22,7 +22,7 @@ export async function getTrafficDuration(origin, destination) {
         destination: { address: destination },
         travelMode: "DRIVE",
         routingPreference: "TRAFFIC_AWARE",
-        departureTime: new Date().toISOString(),
+        departureTime: new Date(Date.now() + 2 * 60 * 1000).toISOString(), // must be in the future
         computeAlternativeRoutes: false,
         routeModifiers: { avoidTolls: false, avoidHighways: false },
         languageCode: "en-US",
