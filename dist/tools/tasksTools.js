@@ -7,22 +7,32 @@
 import { google } from "googleapis";
 import fs from "fs";
 import path from "path";
-function buildTasksAuth() {
+import { useSSM, getTokenFromSSM, saveTokenToSSM } from "./ssmTools.js";
+async function buildTasksAuth() {
     const auth = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, process.env.GOOGLE_REDIRECT_URI);
-    // Use personal account token for tasks
     const alias = process.env.GMAIL_ACCOUNT_1_ALIAS ?? "personal";
-    const tokenPath = path.resolve("tokens", `${alias}.token.json`);
-    if (!fs.existsSync(tokenPath)) {
-        throw new Error(`Tasks token not found at ${tokenPath}. Run: npm run auth -- ${alias}`);
+    let tokens;
+    if (useSSM()) {
+        tokens = await getTokenFromSSM(alias);
+        auth.setCredentials(tokens);
+        auth.on("tokens", async (newTokens) => {
+            const merged = { ...tokens, ...newTokens };
+            await saveTokenToSSM(alias, merged).catch(console.error);
+        });
     }
-    const tokens = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
-    auth.setCredentials(tokens);
-    // Auto-save refreshed tokens
-    auth.on("tokens", (newTokens) => {
-        const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
-        const merged = { ...existing, ...newTokens };
-        fs.writeFileSync(tokenPath, JSON.stringify(merged, null, 2));
-    });
+    else {
+        const tokenPath = path.resolve("tokens", `${alias}.token.json`);
+        if (!fs.existsSync(tokenPath)) {
+            throw new Error(`Tasks token not found at ${tokenPath}. Run: npm run auth -- ${alias}`);
+        }
+        tokens = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+        auth.setCredentials(tokens);
+        auth.on("tokens", (newTokens) => {
+            const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+            const merged = { ...existing, ...newTokens };
+            fs.writeFileSync(tokenPath, JSON.stringify(merged, null, 2));
+        });
+    }
     return auth;
 }
 // ─── Task list cache (10 minutes) ───────────────────────────────────────────
@@ -34,7 +44,7 @@ export async function getTaskLists() {
     if (taskListCache && now - taskListCache.fetchedAt < TASK_LIST_CACHE_TTL) {
         return taskListCache.lists;
     }
-    const auth = buildTasksAuth();
+    const auth = await buildTasksAuth();
     const tasks = google.tasks({ version: "v1", auth });
     const res = await tasks.tasklists.list({ maxResults: 20 });
     const lists = (res.data.items ?? []).map((l) => ({
@@ -46,7 +56,7 @@ export async function getTaskLists() {
 }
 /** List incomplete tasks (optionally from a specific list, defaults to all lists) */
 export async function listTasks(maxResults = 20, listId) {
-    const auth = buildTasksAuth();
+    const auth = await buildTasksAuth();
     const tasks = google.tasks({ version: "v1", auth });
     let listsToFetch;
     if (listId) {
@@ -81,7 +91,7 @@ export async function listTasks(maxResults = 20, listId) {
 }
 /** Create a new task */
 export async function createTask(title, options = {}) {
-    const auth = buildTasksAuth();
+    const auth = await buildTasksAuth();
     const tasks = google.tasks({ version: "v1", auth });
     // Default to first task list if none specified
     let taskListId = options.listId;
@@ -110,7 +120,7 @@ export async function createTask(title, options = {}) {
 }
 /** Mark a task as completed */
 export async function completeTask(taskId, listId) {
-    const auth = buildTasksAuth();
+    const auth = await buildTasksAuth();
     const tasks = google.tasks({ version: "v1", auth });
     await tasks.tasks.update({
         tasklist: listId,
@@ -123,7 +133,7 @@ export async function completeTask(taskId, listId) {
 }
 /** Delete a task */
 export async function deleteTask(taskId, listId) {
-    const auth = buildTasksAuth();
+    const auth = await buildTasksAuth();
     const tasks = google.tasks({ version: "v1", auth });
     await tasks.tasks.delete({ tasklist: listId, task: taskId });
 }
