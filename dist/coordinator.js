@@ -324,7 +324,7 @@ function formatMorningBriefingText(briefing) {
         : "  No usage data yet.";
     const scheduleWarning = !review.valid ? "\n⚠️ Schedule conflict detected!\n" : "";
     return `
-Good morning! Here's your daily briefing for ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+Good morning! Here's your morning briefing for ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
 
 🌤️ WEATHER
 ${weatherSection}

@@ -1248,9 +1248,15 @@ async function renderHomeCard() {
   const period = hour < 12 ? 'morning' : hour >= 17 ? 'evening' : 'afternoon';
   const lsKey  = `homeCard_${period}_seen`;           // e.g. homeCard_morning_seen
   const seenToday = localStorage.getItem(lsKey) === today;
-  // Full briefing only for morning/evening first open; slim card all other times
+  // Only show for morning/evening first open of the day — hide entirely otherwise
   const showFull = !seenToday && (period === 'morning' || period === 'evening');
-  if (showFull) localStorage.setItem(lsKey, today);
+  if (!showFull) {
+    // Already seen the briefing for this period (or it's afternoon) — hide card entirely
+    if (card) card.classList.add('hidden');
+    _homeCardVisible = false;
+    return;
+  }
+  localStorage.setItem(lsKey, today);
 
   // Greeting
   const greeting = hour < 12 ? '☀️ Good morning!' : hour < 17 ? '👋 Good afternoon!' : '🌙 Good evening!';
@@ -1294,104 +1300,62 @@ async function renderHomeCard() {
   // ── Events ────────────────────────────────────────────────────────────
   const cal      = data.calendar || [];
   const eventsEl = document.getElementById('hc-events');
-  if (showFull) {
-    // Full briefing: up to 4 events with details
-    if (cal.length > 0) {
-      const rows = cal.slice(0, 4).map(e => `
-        <div class="hc-row">
-          <div class="hc-row-icon">📅</div>
-          <div class="hc-row-text">
-            <div class="hc-row-title">${escapeHtml(e.title || '(untitled)')}</div>
-            <div class="hc-row-sub">${escapeHtml(e.start || '')}${e.location ? ' · ' + escapeHtml(e.location) : ''}</div>
-          </div>
-        </div>`).join('');
-      const extra = cal.length > 4 ? `<div class="hc-empty" style="padding-top:4px">+${cal.length - 4} more</div>` : '';
-      eventsEl.innerHTML = `<div class="hc-section-header">📅 Today's Events (${cal.length})</div>${rows}${extra}`;
-    } else {
-      eventsEl.innerHTML = `<div class="hc-section-header">📅 Today's Events</div><div class="hc-empty">No events scheduled today.</div>`;
-    }
+  if (cal.length > 0) {
+    const rows = cal.slice(0, 4).map(e => `
+      <div class="hc-row">
+        <div class="hc-row-icon">📅</div>
+        <div class="hc-row-text">
+          <div class="hc-row-title">${escapeHtml(e.title || '(untitled)')}</div>
+          <div class="hc-row-sub">${escapeHtml(e.start || '')}${e.location ? ' · ' + escapeHtml(e.location) : ''}</div>
+        </div>
+      </div>`).join('');
+    const extra = cal.length > 4 ? `<div class="hc-empty" style="padding-top:4px">+${cal.length - 4} more</div>` : '';
+    eventsEl.innerHTML = `<div class="hc-section-header">📅 Today's Events (${cal.length})</div>${rows}${extra}`;
   } else {
-    // Slim: just next upcoming event or count
-    const next = cal[0];
-    if (next) {
-      eventsEl.innerHTML = `
-        <div class="hc-section-header">📅 Next Up${cal.length > 1 ? ` · ${cal.length} today` : ''}</div>
-        <div class="hc-row">
-          <div class="hc-row-icon">📅</div>
-          <div class="hc-row-text">
-            <div class="hc-row-title">${escapeHtml(next.title || '(untitled)')}</div>
-            <div class="hc-row-sub">${escapeHtml(next.start || '')}${next.location ? ' · ' + escapeHtml(next.location) : ''}</div>
-          </div>
-        </div>`;
-    } else {
-      eventsEl.innerHTML = `<div class="hc-section-header">📅 Calendar</div><div class="hc-empty">No more events today.</div>`;
-    }
+    eventsEl.innerHTML = `<div class="hc-section-header">📅 Today's Events</div><div class="hc-empty">No events scheduled today.</div>`;
   }
 
   // ── Emails ────────────────────────────────────────────────────────────
   const imp       = data.importantEmails || [];
   const allEmails = data.emails || [];
   const emailsEl  = document.getElementById('hc-emails');
-  if (showFull) {
-    // Full briefing: show important email rows
-    if (imp.length > 0 || allEmails.length > 0) {
-      const badge = allEmails.length > 0 ? `<span class="hc-badge">${allEmails.length}</span>` : '';
-      const rows  = imp.slice(0, 3).map(e => {
-        const sender = (e.from || 'Unknown').split('<')[0].trim() || 'Unknown';
-        return `
-          <div class="hc-row">
-            <div class="hc-row-icon">⚠️</div>
-            <div class="hc-row-text">
-              <div class="hc-row-title">${escapeHtml(e.subject || '(no subject)')}</div>
-              <div class="hc-row-sub">${escapeHtml(sender)}</div>
-            </div>
-          </div>`;
-      }).join('');
-      emailsEl.innerHTML = `<div class="hc-section-header">📧 Inbox${badge}</div>${rows || `<div class="hc-empty">${allEmails.length} unread email${allEmails.length !== 1 ? 's' : ''}</div>`}`;
-    } else {
-      emailsEl.innerHTML = `<div class="hc-section-header">📧 Inbox</div><div class="hc-empty">Inbox is clear. 🎉</div>`;
-    }
+  if (imp.length > 0 || allEmails.length > 0) {
+    const badge = allEmails.length > 0 ? `<span class="hc-badge">${allEmails.length}</span>` : '';
+    const rows  = imp.slice(0, 3).map(e => {
+      const sender = (e.from || 'Unknown').split('<')[0].trim() || 'Unknown';
+      return `
+        <div class="hc-row">
+          <div class="hc-row-icon">⚠️</div>
+          <div class="hc-row-text">
+            <div class="hc-row-title">${escapeHtml(e.subject || '(no subject)')}</div>
+            <div class="hc-row-sub">${escapeHtml(sender)}</div>
+          </div>
+        </div>`;
+    }).join('');
+    emailsEl.innerHTML = `<div class="hc-section-header">📧 Inbox${badge}</div>${rows || `<div class="hc-empty">${allEmails.length} unread email${allEmails.length !== 1 ? 's' : ''}</div>`}`;
   } else {
-    // Slim: one-liner summary only
-    const total = allEmails.length;
-    const urgentCount = imp.length;
-    if (total > 0) {
-      const urgentNote = urgentCount > 0 ? ` · <strong>${urgentCount} important</strong>` : '';
-      emailsEl.innerHTML = `<div class="hc-section-header">📧 Inbox</div><div class="hc-empty">${total} unread${urgentNote}</div>`;
-    } else {
-      emailsEl.innerHTML = `<div class="hc-section-header">📧 Inbox</div><div class="hc-empty">Inbox is clear. 🎉</div>`;
-    }
+    emailsEl.innerHTML = `<div class="hc-section-header">📧 Inbox</div><div class="hc-empty">Inbox is clear. 🎉</div>`;
   }
 
   // ── Tasks ─────────────────────────────────────────────────────────────
   const tasks   = (data.googleTasks || []).filter(t => t.status !== 'completed');
   const tasksEl = document.getElementById('hc-tasks');
-  if (showFull) {
-    // Full briefing: show individual task rows
-    if (tasks.length > 0) {
-      const rows = tasks.slice(0, 3).map(t => {
-        const dueStr = t.due ? ` · due ${new Date(t.due).toLocaleDateString('en-US', {month:'short',day:'numeric'})}` : '';
-        return `
-          <div class="hc-row">
-            <div class="hc-row-icon">✅</div>
-            <div class="hc-row-text">
-              <div class="hc-row-title">${escapeHtml(t.title || '(untitled)')}</div>
-              ${dueStr ? `<div class="hc-row-sub">${dueStr.trim()}</div>` : ''}
-            </div>
-          </div>`;
-      }).join('');
-      const extra = tasks.length > 3 ? `<div class="hc-empty" style="padding-top:4px">+${tasks.length - 3} more</div>` : '';
-      tasksEl.innerHTML = `<div class="hc-section-header">✅ Tasks (${tasks.length})</div>${rows}${extra}`;
-    } else {
-      tasksEl.innerHTML = `<div class="hc-section-header">✅ Tasks</div><div class="hc-empty">No open tasks. You're all caught up!</div>`;
-    }
+  if (tasks.length > 0) {
+    const rows = tasks.slice(0, 3).map(t => {
+      const dueStr = t.due ? ` · due ${new Date(t.due).toLocaleDateString('en-US', {month:'short',day:'numeric'})}` : '';
+      return `
+        <div class="hc-row">
+          <div class="hc-row-icon">✅</div>
+          <div class="hc-row-text">
+            <div class="hc-row-title">${escapeHtml(t.title || '(untitled)')}</div>
+            ${dueStr ? `<div class="hc-row-sub">${dueStr.trim()}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+    const extra = tasks.length > 3 ? `<div class="hc-empty" style="padding-top:4px">+${tasks.length - 3} more</div>` : '';
+    tasksEl.innerHTML = `<div class="hc-section-header">✅ Tasks (${tasks.length})</div>${rows}${extra}`;
   } else {
-    // Slim: just a count
-    if (tasks.length > 0) {
-      tasksEl.innerHTML = `<div class="hc-section-header">✅ Tasks</div><div class="hc-empty">${tasks.length} open task${tasks.length !== 1 ? 's' : ''}</div>`;
-    } else {
-      tasksEl.innerHTML = `<div class="hc-section-header">✅ Tasks</div><div class="hc-empty">All caught up! 🎉</div>`;
-    }
+    tasksEl.innerHTML = `<div class="hc-section-header">✅ Tasks</div><div class="hc-empty">No open tasks. You're all caught up!</div>`;
   }
 }
 renderHomeCard();
