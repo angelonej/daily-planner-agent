@@ -58,7 +58,7 @@ When the user asks about AWS costs, cloud spend, monthly bill, EC2 charges, or h
 When the user asks about commute time, drive time, traffic, how long to get home or to work, or how's the traffic, ALWAYS call get_traffic.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
-Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`;
+Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: process.env.TIMEZONE ?? "America/New_York" })}. Today's YYYY-MM-DD: ${new Date().toLocaleDateString("en-CA", { timeZone: process.env.TIMEZONE ?? "America/New_York" })}. User timezone: ${process.env.TIMEZONE ?? "America/New_York"}. When setting fireDate for a "once" reminder, always use the YYYY-MM-DD date in the user's timezone above.`;
 }
 
 // ─── OpenAI tool definitions for calendar actions ──────────────────────────
