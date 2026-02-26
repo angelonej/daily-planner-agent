@@ -436,7 +436,14 @@
     </div>
 
     <div id="chat">
-      <div class="msg-row"><div class="bubble system">Good morning! Ask me about your calendar, emails, tasks, weather, or news. Use the shortcuts on the left or type below.</div></div>
+      <div class="msg-row"><div class="bubble system" id="greeting-bubble"></div></div>
+      <script>
+        (function() {
+          const h = new Date().getHours();
+          const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+          document.getElementById('greeting-bubble').textContent = g + '! Ask me about your calendar, emails, tasks, weather, or news. Use the shortcuts on the left or type below.';
+        })();
+      </script>
     </div>
 
     <div id="input-area">
