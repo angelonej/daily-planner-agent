@@ -427,18 +427,17 @@
       border-radius: 16px;
       padding: 16px;
       margin-bottom: 4px;
-      transition: opacity 0.4s ease, transform 0.4s ease, max-height 0.5s ease;
       overflow: hidden;
-      max-height: 900px;
     }
     #home-card.hidden {
-      opacity: 0;
-      transform: translateY(-8px);
-      max-height: 0;
-      padding: 0;
-      margin: 0;
-      border-width: 0;
-      pointer-events: none;
+      display: none;
+    }
+    #home-card.visible {
+      animation: cardReveal 0.35s ease both;
+    }
+    @keyframes cardReveal {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     .hc-greeting {
       font-size: 17px;
@@ -539,7 +538,7 @@
 </header>
 
 <div id="chat">
-  <div id="home-card">
+  <div id="home-card" class="hidden">
     <div id="hc-greeting" class="hc-greeting"></div>
     <div id="hc-weather"></div>
     <div id="hc-events" class="hc-section"></div>
@@ -1100,7 +1099,7 @@
     if (!_homeCardVisible) return;
     _homeCardVisible = false;
     const card = document.getElementById('home-card');
-    if (card) card.classList.add('hidden');
+    if (card) { card.classList.add('hidden'); card.classList.remove('visible'); }
   }
 
   let _sendFromInput = false; // true only when triggered by the text input
@@ -1251,12 +1250,14 @@ async function renderHomeCard() {
   // Only show for morning/evening first open of the day — hide entirely otherwise
   const showFull = !seenToday && (period === 'morning' || period === 'evening');
   if (!showFull) {
-    // Already seen the briefing for this period (or it's afternoon) — hide card entirely
-    if (card) card.classList.add('hidden');
+    // Already seen the briefing for this period (or it's afternoon) — stay hidden
     _homeCardVisible = false;
     return;
   }
   localStorage.setItem(lsKey, today);
+  // Reveal the card with animation
+  card.classList.remove('hidden');
+  card.classList.add('visible');
 
   // Greeting
   const greeting = hour < 12 ? '☀️ Good morning!' : hour < 17 ? '👋 Good afternoon!' : '🌙 Good evening!';
