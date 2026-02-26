@@ -46,6 +46,7 @@ if (process.argv.includes("--cli")) {
 }
 else {
     const app = express();
+    app.set('trust proxy', 1); // trust nginx reverse proxy
     app.use(express.json());
     app.use(express.urlencoded({ extended: false })); // needed for Twilio form posts
     // ─── Session & Auth ────────────────────────────────────────────────────
@@ -64,8 +65,8 @@ else {
         cookie: {
             maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
             httpOnly: true,
-            sameSite: false, // omit SameSite — broadest mobile compatibility on plain HTTP
-            secure: false,
+            sameSite: 'lax',
+            secure: 'auto', // secure on HTTPS (nip.io), not on plain HTTP
         }
     }));
     // ─── Token store: fallback for mobile browsers that drop cookies on HTTP IPs ─
@@ -146,7 +147,11 @@ else {
         if (!APP_PASSWORD || password === APP_PASSWORD) {
             req.session.authenticated = true;
             const tok = issueToken();
-            return req.session.save(() => res.redirect(`/?tok=${tok}`));
+            // Use absolute URL so HTTPS proxy domains redirect correctly
+            const proto = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+            const base = `${proto}://${host}`;
+            return req.session.save(() => res.redirect(`${base}/?tok=${tok}`));
         }
         res.send(`<!DOCTYPE html><html lang="en">
 <head>
