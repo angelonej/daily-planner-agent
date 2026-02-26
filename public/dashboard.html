@@ -423,7 +423,7 @@
         <div class="subtitle" id="chat-subtitle">Ask me anything about your day</div>
       </div>
       <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-        <button id="muteBtn" title="Mute voice reading" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap">&#9834; Voice</button>
+        <button id="muteBtn" title="Mute voice reading" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap">🔊 Voice</button>
         <button onclick="clearChat()" title="Clear chat" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap" onmouseover="this.style.color='#f85149';this.style.borderColor='#6e1a1a'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">🗑 Clear</button>
       </div>
     </div>
@@ -888,11 +888,11 @@ function updateMuteBtn() {
   const btn = document.getElementById('muteBtn');
   if (!btn) return;
   if (ttsEnabled) {
-    btn.textContent = '♪ Voice';
+    btn.textContent = '🔊 Voice';
     btn.classList.remove('active');
     btn.title = 'Click to mute voice reading';
   } else {
-    btn.textContent = '✕ Mute';
+    btn.textContent = '🔇 Mute';
     btn.classList.add('active');
     btn.title = 'Click to enable voice reading';
   }
