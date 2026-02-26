@@ -434,8 +434,9 @@ async function formatEveningBriefingText(briefing: MorningBriefing): Promise<str
     ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(4)}`
     : "  No usage data.";
 
+  const tz = process.env.TIMEZONE ?? "America/New_York";
   return [
-    `Good evening! Here's your end-of-day summary for ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`,
+    `Good evening! Here's your end-of-day summary for ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: tz })}`,
     commuteSection,
     `\n📅 TOMORROW — ${tomorrowStr}\n${tomorrowEvents}`,
     `\n✅ OPEN TASKS\n${taskSection}`,
