@@ -13,7 +13,7 @@ module.exports = {
       interpreter: "node",
       // Raise Node's V8 heap limit (default ~512 MB causes OOM on t3.micro)
       // -r dotenv/config ensures .env is loaded before any module initializes
-      interpreter_args: "--max-old-space-size=768 -r dotenv/config",
+      interpreter_args: "--max-old-space-size=512 --optimize-for-size -r dotenv/config",
 
       // Restart automatically if it crashes or exceeds memory ceiling
       autorestart: true,
@@ -21,7 +21,7 @@ module.exports = {
       max_restarts: 10,
       restart_delay: 3000,
       // PM2 will gracefully restart before Node OOMs
-      max_memory_restart: "850M",
+      max_memory_restart: "700M",
 
       // Log files (on EC2 these go to ~/.pm2/logs/ by default)
       out_file: "./logs/out.log",
