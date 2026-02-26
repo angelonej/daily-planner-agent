@@ -411,9 +411,13 @@
       <button class="nav-btn nav-action" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
     </div>
     <div class="bottom nav-section">
-      <button class="nav-btn nav-action" id="usage-sidebar-btn" onclick="sendQuick('Show my LLM usage today')" title="Click for full usage details" style="font-size:11px;opacity:0.6;padding:6px 10px">
+      <button class="nav-btn nav-action" id="usage-sidebar-btn" onclick="sendQuick('Show my LLM usage today')" title="Click for full LLM usage details" style="font-size:11px;opacity:0.6;padding:6px 10px">
         <span class="icon" style="font-size:13px">🤖</span>
         <span id="usage-sidebar-text">Loading…</span>
+      </button>
+      <button class="nav-btn nav-action" id="aws-sidebar-btn" onclick="sendQuick('What is my AWS cost this month?')" title="Click for full AWS cost details" style="font-size:11px;opacity:0.6;padding:6px 10px">
+        <span class="icon" style="font-size:13px">☁️</span>
+        <span id="aws-sidebar-text">Loading…</span>
       </button>
     </div>
   </nav>
@@ -500,11 +504,6 @@
         <div class="card" id="packages-today-card">
           <div class="card-title">📦 Arriving / Delivered Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
           <div id="overview-packages"></div>
-        </div>
-        <!-- AWS Cost -->
-        <div class="card">
-          <div class="card-title">☁️ AWS Cost <button class="refresh-btn" onclick="loadAwsCost(true)" title="Refresh AWS cost">⟳</button></div>
-          <div id="overview-aws-cost"><div class="empty-state">Loading…</div></div>
         </div>
       </div>
 
@@ -1275,69 +1274,25 @@ function renderWidgets() {
 
 let awsCostLoaded = false;
 async function loadAwsCost(forceRefresh) {
-  const el = document.getElementById('overview-aws-cost');
-  if (!el) return;
+  const sidebarEl = document.getElementById('aws-sidebar-text');
   if (!forceRefresh && awsCostLoaded) return;
-  el.innerHTML = '<div class="empty-state">Loading…</div>';
   try {
     const url = forceRefresh ? '/api/aws-cost?refresh=1' : '/api/aws-cost';
     const res = await fetch(url);
     const d = await res.json();
     if (!res.ok) {
-      const hint = d.hint ? `<div style="margin-top:6px;font-size:10px;color:var(--muted)">${d.hint}</div>` : '';
-      el.innerHTML = `<div class="empty-state" style="color:var(--red,#f85149)">${d.error || 'Error fetching AWS cost'}${hint}</div>`;
+      if (sidebarEl) sidebarEl.textContent = 'AWS: error';
       return;
     }
     awsCostLoaded = true;
     const fmt = n => '$' + (n||0).toFixed(2);
     const mtd      = d.mtdTotalUSD || 0;
     const forecast = d.forecastTotalUSD;
-    const yday     = d.yesterdayUSD || 0;
-    const daily    = d.dailyAvgUSD || 0;
     const threshold = d.threshold || 50;
-    const svcs     = (d.byService || []).slice(0, 5);
-    const cachedNote = d.cached ? ' <span style="font-size:9px;color:var(--muted)">(cached)</span>' : '';
-
-    // Progress bar: use forecast if available, else MTD
-    const compareVal  = (forecast !== null && forecast !== undefined) ? forecast : mtd;
-    const pct         = Math.min(100, (compareVal / threshold) * 100).toFixed(0);
-    const barColor    = compareVal < threshold * 0.75 ? 'var(--green,#3fb950)'
-                      : compareVal < threshold        ? '#d29922'
-                      : 'var(--red,#f85149)';
-    const overBudget  = compareVal >= threshold;
-
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
-        <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:18px;font-weight:600;color:var(--accent)">${fmt(mtd)}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">MTD ACTUAL${cachedNote}</div>
-        </div>
-        <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:18px;font-weight:600;color:${overBudget ? 'var(--red,#f85149)' : 'var(--accent2)'}">${forecast !== null && forecast !== undefined ? fmt(forecast) : 'N/A'}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">MONTH FORECAST</div>
-        </div>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
-        <div style="display:flex;justify-content:space-between">
-          <span>${overBudget ? '⚠️ Over budget!' : 'Budget'}</span>
-          <span style="font-weight:600;color:${barColor}">${fmt(compareVal)} / ${fmt(threshold)}</span>
-        </div>
-        <div style="background:var(--surface2);border-radius:3px;height:6px;overflow:hidden;margin:4px 0">
-          <div style="background:${barColor};height:100%;width:${pct}%;transition:width .4s"></div>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Yesterday: ${fmt(yday)} &nbsp;·&nbsp; Daily avg: ${fmt(daily)}/day
-      </div>
-      ${svcs.length ? `<div style="font-size:10px">
-        <div style="font-weight:600;margin-bottom:4px;color:var(--muted)">TOP SERVICES</div>
-        ${svcs.map(s => `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--border,#30363d)">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">${s.service}</span>
-          <span style="font-weight:600">${fmt(s.amountUSD)}</span></div>`).join('')}
-      </div>` : ''}
-      <div style="font-size:9px;color:var(--muted);margin-top:6px">Period: ${d.periodStart} → ${d.periodEnd}</div>`;
+    const overBudget = ((forecast ?? mtd) >= threshold);
+    if (sidebarEl) sidebarEl.textContent = `${overBudget ? '⚠️ ' : ''}${fmt(mtd)} MTD${forecast != null ? ' · ' + fmt(forecast) + ' forecast' : ''}`;
   } catch (e) {
-    if (el) el.innerHTML = `<div class="empty-state" style="color:var(--red,#f85149)">Failed to load: ${e.message}</div>`;
+    if (sidebarEl) sidebarEl.textContent = 'AWS: failed';
   }
 }
 
