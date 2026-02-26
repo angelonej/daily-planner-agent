@@ -964,13 +964,13 @@
     });
     // Now escape HTML in the rest of the text
     processed = escapeHtml(processed);
-    // Re-insert the links (already safe HTML)
-    processed = processed.replace(/\x00LINK(\d+)\x00/g, (_, i) => linkPlaceholders[+i]);
     // Auto-link bare phone numbers
     processed = processed.replace(/(?<!href="tel:)(?<![\d-])((\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})(?![\d])/g, (m, num) => {
       const digits = num.replace(/\D/g, '');
       return `<a href="tel:+${digits}">📞\u202f${m}</a>`;
     });
+    // Re-insert the links (already safe HTML)
+    processed = processed.replace(/\x00LINK(\d+)\x00/g, (_, i) => linkPlaceholders[+i]);
     // **bold**
     processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     // `code`

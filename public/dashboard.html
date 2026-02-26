@@ -828,12 +828,12 @@ function renderMarkdown(text) {
     return `\x00L${links.length-1}\x00`;
   });
   html = escapeHtml(html);
-  html = html.replace(/\x00L(\d+)\x00/g, (_, i) => links[+i]);
   // Auto-link bare phone numbers: +1 (555) 555-5555 / 555-555-5555 / (555) 555-5555
   html = html.replace(/(?<!href="tel:)(?<![\d-])((\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})(?![\d])/g, (m, num) => {
     const digits = num.replace(/\D/g, '');
     return `<a href="tel:+${digits}">📞\u202f${m}</a>`;
   });
+  html = html.replace(/\x00L(\d+)\x00/g, (_, i) => links[+i]);
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\n/g, '<br>');
