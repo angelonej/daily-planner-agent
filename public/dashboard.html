@@ -75,7 +75,9 @@
       overflow-y: auto;
     }
     .nav-section { padding: 0 12px; margin-bottom: 4px; }
-    .nav-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; padding: 8px 8px 4px; }
+    .nav-label { font-size: 10px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .12em; padding: 12px 10px 5px; opacity: 0.55; }
+    .nav-label:first-child { padding-top: 6px; }
+    .nav-section + .nav-section { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }
     .nav-btn {
       display: flex; align-items: center; gap: 9px;
       width: 100%; padding: 8px 10px; border-radius: 8px;
@@ -90,6 +92,8 @@
     .nav-btn .badge { margin-left: auto; background: var(--red); color: #fff; border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 700; }
     .nav-btn .badge.green { background: var(--green); }
     .nav-btn .badge.blue  { background: #3b82f6; }
+    .nav-btn.nav-action { font-size: 12px; padding: 6px 10px; opacity: 0.8; }
+    .nav-btn.nav-action .icon { font-size: 14px; }
     .nav-divider { height: 1px; background: var(--border); margin: 8px 12px; }
     #sidebar .bottom { margin-top: auto; padding: 0 12px; }
 
@@ -398,15 +402,13 @@
       <button class="nav-btn" onclick="sendQuick('What is the weather today and the forecast for this week?')"><span class="icon">🌤</span> Weather &amp; Forecast</button>
       <button class="nav-btn" id="newsNavBtn" onclick="sendQuick('What is in the news today?')"><span class="icon">📰</span> Latest News</button>
     </div>
-    <div class="nav-divider"></div>
     <div class="nav-section">
       <div class="nav-label">Actions</div>
-      <button class="nav-btn" id="digestBtn"><span class="icon">📧</span> Send Digest</button>
-      <button class="nav-btn" onclick="focusInput('Schedule ')"><span class="icon">➕</span> Add Event</button>
-      <button class="nav-btn" onclick="focusInput('Add a task: ')"><span class="icon">📝</span> Add Task</button>
-      <button class="nav-btn" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
+      <button class="nav-btn nav-action" id="digestBtn"><span class="icon">📧</span> Send Digest</button>
+      <button class="nav-btn nav-action" onclick="focusInput('Schedule ')"><span class="icon">➕</span> Add Event</button>
+      <button class="nav-btn nav-action" onclick="focusInput('Add a task: ')"><span class="icon">📝</span> Add Task</button>
+      <button class="nav-btn nav-action" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
     </div>
-    <div class="nav-divider"></div>
     <div class="bottom nav-section">
     </div>
   </nav>
