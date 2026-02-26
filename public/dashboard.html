@@ -560,7 +560,7 @@
       <!-- Reminders Tab -->
       <div class="panel" id="panel-reminders">
         <div class="card">
-          <div class="card-title">🔔 Recurring Reminders <button class="refresh-btn" onclick="loadReminders()">⟳</button></div>
+          <div class="card-title">🔔 Reminders <button class="refresh-btn" onclick="loadReminders()">⟳</button></div>
           <div id="reminders-list"><div class="spinner"></div></div>
           <!-- Add reminder form -->
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
@@ -1544,11 +1544,11 @@ async function loadReminders() {
     const todayStr = now.toDateString();
     const tomorrowStr = new Date(now.getTime() + 86400000).toDateString();
 
-    // Update badge with count of reminders due today
-    const todayCount = upcoming.filter(({ next }) => next.toDateString() === todayStr).length;
+    // Update badge with count of reminders due today or tomorrow
+    const soonCount = upcoming.filter(({ next }) => next.toDateString() === todayStr || next.toDateString() === tomorrowStr).length;
     const badgeEl = document.getElementById('reminderBadge');
     if (badgeEl) {
-      if (todayCount > 0) { badgeEl.textContent = todayCount; badgeEl.style.display = ''; }
+      if (soonCount > 0) { badgeEl.textContent = soonCount; badgeEl.style.display = ''; }
       else { badgeEl.style.display = 'none'; }
     }
 
