@@ -11,12 +11,16 @@ module.exports = {
       name: "planner",
       script: "./dist/index.js",
       interpreter: "node",
+      // Raise Node's V8 heap limit (default ~512 MB causes OOM on t3.micro)
+      interpreter_args: "--max-old-space-size=768",
 
-      // Restart automatically if it crashes
+      // Restart automatically if it crashes or exceeds memory ceiling
       autorestart: true,
       watch: false,
       max_restarts: 10,
       restart_delay: 3000,
+      // PM2 will gracefully restart before Node OOMs
+      max_memory_restart: "850M",
 
       // Log files (on EC2 these go to ~/.pm2/logs/ by default)
       out_file: "./logs/out.log",

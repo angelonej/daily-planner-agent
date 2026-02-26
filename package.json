@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "node -r dotenv/config dist/index.js",
+    "start": "node --max-old-space-size=768 -r dotenv/config dist/index.js",
     "dev": "ts-node --esm src/index.ts",
     "cli": "node -r dotenv/config dist/index.js --cli",
     "auth": "node --loader ts-node/esm src/auth/setupGoogle.ts",
