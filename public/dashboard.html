@@ -397,7 +397,7 @@
       <button class="nav-btn" onclick="sendQuick('What is on my calendar this week?')"><span class="icon">🗓</span> This Week <span class="badge blue" id="calWeekBadge" style="display:none">0</span></button>
       <button class="nav-btn" onclick="sendQuick('Check my emails')"><span class="icon">📧</span> Check Emails <span class="badge" id="emailBadge" style="display:none">0</span></button>
       <button class="nav-btn" onclick="sendQuick('Show my tasks')"><span class="icon">✅</span> My Tasks <span class="badge green" id="taskBadge" style="display:none">0</span></button>
-      <button class="nav-btn" onclick="switchTab('reminders')"><span class="icon">🔔</span> Reminders</button>
+      <button class="nav-btn" onclick="switchTab('reminders')"><span class="icon">🔔</span> Reminders <span class="badge" id="reminderBadge" style="display:none">0</span></button>
       <button class="nav-btn" onclick="sendQuick('What is the weather today?')"><span class="icon">🌤</span> Weather</button>
       <button class="nav-btn" onclick="sendQuick('What is the weather forecast this week?')"><span class="icon">🌦</span> Forecast</button>
       <button class="nav-btn" id="newsNavBtn" onclick="sendQuick('What is in the news today?')"><span class="icon">📰</span> Latest News</button>
@@ -1507,6 +1507,12 @@ function nextOccurrence(r, from) {
     return null;
   }
 
+  if (r.frequency === 'once' && r.fireDate) {
+    const [yr, mo, dy] = r.fireDate.split('-').map(Number);
+    const t = new Date(yr, mo - 1, dy, h, m, 0, 0);
+    return t > from ? t : null;
+  }
+
   return null;
 }
 
@@ -1537,6 +1543,14 @@ async function loadReminders() {
 
     const todayStr = now.toDateString();
     const tomorrowStr = new Date(now.getTime() + 86400000).toDateString();
+
+    // Update badge with count of reminders due today
+    const todayCount = upcoming.filter(({ next }) => next.toDateString() === todayStr).length;
+    const badgeEl = document.getElementById('reminderBadge');
+    if (badgeEl) {
+      if (todayCount > 0) { badgeEl.textContent = todayCount; badgeEl.style.display = ''; }
+      else { badgeEl.style.display = 'none'; }
+    }
 
     el.innerHTML = upcoming.map(({ r, next }) => {
       const schedule = describeReminderJS(r);
@@ -1570,6 +1584,7 @@ function describeReminderJS(r) {
   const ampm = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   const ts = `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+  if (r.frequency === 'once')    return r.fireDate ? `Once on ${r.fireDate} at ${ts}` : `Once at ${ts}`;
   if (r.frequency === 'daily')   return `Every day at ${ts}`;
   if (r.frequency === 'weekly')  return `Every ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][r.dayOfWeek ?? 0]} at ${ts}`;
   if (r.frequency === 'monthly') return `Every month on the ${r.dayOfMonth} at ${ts}`;
