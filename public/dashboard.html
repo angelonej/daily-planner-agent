@@ -434,16 +434,7 @@
       <div class="chip" onclick="sendQuick('What is in the news today?')">📰 News</div>
     </div>
 
-    <div id="chat">
-      <div class="msg-row"><div class="bubble system" id="greeting-bubble"></div></div>
-      <script>
-        (function() {
-          const h = new Date().getHours();
-          const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-          document.getElementById('greeting-bubble').textContent = g + '! Ask me about your calendar, emails, tasks, weather, or news. Use the shortcuts on the left or type below.';
-        })();
-      </script>
-    </div>
+    <div id="chat"></div>
 
     <div id="input-area">
       <div id="input-row">
@@ -1924,6 +1915,11 @@ loadBriefing(false);
 loadAwsCost(false);
 // Delay non-critical init calls so they don't compete with the briefing fetch
 setTimeout(() => { loadTaskLists(); loadReminders(); }, 2000);
+// Auto-trigger briefing on fresh page load (no existing messages)
+if (document.getElementById('chat').children.length === 0) {
+  const autoCmd = new Date().getHours() < 12 ? '/morning' : '/evening';
+  setTimeout(() => sendText(autoCmd), 500);
+}
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();
