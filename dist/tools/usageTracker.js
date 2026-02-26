@@ -21,7 +21,7 @@ const PRICING = {
 };
 const DEFAULT_PRICING = { input: 3.00, output: 15.00 };
 function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+    return new Date().toLocaleDateString("en-CA", { timeZone: process.env.TIMEZONE ?? "America/New_York" });
 }
 function loadFile() {
     try {

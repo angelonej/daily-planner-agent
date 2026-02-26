@@ -38,7 +38,7 @@ interface UsageFile {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA", { timeZone: process.env.TIMEZONE ?? "America/New_York" });
 }
 
 function loadFile(): UsageFile {
