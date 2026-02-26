@@ -876,6 +876,7 @@
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
   let isListening = false;
+  let micPersist = false; // true = stay on until user taps mic again
 
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
@@ -900,7 +901,8 @@
         voiceStatus.textContent = isHttp
           ? '⚠️ Mic blocked — browser requires HTTPS for microphone access. Use the text input below.'
           : '⚠️ Mic permission denied — tap mic again and allow access.';
-      } else {
+        micPersist = false;
+      } else if (e.error !== 'no-speech') {
         voiceStatus.textContent = '⚠️ Speech error: ' + e.error;
       }
       micBtn.classList.remove('recording');
@@ -908,9 +910,19 @@
     };
 
     recognition.onend = () => {
-      micBtn.classList.remove('recording');
       isListening = false;
-      voiceStatus.textContent = 'Click the mic button to speak';
+      if (micPersist) {
+        // Brief pause then restart so it feels natural
+        setTimeout(() => {
+          if (micPersist) {
+            try { recognition.start(); isListening = true; micBtn.classList.add('recording'); voiceStatus.textContent = '🎙 Listening…'; }
+            catch(_) {}
+          }
+        }, 300);
+      } else {
+        micBtn.classList.remove('recording');
+        voiceStatus.textContent = 'Click the mic button to speak';
+      }
     };
   } else {
     micBtn.disabled = true;
@@ -1143,6 +1155,8 @@
 
   let _sendFromInput = false; // true only when triggered by the text input
   async function sendText(msg, fromInput = false) {
+    // Pause mic while waiting for response (onend will restart if micPersist)
+    if (micPersist && isListening) { try { recognition.stop(); } catch(_) {} }
     if (!msg.trim()) return;
     hideHomeCard();
     _sendFromInput = fromInput;
@@ -1257,17 +1271,28 @@
   // ── Mic button: click to toggle listening ──────────────────────────────
   micBtn.addEventListener('click', () => {
     if (!recognition) return;
-    if (isListening) {
-      recognition.stop();
+    if (micPersist) {
+      // Second tap = turn off persistent mode
+      micPersist = false;
+      try { recognition.stop(); } catch(_) {}
       isListening = false;
       micBtn.classList.remove('recording');
+      micBtn.title = 'Click to speak';
       voiceStatus.textContent = 'Click the mic button to speak';
     } else {
-      window.speechSynthesis?.cancel(); // stop TTS before listening
-      recognition.start();
-      isListening = true;
-      micBtn.classList.add('recording');
-      voiceStatus.textContent = '🔴 Listening… speak now';
+      // First tap = turn on persistent mode
+      micPersist = true;
+      micBtn.title = 'Tap again to stop mic';
+      window.speechSynthesis?.cancel();
+      try {
+        recognition.start();
+        isListening = true;
+        micBtn.classList.add('recording');
+        voiceStatus.textContent = '🎙 Listening…';
+      } catch (e) {
+        voiceStatus.textContent = '⚠️ ' + e.message;
+        micPersist = false;
+      }
     }
   });
 // ─── Home card ────────────────────────────────────────────────────────────
@@ -1299,10 +1324,17 @@ async function renderHomeCard() {
   const lsKey  = `homeCard_${period}_seen`;
   const seenToday = localStorage.getItem(lsKey) === today;
   console.log(`[homeCard] period=${period} today=${today} stored=${localStorage.getItem(lsKey)} seenToday=${seenToday}`);
-  // Only show for morning/evening first open of the day — hide entirely otherwise
+  // Only show full card for morning/evening first open of the day
   const showFull = !seenToday && (period === 'morning' || period === 'evening');
-  if (!showFull) {
+  // On desktop (wide screen) or subsequent opens: show compact greeting bubble instead
+  const isDesktop = window.innerWidth >= 768;
+  if (!showFull || isDesktop) {
     _homeCardVisible = false;
+    // Show a compact greeting chat bubble
+    const greetingText = hour < 12 ? '☀️ Good morning!' : hour < 17 ? '👋 Good afternoon!' : '🌙 Good evening!';
+    const name = localStorage.getItem('assistantName') || 'your planner';
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    addBubble('agent', `${greetingText} Today is ${dateStr}. How can I help? You can ask for your morning briefing, check your calendar, tasks, or anything else.`);
     return;
   }
   // Mark as seen IMMEDIATELY before any async work so a fast refresh can't sneak through
