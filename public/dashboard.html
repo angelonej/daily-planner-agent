@@ -411,6 +411,10 @@
       <button class="nav-btn nav-action" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
     </div>
     <div class="bottom nav-section">
+      <button class="nav-btn nav-action" id="usage-sidebar-btn" onclick="sendQuick('Show my LLM usage today')" title="Click for full usage details" style="font-size:11px;opacity:0.6;padding:6px 10px">
+        <span class="icon" style="font-size:13px">🤖</span>
+        <span id="usage-sidebar-text">Loading…</span>
+      </button>
     </div>
   </nav>
 
@@ -496,11 +500,6 @@
         <div class="card" id="packages-today-card">
           <div class="card-title">📦 Arriving / Delivered Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
           <div id="overview-packages"></div>
-        </div>
-        <!-- LLM Usage -->
-        <div class="card">
-          <div class="card-title">🤖 LLM Usage Today</div>
-          <div id="overview-usage"><div class="empty-state">Loading…</div></div>
         </div>
         <!-- AWS Cost -->
         <div class="card">
@@ -1263,39 +1262,11 @@ function renderWidgets() {
   renderNews(news);
 
   // ── LLM Usage ──
-  const usageEl = document.getElementById('overview-usage');
   if (llmUsage) {
     const cost = llmUsage.estimatedCostUSD || 0;
-    const tokens = (llmUsage.totalTokens || 0).toLocaleString();
     const calls = llmUsage.calls || 0;
-    const pct = Math.min(100, (cost / 0.50) * 100).toFixed(0); // % of $0.50/day threshold
-    usageEl.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
-        <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:18px;font-weight:600;color:var(--accent)">${tokens}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">TOKENS</div>
-        </div>
-        <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:18px;font-weight:600;color:var(--accent2)">$${cost.toFixed(4)}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">EST. COST</div>
-        </div>
-        <div style="background:var(--surface2);border-radius:6px;padding:8px">
-          <div style="font-size:18px;font-weight:600">${calls}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">API CALLS</div>
-        </div>
-      </div>
-      <div style="font-size:10px;color:var(--muted)">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-          <span>Daily spend</span><span>$${cost.toFixed(4)} / $0.50 threshold</span>
-        </div>
-        <div style="background:var(--surface2);border-radius:3px;height:5px;overflow:hidden">
-          <div style="background:${cost < 0.25 ? 'var(--green,#3fb950)' : cost < 0.40 ? '#d29922' : 'var(--red,#f85149)'};height:100%;width:${pct}%;transition:width .4s"></div>
-        </div>
-        <div style="margin-top:6px">Prompt: ${(llmUsage.promptTokens||0).toLocaleString()} &nbsp;·&nbsp; Completion: ${(llmUsage.completionTokens||0).toLocaleString()}</div>
-        <div style="margin-top:2px">Model: grok-3 &nbsp;·&nbsp; Resets at midnight</div>
-      </div>`;
-  } else {
-    usageEl.innerHTML = '<div class="empty-state">No usage recorded yet</div>';
+    const sidebarText = document.getElementById('usage-sidebar-text');
+    if (sidebarText) sidebarText.textContent = `$${cost.toFixed(4)} · ${calls} calls today`;
   }
 
   // ── AWS Cost (loaded separately) ──
