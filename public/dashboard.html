@@ -380,7 +380,6 @@
     <span id="last-updated" style="font-size:11px;color:var(--muted);margin-right:4px"></span>
     <div class="top-actions">
       <button class="icon-btn" id="notifBtn" title="Notifications">🔔 <span id="notifBadge"></span></button>
-      <button class="icon-btn" id="digestBtn">📧 Send Digest</button>
       <button class="icon-btn" id="settingsBtn">⚙️ Settings</button>
       <button class="icon-btn" onclick="window.location.href='/logout'">↩ Logout</button>
     </div>
@@ -389,7 +388,7 @@
   <!-- ── Left Sidebar ── -->
   <nav id="sidebar">
     <div class="nav-section">
-      <div class="nav-label">Chat</div>
+      <div class="nav-label">Quick Access</div>
       <button class="nav-btn active" onclick="sendQuick('/morning')"><span class="icon">☀️</span> Morning Briefing</button>
       <button class="nav-btn" onclick="sendQuick('/evening')"><span class="icon">🌙</span> Evening Briefing</button>
       <button class="nav-btn" onclick="sendQuick('What is on my calendar today?')"><span class="icon">📅</span> Today's Calendar <span class="badge blue" id="calTodayBadge" style="display:none">0</span></button>
@@ -404,6 +403,7 @@
     <div class="nav-divider"></div>
     <div class="nav-section">
       <div class="nav-label">Actions</div>
+      <button class="nav-btn" id="digestBtn"><span class="icon">📧</span> Send Digest</button>
       <button class="nav-btn" onclick="focusInput('Schedule ')"><span class="icon">➕</span> Add Event</button>
       <button class="nav-btn" onclick="focusInput('Add a task: ')"><span class="icon">📝</span> Add Task</button>
       <button class="nav-btn" onclick="sendQuick('Search my emails for ')"><span class="icon">🔍</span> Search Emails</button>
@@ -421,7 +421,10 @@
         <div id="chat-title" style="font-size:14px;font-weight:600">Daily Planner Agent</div>
         <div class="subtitle" id="chat-subtitle">Ask me anything about your day</div>
       </div>
-      <button id="muteBtn" title="Mute voice reading" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap">🔊 Voice</button>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <button id="muteBtn" title="Mute voice reading" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap">🔊 Voice</button>
+        <button onclick="clearChat()" title="Clear chat" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap" onmouseover="this.style.color='#f85149';this.style.borderColor='#6e1a1a'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">🗑 Clear</button>
+      </div>
     </div>
 
     <!-- Quick action chips -->
@@ -438,7 +441,6 @@
 
     <div id="input-area">
       <div id="input-row">
-        <button onclick="clearChat()" title="Clear chat" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:16px;cursor:pointer;padding:0;width:38px;height:38px;border-radius:8px;flex-shrink:0;line-height:1" onmouseover="this.style.color='#f85149';this.style.borderColor='#6e1a1a'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">🗑</button>
         <input id="textInput" type="text" placeholder="Ask anything… schedule, emails, tasks, weather, news" autocomplete="off" />
         <button class="send-btn" id="micBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:22px" title="Mic">🎙</button>
         <button class="send-btn" id="sendBtn" title="Send">➤</button>
