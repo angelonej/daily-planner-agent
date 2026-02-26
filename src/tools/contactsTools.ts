@@ -101,7 +101,7 @@ export async function searchContacts(query: string, maxResults = 5): Promise<Con
  * Format contact results as a markdown-friendly string with tel: links.
  */
 export function formatContacts(contacts: Contact[]): string {
-  if (contacts.length === 0) return "No contacts found matching that name.";
+  if (contacts.length === 0) return "No contacts found in your Google address book matching that name.";
 
   return contacts.map(c => {
     const lines: string[] = [`**${c.name}**`];

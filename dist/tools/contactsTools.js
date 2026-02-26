@@ -84,7 +84,7 @@ export async function searchContacts(query, maxResults = 5) {
  */
 export function formatContacts(contacts) {
     if (contacts.length === 0)
-        return "No contacts found matching that name.";
+        return "No contacts found in your Google address book matching that name.";
     return contacts.map(c => {
         const lines = [`**${c.name}**`];
         if (c.jobTitle || c.company) {
