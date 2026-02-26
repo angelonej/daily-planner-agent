@@ -4,8 +4,8 @@
  * Searches Google Contacts (People API v1) by name.
  * Returns name, phone numbers, and email addresses.
  *
- * Scope needed: https://www.googleapis.com/auth/contacts
- * Re-run `npm run auth -- personal` after adding scope.
+ * Scope needed: https://www.googleapis.com/auth/contacts.readonly
+ * Uses people.connections.list (works with readonly scope).
  */
 import { google } from "googleapis";
 import { buildOAuth2Client } from "./gmailTools.js";
@@ -41,21 +41,23 @@ async function buildPeopleClient() {
 }
 /**
  * Search contacts by name query. Returns up to `maxResults` matches.
+ * Uses people.connections.list with client-side name filtering (contacts.readonly scope).
  */
 export async function searchContacts(query, maxResults = 5) {
     const people = await buildPeopleClient();
-    const res = await people.people.searchContacts({
-        query,
-        readMask: "names,phoneNumbers,emailAddresses,organizations",
-        pageSize: maxResults,
+    const queryLower = query.toLowerCase();
+    // Fetch all connections (up to 1000) and filter client-side by name
+    const res = await people.people.connections.list({
+        resourceName: "people/me",
+        personFields: "names,phoneNumbers,emailAddresses,organizations",
+        pageSize: 1000,
     });
-    const connections = res.data.results ?? [];
+    const connections = res.data.connections ?? [];
     const contacts = [];
-    for (const r of connections) {
-        const p = r.person;
-        if (!p)
+    for (const p of connections) {
+        const displayName = p.names?.[0]?.displayName ?? "";
+        if (!displayName.toLowerCase().includes(queryLower))
             continue;
-        const name = p.names?.[0]?.displayName ?? "(no name)";
         const phones = (p.phoneNumbers ?? []).map(ph => ({
             number: ph.value ?? "",
             type: ph.formattedType ?? ph.type ?? "phone",
@@ -66,12 +68,14 @@ export async function searchContacts(query, maxResults = 5) {
         })).filter(em => em.address);
         const org = p.organizations?.[0];
         contacts.push({
-            name,
+            name: displayName || "(no name)",
             phones,
             emails,
             company: org?.name ?? undefined,
             jobTitle: org?.title ?? undefined,
         });
+        if (contacts.length >= maxResults)
+            break;
     }
     return contacts;
 }
