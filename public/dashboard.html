@@ -226,6 +226,16 @@
       transition: color .15s, background .15s;
     }
     .card-title .refresh-btn:hover { color: var(--text); background: var(--surface2); }
+    /* Collapsible cards */
+    .card-title .collapse-btn {
+      margin-left: auto; background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 12px; padding: 2px 5px; border-radius: 4px;
+      transition: color .15s, background .15s; line-height: 1; user-select: none;
+    }
+    .card-title .collapse-btn:hover { color: var(--text); background: var(--surface2); }
+    .card-title .collapse-btn.has-refresh { margin-left: 0; }
+    .card-body { overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease; max-height: 2000px; }
+    .card-body.collapsed { max-height: 0 !important; opacity: 0; pointer-events: none; }
 
     /* Weather */
     .weather-main { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
@@ -502,28 +512,28 @@
         </div>
         <!-- Weather widget -->
         <div class="card" id="weather-card">
-          <div class="card-title">🌤 Weather <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
-          <div id="weather-body"><div class="spinner"></div></div>
+          <div class="card-title">🌤 Weather <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="weather" onclick="toggleCard('weather')" title="Collapse">▼</button></div>
+          <div class="card-body" id="weather-body"><div class="spinner"></div></div>
         </div>
         <!-- Today's events summary -->
         <div class="card">
-          <div class="card-title">📅 Today's Events <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
-          <div id="overview-cal"></div>
+          <div class="card-title">📅 Today's Events <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="overview-cal" onclick="toggleCard('overview-cal')" title="Collapse">▼</button></div>
+          <div class="card-body" id="overview-cal-body"><div id="overview-cal"></div></div>
         </div>
         <!-- Tasks summary -->
         <div class="card">
-          <div class="card-title">✅ Tasks Due</div>
-          <div id="overview-tasks"></div>
+          <div class="card-title">✅ Tasks Due <button class="collapse-btn" data-collapse="overview-tasks" onclick="toggleCard('overview-tasks')" title="Collapse">▼</button></div>
+          <div class="card-body" id="overview-tasks-body"><div id="overview-tasks"></div></div>
         </div>
         <!-- Important emails -->
         <div class="card">
-          <div class="card-title">⚠️ Important Emails</div>
-          <div id="overview-imp"></div>
+          <div class="card-title">⚠️ Important Emails <button class="collapse-btn" data-collapse="overview-imp" onclick="toggleCard('overview-imp')" title="Collapse">▼</button></div>
+          <div class="card-body" id="overview-imp-body"><div id="overview-imp"></div></div>
         </div>
         <!-- Packages arriving today -->
         <div class="card" id="packages-today-card">
-          <div class="card-title">📦 Arriving / Delivered Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
-          <div id="overview-packages"></div>
+          <div class="card-title">📦 Arriving / Delivered Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="overview-packages" onclick="toggleCard('overview-packages')" title="Collapse">▼</button></div>
+          <div class="card-body" id="overview-packages-body"><div id="overview-packages"></div></div>
         </div>
       </div>
 
@@ -1142,6 +1152,29 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ── Load briefing & render widgets ────────────────────────────────────────
+// ── Collapsible cards ──────────────────────────────────────────────────────
+function toggleCard(cardId) {
+  const body = document.getElementById(cardId + '-body');
+  const btn  = document.querySelector(`[data-collapse="${cardId}"]`);
+  if (!body) return;
+  const collapsed = body.classList.toggle('collapsed');
+  if (btn) btn.textContent = collapsed ? '▶' : '▼';
+  // Persist state
+  const stored = JSON.parse(localStorage.getItem('cardCollapsed') || '{}');
+  stored[cardId] = collapsed;
+  localStorage.setItem('cardCollapsed', JSON.stringify(stored));
+}
+function initCardCollapse() {
+  const stored = JSON.parse(localStorage.getItem('cardCollapsed') || '{}');
+  Object.entries(stored).forEach(([id, collapsed]) => {
+    if (!collapsed) return;
+    const body = document.getElementById(id + '-body');
+    const btn  = document.querySelector(`[data-collapse="${id}"]`);
+    if (body) { body.classList.add('collapsed'); }
+    if (btn)  { btn.textContent = '▶'; }
+  });
+}
+
 async function loadBriefing(forceRefresh=false) {
   try {
     const url = forceRefresh ? '/api/briefing?refresh=1' : '/api/briefing';
@@ -1943,6 +1976,8 @@ fetch('/api/settings').then(r => r.json()).then(s => {
 applyAssistantName();
 // Load briefing data immediately on page open
 loadBriefing(false);
+// Restore collapsed card states from localStorage
+initCardCollapse();
 // Load AWS cost card
 loadAwsCost(false);
 // Delay non-critical init calls so they don't compete with the briefing fetch
