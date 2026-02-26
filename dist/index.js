@@ -587,16 +587,6 @@ else {
             res.status(500).json({ error: String(err) });
         }
     });
-    app.get("/api/test-contacts", async (_req, res) => {
-        try {
-            const { searchContacts } = await import("./tools/contactsTools.js");
-            const contacts = await searchContacts("a", 3);
-            res.json({ ok: true, count: contacts.length, contacts });
-        }
-        catch (err) {
-            res.status(500).json({ ok: false, error: err.message, detail: String(err) });
-        }
-    });
     app.post("/api/create-task", async (req, res) => {
         const { title, notes, due, listId } = req.body;
         if (!title)
