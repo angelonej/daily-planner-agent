@@ -1265,7 +1265,7 @@ function renderWidgets() {
     const cost = llmUsage.estimatedCostUSD || 0;
     const calls = llmUsage.calls || 0;
     const sidebarText = document.getElementById('usage-sidebar-text');
-    if (sidebarText) sidebarText.textContent = `$${cost.toFixed(4)} · ${calls} calls today`;
+    if (sidebarText) sidebarText.textContent = `$${cost.toFixed(2)} · ${calls} calls today`;
   }
 
   // ── AWS Cost (loaded separately) ──

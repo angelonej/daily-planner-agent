@@ -40,30 +40,33 @@ function getClient(): CostExplorerClient {
   return new CostExplorerClient({ region: "us-east-1" });
 }
 
-/** Returns YYYY-MM-DD for today */
+/** Returns YYYY-MM-DD for today in local timezone */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA", { timeZone: process.env.TIMEZONE ?? "America/New_York" });
 }
 
 /** Returns YYYY-MM-DD for the first day of the current month */
 function startOfMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  const tz = process.env.TIMEZONE ?? "America/New_York";
+  const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: tz }).split("-");
+  return `${y}-${m}-01`;
 }
 
 /** Returns YYYY-MM-DD for the first day of next month (exclusive end for forecasts) */
 function startOfNextMonth(): string {
-  const d = new Date();
-  const nextMonth = d.getMonth() === 11 ? 0 : d.getMonth() + 1;
-  const nextYear  = d.getMonth() === 11 ? d.getFullYear() + 1 : d.getFullYear();
-  return `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`;
+  const tz = process.env.TIMEZONE ?? "America/New_York";
+  const [y, m] = new Date().toLocaleDateString("en-CA", { timeZone: tz }).split("-").map(Number);
+  const nextMonth = m === 12 ? 1 : m + 1;
+  const nextYear  = m === 12 ? y + 1 : y;
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
 }
 
-/** Returns YYYY-MM-DD for yesterday */
+/** Returns YYYY-MM-DD for yesterday in local timezone */
 function yesterday(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
+  const tz = process.env.TIMEZONE ?? "America/New_York";
+  const [y, m, d] = new Date().toLocaleDateString("en-CA", { timeZone: tz }).split("-").map(Number);
+  const dt = new Date(y, m - 1, d - 1);
+  return dt.toLocaleDateString("en-CA");
 }
 
 /** Monthly spend threshold in USD — alerts when MTD or forecast exceeds this */
@@ -155,7 +158,8 @@ export async function getAwsCostSummary(): Promise<AwsCostSummary> {
   }
 
   // ── Daily average ──────────────────────────────────────────────────────
-  const daysElapsed = Math.max(1, new Date().getDate() - 1); // days completed
+  const localDay = parseInt(new Date().toLocaleDateString("en-CA", { timeZone: process.env.TIMEZONE ?? "America/New_York" }).split("-")[2]);
+  const daysElapsed = Math.max(1, localDay - 1); // days completed
   const dailyAvgUSD = mtdTotalUSD / daysElapsed;
 
   return {
