@@ -856,6 +856,10 @@ async function sendText(msg) {
     speakText(stripMd(reply));
     // Refresh widgets after AI actions
     setTimeout(() => loadBriefing(false), 1200);
+    // If the agent set/deleted a reminder, refresh the reminders list & badge immediately
+    if (/reminder|remind/i.test(msg) || /reminder|remind/i.test(reply)) {
+      setTimeout(() => loadReminders(), 500);
+    }
   } catch (e) {
     thinking.remove();
     addBubble('agent', '⚠️ Network error: ' + e.message);
