@@ -32,7 +32,7 @@ When the user asks to check emails, show today's emails, list unread emails, or 
 When the user asks for the last email from someone, emails about a topic, or to search emails, ALWAYS call search_emails with the appropriate Gmail query.
 When the user asks to mark emails as read, clear unread, or mark today's emails as read, ALWAYS call mark_emails_read.
 When the user asks about token usage, LLM usage, API cost, how many tokens used, or AI usage stats, ALWAYS call get_llm_usage.
-When the user asks to add a reminder, set a recurring reminder, remind me about, or schedule a recurring alert (e.g. "remind me to pay my Amex bill on the 15th every month"), ALWAYS call add_reminder.
+When the user asks to set a reminder — whether one-time ("remind me tonight", "remind me tomorrow at 3") or recurring ("every Monday", "every month on the 15th") — ALWAYS call add_reminder. For one-time reminders use frequency="once" and set fireDate to the specific YYYY-MM-DD date. For recurring use daily/weekly/monthly/yearly.
 When the user asks to see, list, or show reminders, ALWAYS call list_reminders.
 When the user asks to delete, remove, or cancel a reminder, ALWAYS call delete_reminder.
 When the user asks to find a free time slot, schedule something, when am I free, or find open time, ALWAYS call find_free_slot with the date and duration.
@@ -308,13 +308,14 @@ const CALENDAR_TOOLS = [
         type: "function",
         function: {
             name: "add_reminder",
-            description: "Create a recurring reminder that fires as a push notification. Use for things like 'remind me to pay my bill on the 15th every month', 'remind me every Monday at 9am', 'remind me every day at 8pm to take medication'. Supports daily, weekly, monthly, and yearly frequencies.",
+            description: "Create a reminder that fires as a push notification. Use for one-time reminders ('remind me tonight', 'remind me tomorrow at 3pm') and recurring ones ('every Monday at 9am', 'every month on the 15th'). For one-time use frequency='once' with fireDate='YYYY-MM-DD'. For recurring use daily/weekly/monthly/yearly.",
             parameters: {
                 type: "object",
                 properties: {
-                    title: { type: "string", description: "What to remind the user about, e.g. 'Pay Amex bill'" },
-                    frequency: { type: "string", enum: ["daily", "weekly", "monthly", "yearly"], description: "How often the reminder repeats" },
-                    time: { type: "string", description: "Time of day in 24-hour HH:MM format, e.g. '09:00'" },
+                    title: { type: "string", description: "What to remind the user about, e.g. 'Call dentist'" },
+                    frequency: { type: "string", enum: ["once", "daily", "weekly", "monthly", "yearly"], description: "'once' for a one-time reminder on a specific date; 'daily/weekly/monthly/yearly' for recurring" },
+                    time: { type: "string", description: "Time of day in 24-hour HH:MM format, e.g. '21:00'" },
+                    fireDate: { type: "string", description: "REQUIRED for frequency='once': the exact date in YYYY-MM-DD format, e.g. '2026-02-25'" },
                     dayOfWeek: { type: "number", description: "Day of week for weekly reminders: 0=Sunday, 1=Monday … 6=Saturday" },
                     dayOfMonth: { type: "number", description: "Day of month (1-31) for monthly or yearly reminders" },
                     month: { type: "number", description: "Month (1-12) for yearly reminders" },
@@ -562,6 +563,7 @@ async function executeTool(name, args) {
                     title: String(args.title),
                     frequency: String(args.frequency),
                     time: String(args.time),
+                    fireDate: args.fireDate ? String(args.fireDate) : undefined,
                     dayOfWeek: args.dayOfWeek !== undefined ? Number(args.dayOfWeek) : undefined,
                     dayOfMonth: args.dayOfMonth !== undefined ? Number(args.dayOfMonth) : undefined,
                     month: args.month !== undefined ? Number(args.month) : undefined,

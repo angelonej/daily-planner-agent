@@ -60,7 +60,12 @@ export function deleteReminder(id) {
     return true;
 }
 export function markFired(id, date) {
-    updateReminder(id, { lastFiredDate: date });
+    const reminders = load();
+    const r = reminders.find(x => x.id === id);
+    const changes = { lastFiredDate: date };
+    if (r?.frequency === "once")
+        changes.active = false;
+    updateReminder(id, changes);
 }
 // ─── Check which reminders should fire right now ───────────────────────────
 export function getDueReminders(tz) {
@@ -87,6 +92,9 @@ export function getDueReminders(tz) {
             continue;
         let matches = false;
         switch (r.frequency) {
+            case "once":
+                matches = r.fireDate === todayStr;
+                break;
             case "daily":
                 matches = true;
                 break;
@@ -115,6 +123,7 @@ export function describeReminder(r) {
     const h12 = h % 12 === 0 ? 12 : h % 12;
     const timeStr = `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
     switch (r.frequency) {
+        case "once": return `Once on ${r.fireDate} at ${timeStr}`;
         case "daily": return `Every day at ${timeStr}`;
         case "weekly": return `Every ${DAY_NAMES[r.dayOfWeek ?? 0]} at ${timeStr}`;
         case "monthly": return `Every month on the ${ordinal(r.dayOfMonth ?? 1)} at ${timeStr}`;

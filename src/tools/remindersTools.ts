@@ -14,13 +14,14 @@ import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 
-export type ReminderFrequency = "daily" | "weekly" | "monthly" | "yearly";
+export type ReminderFrequency = "once" | "daily" | "weekly" | "monthly" | "yearly";
 
 export interface Reminder {
   id: string;
   title: string;           // e.g. "Pay Amex bill"
   frequency: ReminderFrequency;
   time: string;            // "HH:MM" 24-hour, e.g. "09:00"
+  fireDate?: string;       // "YYYY-MM-DD" — required for once, e.g. "2026-02-25"
   dayOfWeek?: number;      // 0=Sun … 6=Sat  (for weekly)
   dayOfMonth?: number;     // 1-31            (for monthly/yearly)
   month?: number;          // 1-12            (for yearly)
@@ -79,7 +80,11 @@ export function deleteReminder(id: string): boolean {
 }
 
 export function markFired(id: string, date: string): void {
-  updateReminder(id, { lastFiredDate: date });
+  const reminders = load();
+  const r = reminders.find(x => x.id === id);
+  const changes: Partial<Reminder> = { lastFiredDate: date };
+  if (r?.frequency === "once") changes.active = false;
+  updateReminder(id, changes);
 }
 
 // ─── Check which reminders should fire right now ───────────────────────────
@@ -111,6 +116,9 @@ export function getDueReminders(tz: string): Reminder[] {
 
     let matches = false;
     switch (r.frequency) {
+      case "once":
+        matches = r.fireDate === todayStr;
+        break;
       case "daily":
         matches = true;
         break;
@@ -143,6 +151,7 @@ export function describeReminder(r: Reminder): string {
   const timeStr = `${h12}:${String(m).padStart(2,"0")} ${ampm}`;
 
   switch (r.frequency) {
+    case "once":    return `Once on ${r.fireDate} at ${timeStr}`;
     case "daily":   return `Every day at ${timeStr}`;
     case "weekly":  return `Every ${DAY_NAMES[r.dayOfWeek ?? 0]} at ${timeStr}`;
     case "monthly": return `Every month on the ${ordinal(r.dayOfMonth ?? 1)} at ${timeStr}`;
