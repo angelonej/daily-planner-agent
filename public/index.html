@@ -511,6 +511,36 @@
       padding-top: 8px;
       border-top: 1px solid #21262d;
     }
+    .hc-suggestions {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #21262d;
+    }
+    .hc-suggestions-header {
+      font-size: 10px;
+      font-weight: 700;
+      color: #484f58;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 6px;
+    }
+    .hc-suggestion-chip {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      color: #c9d1d9;
+      font-size: 12px;
+      padding: 7px 10px;
+      margin-bottom: 5px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      line-height: 1.4;
+    }
+    .hc-suggestion-chip:last-child { margin-bottom: 0; }
+    .hc-suggestion-chip:active { background: #161b22; border-color: #1f6feb; }
 
     /* ── Mobile responsive ── */
     @media (max-width: 600px) {
@@ -592,6 +622,10 @@
 
   <!-- Quick Ask panel -->
   <div class="drawer-panel" id="panel-ask">
+    <div class="chip-grid" style="margin-bottom:8px">
+      <button class="chip-btn" style="background:#1a3a2a;border-color:#2ea043 !important" onclick="quickAsk('Look at my calendar, tasks, and emails and give me a smart plan for today. Suggest what I should work on, what to defer, and anything I might be missing.')"><span class="ci">🧠</span><span class="cl">Plan My Day</span></button>
+      <button class="chip-btn" style="background:#2d1f5e;border-color:#6e40c9 !important" onclick="quickAsk('What are the 3 most important things I should focus on right now based on my calendar, tasks, and emails?')"><span class="ci">👀</span><span class="cl">What Matters</span></button>
+    </div>
     <div class="section-label">📅 Calendar</div>
     <div class="chip-grid">
       <button class="chip-btn" onclick="quickAsk('What is on my calendar today?')"><span class="ci">📅</span><span class="cl">Today</span></button>
@@ -1190,6 +1224,15 @@
     document.querySelectorAll('.drawer-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
   }
 
+  // Tap a suggestion chip: hide card, pre-fill and send the suggestion as a chat message
+  function suggestionTap(btn) {
+    hideHomeCard();
+    const text = btn.textContent.trim();
+    // Strip leading emoji and whitespace for a cleaner message
+    const clean = text.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\uFE0F\u20E3\s]+/u, '').trim();
+    sendText(clean || text);
+  }
+
   // Quick ask: close drawer then send
   function quickAsk(msg) {
     closeDrawer();
@@ -1362,6 +1405,21 @@ async function renderHomeCard() {
   } else {
     tasksEl.innerHTML = `<div class="hc-section-header">✅ Tasks</div><div class="hc-empty">No open tasks. You're all caught up!</div>`;
   }
+  // ── Suggestions (use rule-based from briefing immediately; upgrade with AI async) ────
+  const suggestionsEl = document.getElementById('hc-suggestions');
+  const ruleBasedSuggestions = data.suggestions || [];
+  function renderSuggestions(items) {
+    if (!items || items.length === 0) { if (suggestionsEl) suggestionsEl.style.display = 'none'; return; }
+    suggestionsEl.style.display = '';
+    suggestionsEl.innerHTML = `<div class="hc-suggestions-header">💡 Suggestions</div>` +
+      items.map(s => `<button class="hc-suggestion-chip" onclick="suggestionTap(this)">${escapeHtml(s)}</button>`).join('');
+  }
+  renderSuggestions(ruleBasedSuggestions);
+  // Async upgrade: fetch AI-powered suggestions
+  fetch('/api/suggestions')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && d.suggestions && d.suggestions.length) renderSuggestions(d.suggestions); })
+    .catch(() => {});
 }
 renderHomeCard();
 

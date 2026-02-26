@@ -151,7 +151,27 @@ export function rescheduleBriefingJobs(): void {
 
 // ─── Scheduled jobs ────────────────────────────────────────────────────────
 export function startScheduledJobs(): void {
+  // ── 9am proactive suggestions push ────────────────────────────────────
   const tz = process.env.TIMEZONE ?? "America/New_York";
+  const suggestionsCron = timeToCron("SUGGESTIONS_TIME", 9, 0);
+  cron.schedule(suggestionsCron, async () => {
+    console.log("⏰ Cron: generating proactive suggestions...");
+    try {
+      const briefing = await getCachedBriefing();
+      suggestionsCache = null; // force regeneration
+      const suggestions = await generateAiSuggestions(briefing);
+      if (suggestions.length > 0) {
+        pushNotification({
+          type: "suggestion",
+          title: "💡 Daily suggestions ready",
+          body: suggestions[0], // tease the first one
+        });
+      }
+    } catch (err) {
+      console.error("Cron suggestions error:", err);
+    }
+  }, { timezone: tz });
+  console.log(`⏰ Proactive suggestions scheduled: ${suggestionsCron} (${tz})`);
 
   scheduleMorningJob(tz);
   scheduleEveningJob(tz);
@@ -236,6 +256,71 @@ function proactiveAnalysis(briefing: MorningBriefing): string[] {
   }
 
   return suggestions;
+}
+
+// ─── AI-powered suggestions cache (TTL = 15 min, regenerated at 9am) ──────────
+let suggestionsCache: { suggestions: string[]; fetchedAt: number } | null = null;
+const SUGGESTIONS_TTL_MS = 15 * 60 * 1000;
+
+export function getSuggestionsCacheAge(): string | null {
+  return suggestionsCache ? new Date(suggestionsCache.fetchedAt).toISOString() : null;
+}
+
+/**
+ * Uses the LLM to analyze today's briefing data and generate 3-5 smart,
+ * actionable suggestions as a JSON array of short strings.
+ */
+export async function generateAiSuggestions(briefing: MorningBriefing): Promise<string[]> {
+  const now = Date.now();
+  if (suggestionsCache && now - suggestionsCache.fetchedAt < SUGGESTIONS_TTL_MS) {
+    return suggestionsCache.suggestions;
+  }
+
+  // Start with rule-based suggestions as a fast baseline
+  const ruleBased = proactiveAnalysis(briefing);
+
+  // Build a compact briefing summary for the LLM prompt
+  const calSummary = briefing.calendar.slice(0, 6)
+    .map(e => `- ${e.start}–${e.end}: ${e.title}${e.location ? ` @ ${e.location}` : ""}`).join("\n") || "No events today";
+  const taskSummary = briefing.googleTasks.filter(t => t.status !== "completed").slice(0, 8)
+    .map(t => `- ${t.title}${t.due ? ` (due ${new Date(t.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })})` : ""}`).join("\n") || "No open tasks";
+  const emailSummary = briefing.importantEmails.slice(0, 5)
+    .map(e => `- From ${e.from}: ${e.subject}`).join("\n") || "No important emails";
+  const weatherLine = briefing.weather
+    ? `${briefing.weather.condition}, ${briefing.weather.temperatureF}°F, rain ${briefing.weather.precipChance}%`
+    : "Unknown";
+
+  const prompt = `You are a smart daily planner assistant. Based on today's data, generate 3 to 5 SHORT, specific, actionable suggestions the user should act on today. Each suggestion should be a single sentence under 12 words. Focus on what matters most — conflicts, urgent emails, overdue tasks, preparation needed, or time blocks to protect.
+
+Today's data:
+Weather: ${weatherLine}
+Calendar:\n${calSummary}
+Open Tasks:\n${taskSummary}
+Important Emails:\n${emailSummary}
+
+Respond with ONLY a valid JSON array of strings, no explanation, no markdown. Example: ["Block focus time before 2pm meeting", "Reply to urgent email from Sarah"]`;
+
+  try {
+    const { chatAgent } = await import("./agents/chatAgent.js");
+    const raw = await chatAgent("__suggestions__", prompt, undefined, "Assistant", "professional");
+    // Extract JSON array from response
+    const match = raw.match(/\[[\s\S]*?\]/);
+    if (match) {
+      const parsed: string[] = JSON.parse(match[0]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Merge with rule-based, deduplicate, cap at 5
+        const merged = [...new Set([...parsed, ...ruleBased])].slice(0, 5);
+        suggestionsCache = { suggestions: merged, fetchedAt: Date.now() };
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.warn("AI suggestions failed, falling back to rule-based:", err instanceof Error ? err.message : err);
+  }
+
+  // Fallback to rule-based only
+  suggestionsCache = { suggestions: ruleBased, fetchedAt: Date.now() };
+  return ruleBased;
 }
 
 // ─── Morning Briefing ──────────────────────────────────────────────────────
