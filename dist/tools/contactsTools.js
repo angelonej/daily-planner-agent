@@ -49,7 +49,7 @@ export async function searchContacts(query, maxResults = 5) {
     // Fetch all connections (up to 1000) and filter client-side by name
     const res = await people.people.connections.list({
         resourceName: "people/me",
-        personFields: "names,phoneNumbers,emailAddresses,organizations",
+        personFields: "names,phoneNumbers,emailAddresses,organizations,addresses",
         pageSize: 1000,
     });
     const connections = res.data.connections ?? [];
@@ -60,17 +60,22 @@ export async function searchContacts(query, maxResults = 5) {
             continue;
         const phones = (p.phoneNumbers ?? []).map(ph => ({
             number: ph.value ?? "",
-            type: ph.formattedType ?? ph.type ?? "phone",
+            type: ph.formattedType ?? ph.type ?? "Phone",
         })).filter(ph => ph.number);
         const emails = (p.emailAddresses ?? []).map(em => ({
             address: em.value ?? "",
-            type: em.formattedType ?? em.type ?? "email",
+            type: em.formattedType ?? em.type ?? "Email",
         })).filter(em => em.address);
+        const addresses = (p.addresses ?? []).map(a => ({
+            formatted: (a.formattedValue ?? "").replace(/\n/g, ", "),
+            type: a.formattedType ?? a.type ?? "Address",
+        })).filter(a => a.formatted);
         const org = p.organizations?.[0];
         contacts.push({
             name: displayName || "(no name)",
             phones,
             emails,
+            addresses,
             company: org?.name ?? undefined,
             jobTitle: org?.title ?? undefined,
         });
@@ -88,13 +93,18 @@ export function formatContacts(contacts) {
     return contacts.map(c => {
         const lines = [`**${c.name}**`];
         if (c.jobTitle || c.company) {
-            lines.push(`${[c.jobTitle, c.company].filter(Boolean).join(" @ ")}`);
+            lines.push(`*${[c.jobTitle, c.company].filter(Boolean).join(" · ")}*`);
         }
         for (const ph of c.phones) {
-            lines.push(`📞 [${ph.number}](tel:${ph.number.replace(/\s/g, "")}) *(${ph.type})*`);
+            const clean = ph.number.replace(/\s/g, "");
+            lines.push(`[${ph.number}](tel:${clean}) · ${ph.type}`);
+        }
+        for (const a of (c.addresses ?? [])) {
+            const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(a.formatted)}`;
+            lines.push(`[${a.formatted}](${mapsUrl}) · ${a.type}`);
         }
         for (const em of c.emails) {
-            lines.push(`✉️ [${em.address}](mailto:${em.address}) *(${em.type})*`);
+            lines.push(`[${em.address}](mailto:${em.address}) · ${em.type}`);
         }
         return lines.join("\n");
     }).join("\n\n");
