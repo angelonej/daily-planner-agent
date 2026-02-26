@@ -65,15 +65,11 @@ else
   cd "$APP_DIR"
 fi
 
-# ─── 7. Install dependencies and build ───────────────────────────────────────
+# ─── 7. Install dependencies (prod only, no build — dist/ is committed) ─────
 echo ""
-echo "▶ Installing dependencies..."
+echo "▶ Installing production dependencies..."
 cd "$APP_DIR"
-npm install
-
-echo ""
-echo "▶ Building TypeScript..."
-npm run build
+npm install --omit=dev
 
 # ─── 8. Create directories ────────────────────────────────────────────────────
 mkdir -p "$APP_DIR/logs"
