@@ -1928,13 +1928,30 @@ loadBriefing(false);
 loadAwsCost(false);
 // Delay non-critical init calls so they don't compete with the briefing fetch
 setTimeout(() => { loadTaskLists(); loadReminders(); }, 2000);
-// Auto-trigger briefing on fresh page load (no existing messages)
-if (document.getElementById('chat').children.length === 0) {
-  const autoCmd = new Date().getHours() < 12 ? '/morning' : '/evening';
-  // Highlight the matching briefing nav button
-  document.getElementById(autoCmd === '/morning' ? 'morningNavBtn' : 'eveningNavBtn').classList.add('active');
-  setTimeout(() => sendText(autoCmd, true), 500);
-}
+// Auto-trigger briefing on fresh page load — but only ONCE per morning/evening period per day
+(function() {
+  const now = new Date();
+  const hour = now.getHours();
+  const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  const period = hour < 12 ? 'morning' : hour >= 17 ? 'evening' : 'afternoon';
+  const lsKey = `dashboard_${period}_seen`;
+  const seenToday = localStorage.getItem(lsKey) === today;
+
+  if (document.getElementById('chat').children.length === 0) {
+    if (!seenToday && (period === 'morning' || period === 'evening')) {
+      // First open of this period — send full briefing
+      localStorage.setItem(lsKey, today);
+      const autoCmd = period === 'morning' ? '/morning' : '/evening';
+      document.getElementById(period === 'morning' ? 'morningNavBtn' : 'eveningNavBtn').classList.add('active');
+      setTimeout(() => sendText(autoCmd, true), 500);
+    } else {
+      // Subsequent opens — show compact greeting instead
+      const greetingText = hour < 12 ? '☀️ Good morning!' : hour < 17 ? '👋 Good afternoon!' : '🌙 Good evening!';
+      const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      setTimeout(() => addBubble('agent', `${greetingText} Today is ${dateStr}. How can I help?`), 300);
+    }
+  }
+})();
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();
