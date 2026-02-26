@@ -821,10 +821,10 @@ function addThinking() {
 const textInput = document.getElementById('textInput');
 const sendBtn   = document.getElementById('sendBtn');
 
-async function sendText(msg) {
+async function sendText(msg, silent = false) {
   if (!msg.trim()) return;
   textInput.value = '';
-  addBubble('user', msg);
+  if (!silent) addBubble('user', msg);
   const thinking = addThinking();
   sendBtn.disabled = true;
 
@@ -1920,7 +1920,7 @@ setTimeout(() => { loadTaskLists(); loadReminders(); }, 2000);
 // Auto-trigger briefing on fresh page load (no existing messages)
 if (document.getElementById('chat').children.length === 0) {
   const autoCmd = new Date().getHours() < 12 ? '/morning' : '/evening';
-  setTimeout(() => sendText(autoCmd), 500);
+  setTimeout(() => sendText(autoCmd, true), 500);
 }
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
