@@ -75,7 +75,7 @@
       overflow-y: auto;
     }
     .nav-section { padding: 0 12px; margin-bottom: 4px; }
-    .nav-label { font-size: 10px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .12em; padding: 12px 10px 5px; opacity: 0.55; }
+    .nav-label { font-size: 10px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .12em; padding: 12px 10px 5px; opacity: 0.75; border-left: 2px solid var(--accent); margin-left: 2px; }
     .nav-label:first-child { padding-top: 6px; }
     .nav-section + .nav-section { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }
     .nav-btn {
@@ -113,7 +113,7 @@
     }
     #chat-header h2 { font-size: 14px; font-weight: 600; }
     #chat-header .subtitle { color: var(--muted); font-size: 12px; }
-    #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
+    #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; justify-content: flex-start; gap: 14px; scroll-behavior: smooth; }
 
     /* scrollbar */
     #chat::-webkit-scrollbar { width: 6px; }
@@ -423,7 +423,7 @@
         <div class="subtitle" id="chat-subtitle">Ask me anything about your day</div>
       </div>
       <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-        <button id="muteBtn" title="Mute voice reading" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap">🔊 Voice</button>
+        <button id="muteBtn" title="Mute voice reading" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap">&#9834; Voice</button>
         <button onclick="clearChat()" title="Clear chat" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;padding:3px 8px;white-space:nowrap" onmouseover="this.style.color='#f85149';this.style.borderColor='#6e1a1a'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">🗑 Clear</button>
       </div>
     </div>
@@ -888,11 +888,11 @@ function updateMuteBtn() {
   const btn = document.getElementById('muteBtn');
   if (!btn) return;
   if (ttsEnabled) {
-    btn.textContent = '🔊 Voice';
+    btn.textContent = '♪ Voice';
     btn.classList.remove('active');
     btn.title = 'Click to mute voice reading';
   } else {
-    btn.textContent = '🔇 Mute';
+    btn.textContent = '✕ Mute';
     btn.classList.add('active');
     btn.title = 'Click to enable voice reading';
   }
