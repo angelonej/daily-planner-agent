@@ -77,6 +77,17 @@
       text-decoration: underline;
     }
     .bubble a:hover { color: #79c0ff; }
+    .bubble a[href^="tel:"],
+    .bubble a[href^="mailto:"] {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15);
+      border-radius: 20px; padding: 3px 10px; font-size: 13px;
+      color: #58a6ff; text-decoration: none; margin: 2px 1px;
+      transition: background .15s;
+    }
+    .bubble a[href^="tel:"]:hover,
+    .bubble a[href^="mailto:"]:hover { background: rgba(255,255,255,.12); }
+    .bubble a[href*="maps.google"] { text-decoration: underline dotted; }
 
     .bubble.thinking {
       background: #21262d;
@@ -942,15 +953,24 @@
   function renderMarkdown(text) {
     // Extract [label](url) links BEFORE any escaping so URLs aren't corrupted
     const linkPlaceholders = [];
-    let processed = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, label, url) => {
+    let processed = text.replace(/\[([^\]]+)\]\(((?:https?|tel|mailto):[^)]+)\)/g, (_, label, url) => {
       const idx = linkPlaceholders.length;
-      linkPlaceholders.push(`<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`);
+      const isTel = url.startsWith('tel:');
+      const isMail = url.startsWith('mailto:');
+      const icon = isTel ? '📞\u202f' : isMail ? '✉️\u202f' : '';
+      const extra = isTel || isMail ? '' : ' target="_blank" rel="noopener"';
+      linkPlaceholders.push(`<a href="${url}"${extra}>${icon}${escapeHtml(label)}</a>`);
       return `\x00LINK${idx}\x00`;
     });
     // Now escape HTML in the rest of the text
     processed = escapeHtml(processed);
     // Re-insert the links (already safe HTML)
     processed = processed.replace(/\x00LINK(\d+)\x00/g, (_, i) => linkPlaceholders[+i]);
+    // Auto-link bare phone numbers
+    processed = processed.replace(/(?<!href="tel:)(?<![\d-])((\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})(?![\d])/g, (m, num) => {
+      const digits = num.replace(/\D/g, '');
+      return `<a href="tel:+${digits}">📞\u202f${m}</a>`;
+    });
     // **bold**
     processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     // `code`

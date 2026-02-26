@@ -314,6 +314,19 @@
     #suggestions-banner .sug-chip:hover { background: var(--hover); border-color: var(--accent); }
     #sug-loading { font-size: 11px; color: var(--muted); opacity: 0.7; padding: 4px 0; }
 
+    .bubble.agent a[href^="tel:"],
+    .bubble.agent a[href^="mailto:"] {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 3px 10px; font-size: 12px;
+      color: var(--accent); text-decoration: none; margin: 2px 1px;
+      transition: background .15s, border-color .15s;
+    }
+    .bubble.agent a[href^="tel:"]:hover,
+    .bubble.agent a[href^="mailto:"]:hover { background: var(--hover); border-color: var(--accent); }
+    .bubble.agent a[href*="maps.google"] {
+      color: var(--accent); text-decoration: underline dotted;
+    }
     /* Package tracking */
     .pkg-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
     .pkg-item:last-child { border-bottom: none; }
@@ -803,12 +816,22 @@ function escapeHtml(s) {
 }
 function renderMarkdown(text) {
   const links = [];
-  let html = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (_, label, url) => {
-    links.push(`<a href="${url}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`);
+  // Handle all markdown links: https://, tel:, mailto:
+  let html = text.replace(/\[([^\]]+)\]\(((?:https?|tel|mailto):[^)]+)\)/g, (_, label, url) => {
+    const isTel = url.startsWith('tel:');
+    const isMail = url.startsWith('mailto:');
+    const icon = isTel ? '📞\u202f' : isMail ? '✉️\u202f' : '';
+    const extra = isTel || isMail ? '' : ' target="_blank" rel="noopener"';
+    links.push(`<a href="${url}"${extra}>${icon}${escapeHtml(label)}</a>`);
     return `\x00L${links.length-1}\x00`;
   });
   html = escapeHtml(html);
   html = html.replace(/\x00L(\d+)\x00/g, (_, i) => links[+i]);
+  // Auto-link bare phone numbers: +1 (555) 555-5555 / 555-555-5555 / (555) 555-5555
+  html = html.replace(/(?<!href="tel:)(?<![\d-])((\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})(?![\d])/g, (m, num) => {
+    const digits = num.replace(/\D/g, '');
+    return `<a href="tel:+${digits}">📞\u202f${m}</a>`;
+  });
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   html = html.replace(/\n/g, '<br>');

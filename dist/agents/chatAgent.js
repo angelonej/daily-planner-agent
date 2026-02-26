@@ -9,6 +9,7 @@ import { recordUsage, getUsageToday, getUsageHistory } from "../tools/usageTrack
 import { getReminders, addReminder, deleteReminder, describeReminder } from "../tools/remindersTools.js";
 import { getTrackedPackages } from "../tools/packageTools.js";
 import { getAwsCostSummary, formatAwsCostSummary } from "../tools/awsCostTools.js";
+import { searchContacts, formatContacts } from "../tools/contactsTools.js";
 const openai = new OpenAI({
     apiKey: process.env.XAI_API_KEY,
     baseURL: "https://api.x.ai/v1",
@@ -49,6 +50,9 @@ When the user asks about packages, shipments, tracking, deliveries, "where is my
 When the user asks for suggestions, tips, what should I know about today, or proactive advice, ALWAYS call get_suggestions.
 When the user asks about AWS costs, cloud spend, monthly bill, EC2 charges, or how much AWS is costing, ALWAYS call get_aws_cost.
 When the user asks about commute time, drive time, traffic, how long to get home or to work, or how's the traffic, ALWAYS call get_traffic.
+When the user asks for someone's phone number, contact info, or to call/text someone, ALWAYS call lookup_contact.
+When showing a phone number, ALWAYS format it as a markdown tel: link: [+15555551234](tel:+15555551234)
+When showing an address or location, ALWAYS format it as a clickable Maps link: [123 Main St, City ST](https://maps.google.com/?q=123+Main+St+City+ST) — encode spaces as +.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: process.env.TIMEZONE ?? "America/New_York" })}. Today's YYYY-MM-DD: ${new Date().toLocaleDateString("en-CA", { timeZone: process.env.TIMEZONE ?? "America/New_York" })}. User timezone: ${process.env.TIMEZONE ?? "America/New_York"}. When setting fireDate for a "once" reminder, always use the YYYY-MM-DD date in the user's timezone above.`;
@@ -412,6 +416,21 @@ const CALENDAR_TOOLS = [
             },
         },
     },
+    {
+        type: "function",
+        function: {
+            name: "lookup_contact",
+            description: "Search Google Contacts by name. Returns phone numbers (as tap-to-call links), email addresses, company, and job title. Use when the user asks for someone's number, phone, contact info, email address, or says 'call X', 'text X', 'find X's number'.",
+            parameters: {
+                type: "object",
+                properties: {
+                    name: { type: "string", description: "The name (or partial name) to search for, e.g. 'John', 'Sarah Smith'" },
+                    maxResults: { type: "number", description: "Max contacts to return (default 3)" },
+                },
+                required: ["name"],
+            },
+        },
+    },
 ];
 // ─── Execute a tool call returned by the model ────────────────────────────
 async function executeTool(name, args) {
@@ -675,6 +694,12 @@ async function executeTool(name, args) {
             case "get_aws_cost": {
                 const costData = await getAwsCostSummary();
                 return formatAwsCostSummary(costData);
+            }
+            case "lookup_contact": {
+                const name = String(args.name ?? "");
+                const max = args.maxResults ? Number(args.maxResults) : 3;
+                const contacts = await searchContacts(name, max);
+                return formatContacts(contacts);
             }
             case "get_traffic": {
                 const home = process.env.HOME_ADDRESS;
