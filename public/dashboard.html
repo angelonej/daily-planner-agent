@@ -197,6 +197,7 @@
     .rtab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 
     .notif-item { padding: 8px 10px; border-radius: 6px; background: var(--surface2); margin-bottom: 6px; }
+    .notif-item.notif-unread { background: rgba(31,111,235,.18); border-left: 3px solid var(--accent); }
     .notif-item-title { font-size: 12px; font-weight: 600; }
     .notif-item-body { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .notif-item-time { font-size: 10px; color: var(--muted); margin-top: 3px; }
@@ -1026,11 +1027,19 @@ let unread = 0;
 const recentAlerts = [];
 
 function addToNotifPanel(title, body) {
-  recentAlerts.unshift({ title, body, time: new Date() });
+  recentAlerts.unshift({ title, body, time: new Date(), unread: true });
   if (recentAlerts.length > 50) recentAlerts.pop();
+  renderNotifPanel();
+}
+
+function renderNotifPanel() {
   const list = document.getElementById('notif-panel-list');
+  if (recentAlerts.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">No notifications yet</div>';
+    return;
+  }
   list.innerHTML = recentAlerts.map(a => `
-    <div class="notif-item">
+    <div class="notif-item${a.unread ? ' notif-unread' : ''}">
       <div class="notif-item-title">${escapeHtml(a.title)}</div>
       <div class="notif-item-body">${escapeHtml(a.body ?? '')}</div>
       <div class="notif-item-time">${a.time.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
@@ -1977,13 +1986,18 @@ async function registerPush() {
 // Wire the 🔔 bell button: toggle notification history panel + request permission if needed
 document.getElementById('notifBtn').addEventListener('click', async (ev) => {
   ev.stopPropagation();
-  unreadNotifs = 0;
   const badge = document.getElementById('notifBadge');
-  badge.style.display = 'none';
   // Toggle the notification history panel
   const panel = document.getElementById('notif-panel');
   const isOpen = panel.style.display !== 'none';
   panel.style.display = isOpen ? 'none' : 'block';
+  // Mark all as read when opening
+  if (!isOpen) {
+    unreadNotifs = 0;
+    badge.style.display = 'none';
+    recentAlerts.forEach(a => a.unread = false);
+    renderNotifPanel();
+  }
   // If permissions not yet granted, request them
   if (!isOpen && 'Notification' in window && Notification.permission === 'default') {
     const perm = await Notification.requestPermission();
