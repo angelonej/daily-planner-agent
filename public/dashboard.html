@@ -463,8 +463,6 @@
   <aside id="right">
     <div id="right-tabs">
       <button class="rtab active" data-panel="overview" onclick="switchTab('overview')" title="Overview">🏠</button>
-      <button class="rtab" data-panel="calendar" onclick="switchTab('calendar')" title="Calendar">📅</button>
-      <button class="rtab" data-panel="tasks" onclick="switchTab('tasks')" title="Tasks">✅</button>
       <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')" title="Reminders">🔔</button>
       <button class="rtab" data-panel="email" onclick="switchTab('email')" title="Email">✉️</button>
       <button class="rtab" data-panel="news" onclick="switchTab('news')" title="News">📰</button>
@@ -490,11 +488,6 @@
           <div class="card-title">📅 Today's Events <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
           <div id="overview-cal"></div>
         </div>
-        <!-- Important emails -->
-        <div class="card">
-          <div class="card-title">⚠️ Important Emails</div>
-          <div id="overview-imp"></div>
-        </div>
         <!-- Tasks summary -->
         <div class="card">
           <div class="card-title">✅ Tasks Due</div>
@@ -504,6 +497,11 @@
         <div class="card" id="packages-today-card">
           <div class="card-title">📦 Arriving / Delivered Today <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button></div>
           <div id="overview-packages"></div>
+        </div>
+        <!-- Important emails -->
+        <div class="card">
+          <div class="card-title">⚠️ Important Emails</div>
+          <div id="overview-imp"></div>
         </div>
       </div>
 
