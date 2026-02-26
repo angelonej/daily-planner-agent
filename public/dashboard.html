@@ -1859,7 +1859,9 @@ function addKeywordRow(value='') {
 function applyAssistantName() {
   const name = localStorage.getItem('assistantName') || 'Assistant';
   document.getElementById('chat-title').textContent = name;
-  document.getElementById('chat-subtitle').textContent = `Ask ${name} anything about your day`;
+  const h = new Date().getHours();
+  const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('chat-subtitle').textContent = `${g}! Ask ${name} anything about your day`;
   // Update all existing agent message labels in the chat
   document.querySelectorAll('.msg-label-agent').forEach(el => { el.textContent = name; });
 }
