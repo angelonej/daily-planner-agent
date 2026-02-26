@@ -152,7 +152,7 @@ if (process.argv.includes("--cli")) {
       const proto = req.headers['x-forwarded-proto'] as string || req.protocol;
       const host  = req.headers['x-forwarded-host'] as string || req.headers.host || '';
       const base  = `${proto}://${host}`;
-      return req.session.save(() => res.redirect(`${base}/?tok=${tok}`));
+      return req.session.save(() => res.redirect(303, `${base}/?tok=${tok}`));
     }
     res.send(`<!DOCTYPE html><html lang="en">
 <head>

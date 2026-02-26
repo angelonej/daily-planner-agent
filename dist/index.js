@@ -151,7 +151,7 @@ else {
             const proto = req.headers['x-forwarded-proto'] || req.protocol;
             const host = req.headers['x-forwarded-host'] || req.headers.host || '';
             const base = `${proto}://${host}`;
-            return req.session.save(() => res.redirect(`${base}/?tok=${tok}`));
+            return req.session.save(() => res.redirect(303, `${base}/?tok=${tok}`));
         }
         res.send(`<!DOCTYPE html><html lang="en">
 <head>
