@@ -55,6 +55,13 @@ function yesterday() {
     const dt = new Date(y, m - 1, d - 1);
     return dt.toLocaleDateString("en-CA");
 }
+/** Returns YYYY-MM-DD for tomorrow in local timezone */
+function tomorrow() {
+    const tz = process.env.TIMEZONE ?? "America/New_York";
+    const [y, m, d] = new Date().toLocaleDateString("en-CA", { timeZone: tz }).split("-").map(Number);
+    const dt = new Date(y, m - 1, d + 1);
+    return dt.toLocaleDateString("en-CA");
+}
 /** Monthly spend threshold in USD — alerts when MTD or forecast exceeds this */
 let runtimeCostThreshold = parseFloat(process.env.AWS_COST_THRESHOLD ?? "50");
 export function getCostThreshold() { return runtimeCostThreshold; }
@@ -103,7 +110,7 @@ export async function getAwsCostSummary() {
     let forecastTotalUSD = null;
     try {
         const forecastInput = {
-            TimePeriod: { Start: todayDate, End: startOfNextMonth() },
+            TimePeriod: { Start: tomorrow(), End: startOfNextMonth() },
             Metric: "UNBLENDED_COST",
             Granularity: "MONTHLY",
         };
