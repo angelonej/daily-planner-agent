@@ -3,7 +3,7 @@ import { taskAgent } from "./agents/taskAgent.js";
 import { newsAgent } from "./agents/newsAgent.js";
 import { emailAgent, filterImportant } from "./agents/emailAgent.js";
 import { criticAgent } from "./agents/criticAgent.js";
-import { chatAgent, formatBriefingContext } from "./agents/chatAgent.js";
+import { chatAgent, formatBriefingContext, type AssistantTone } from "./agents/chatAgent.js";
 import { getWeather, formatWeatherSummary } from "./tools/weatherTools.js";
 import { listTasks } from "./tools/tasksTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
@@ -448,7 +448,7 @@ async function formatEveningBriefingText(briefing: MorningBriefing): Promise<str
 // ─── Main coordinator ──────────────────────────────────────────────────────
 const MORNING_TRIGGERS = ["/morning", "good morning", "morning briefing", "daily briefing", "start my day"];
 
-export async function coordinatorAgent(message: string, userId = "default", assistantName = "Assistant"): Promise<string> {
+export async function coordinatorAgent(message: string, userId = "default", assistantName = "Assistant", tone: AssistantTone = "professional"): Promise<string> {
   const lower = message.toLowerCase().trim();
 
   // Morning briefing request
@@ -493,7 +493,7 @@ export async function coordinatorAgent(message: string, userId = "default", assi
     }
   }
   try {
-    return await chatAgent(userId, message, briefing, assistantName);
+    return await chatAgent(userId, message, briefing, assistantName, tone);
   } catch (err: any) {
     console.error("Chat agent error:", err?.status, err?.error ?? err?.message ?? err);
     const status = err?.status ?? err?.code;

@@ -270,7 +270,7 @@ else {
                 return res.sendStatus(403);
             }
             const userId = `whatsapp-${from}`;
-            const reply = await coordinatorAgent(text, userId, runtimeAssistantName);
+            const reply = await coordinatorAgent(text, userId, runtimeAssistantName, runtimeTone);
             // Respond with TwiML
             const twiml = new twilio.twiml.MessagingResponse();
             twiml.message(reply);
@@ -312,7 +312,7 @@ else {
                 return res.type("text/xml").send(twiml.toString());
             }
             console.log(`Voice [${callerId}]: ${speechResult}`);
-            const reply = await coordinatorAgent(speechResult, userId, runtimeAssistantName);
+            const reply = await coordinatorAgent(speechResult, userId, runtimeAssistantName, runtimeTone);
             // Speak the response, then offer another turn
             twiml.say({ voice: "Polly.Joanna" }, reply);
             const gather = twiml.gather({
@@ -343,7 +343,7 @@ else {
         const bodyText = req.body?.text;
         if (bodyText) {
             try {
-                const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName);
+                const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName, runtimeTone);
                 return res.json({ transcript: bodyText.trim(), reply });
             }
             catch (err) {
@@ -416,6 +416,7 @@ else {
         (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
             .split(",").map(t => t.trim()).filter(Boolean);
     let runtimeAssistantName = _saved.assistantName ?? process.env.ASSISTANT_NAME ?? "Assistant";
+    let runtimeTone = _saved.tone ?? "professional";
     if (_saved.vipSenders)
         setVipSenders(_saved.vipSenders);
     if (_saved.filterKeywords)
@@ -430,6 +431,7 @@ else {
         res.json({
             newsTopics: runtimeNewsTopics,
             assistantName: runtimeAssistantName,
+            tone: runtimeTone,
             timezone: process.env.TIMEZONE ?? "America/New_York",
             digestEmail: process.env.DIGEST_EMAIL_TO ?? "",
             accounts: [
@@ -444,9 +446,13 @@ else {
         });
     });
     app.post("/api/settings", (req, res) => {
-        const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold, assistantName } = req.body;
+        const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold, assistantName, tone } = req.body;
         if (typeof assistantName === "string" && assistantName.trim()) {
             runtimeAssistantName = assistantName.trim();
+        }
+        const VALID_TONES = ["professional", "friendly", "casual", "coach", "witty"];
+        if (typeof tone === "string" && VALID_TONES.includes(tone)) {
+            runtimeTone = tone;
         }
         if (Array.isArray(newsTopics)) {
             runtimeNewsTopics = newsTopics.map((t) => t.trim()).filter(Boolean);
@@ -476,6 +482,7 @@ else {
         savePersistedSettings({
             newsTopics: runtimeNewsTopics,
             assistantName: runtimeAssistantName,
+            tone: runtimeTone,
             morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
             eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
             vipSenders: getVipSenders(),

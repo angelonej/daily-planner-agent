@@ -571,13 +571,14 @@
     }
   })();
 
-  // ── Sync assistantName from server settings ───────────────────────────────
+  // ── Sync assistantName + tone from server settings ───────────────────────
   (async function() {
     try {
       const r = await fetch('/api/settings');
       if (r.ok) {
         const s = await r.json();
         if (s.assistantName) localStorage.setItem('assistantName', s.assistantName);
+        if (s.tone) localStorage.setItem('assistantTone', s.tone);
       }
     } catch(_) {}
   })();

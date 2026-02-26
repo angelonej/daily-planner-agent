@@ -31,8 +31,20 @@ const openai = new OpenAI({
 // In-memory conversation history per user (keyed by chat/user ID)
 const conversationHistory = new Map<string, ChatMessage[]>();
 
-function buildSystemPrompt(assistantName = "Assistant"): string {
-  return `You are ${assistantName}, a sharp, concise personal assistant AI. You help the user manage their day.
+export type AssistantTone = "professional" | "friendly" | "casual" | "coach" | "witty";
+
+const TONE_INSTRUCTIONS: Record<AssistantTone, string> = {
+  professional: "Be professional, concise, and precise. Use clear structured responses. Keep a formal but warm tone.",
+  friendly:     "Be warm, encouraging, and conversational. Feel free to use a friendly tone and light positivity.",
+  casual:       "Keep it totally chill and relaxed. Short sentences, natural language, no corporate-speak. Like texting a smart friend.",
+  coach:        "Be motivating and energetic like a personal productivity coach. Celebrate wins, encourage action, push the user to crush their goals.",
+  witty:        "Be clever and a little funny. Add wit, dry humor, or playful observations where appropriate — but always stay helpful.",
+};
+
+function buildSystemPrompt(assistantName = "Assistant", tone: AssistantTone = "professional"): string {
+  const toneInstruction = TONE_INSTRUCTIONS[tone] ?? TONE_INSTRUCTIONS.professional;
+  return `You are ${assistantName}, a personal assistant AI. You help the user manage their day.
+${toneInstruction}
 You have access to their morning briefing (calendar events, emails, news) and can CREATE, UPDATE, and DELETE calendar events.
 When answering questions, reference their actual data when relevant.
 Keep responses brief and actionable. Use bullet points for lists.
@@ -772,14 +784,15 @@ export async function chatAgent(
   userId: string,
   userMessage: string,
   briefing?: MorningBriefing,
-  assistantName = "Assistant"
+  assistantName = "Assistant",
+  tone: AssistantTone = "professional"
 ): Promise<string> {
   if (!conversationHistory.has(userId)) {
     conversationHistory.set(userId, []);
   }
   const history = conversationHistory.get(userId)!;
 
-  const SYSTEM_PROMPT = buildSystemPrompt(assistantName);
+  const SYSTEM_PROMPT = buildSystemPrompt(assistantName, tone);
   const systemContent = briefing
     ? `${SYSTEM_PROMPT}\n\n${formatBriefingContext(briefing)}`
     : SYSTEM_PROMPT;

@@ -403,7 +403,7 @@ async function formatEveningBriefingText(briefing) {
 }
 // ─── Main coordinator ──────────────────────────────────────────────────────
 const MORNING_TRIGGERS = ["/morning", "good morning", "morning briefing", "daily briefing", "start my day"];
-export async function coordinatorAgent(message, userId = "default", assistantName = "Assistant") {
+export async function coordinatorAgent(message, userId = "default", assistantName = "Assistant", tone = "professional") {
     const lower = message.toLowerCase().trim();
     // Morning briefing request
     if (MORNING_TRIGGERS.some((t) => lower.includes(t))) {
@@ -447,7 +447,7 @@ export async function coordinatorAgent(message, userId = "default", assistantNam
         }
     }
     try {
-        return await chatAgent(userId, message, briefing, assistantName);
+        return await chatAgent(userId, message, briefing, assistantName, tone);
     }
     catch (err) {
         console.error("Chat agent error:", err?.status, err?.error ?? err?.message ?? err);

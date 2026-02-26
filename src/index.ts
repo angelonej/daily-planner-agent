@@ -282,7 +282,7 @@ if (process.argv.includes("--cli")) {
       }
 
       const userId = `whatsapp-${from}`;
-      const reply = await coordinatorAgent(text, userId, runtimeAssistantName);
+      const reply = await coordinatorAgent(text, userId, runtimeAssistantName, runtimeTone as any);
 
       // Respond with TwiML
       const twiml = new twilio.twiml.MessagingResponse();
@@ -334,7 +334,7 @@ if (process.argv.includes("--cli")) {
       }
 
       console.log(`Voice [${callerId}]: ${speechResult}`);
-      const reply = await coordinatorAgent(speechResult, userId, runtimeAssistantName);
+      const reply = await coordinatorAgent(speechResult, userId, runtimeAssistantName, runtimeTone as any);
 
       // Speak the response, then offer another turn
       twiml.say({ voice: "Polly.Joanna" }, reply);
@@ -368,7 +368,7 @@ if (process.argv.includes("--cli")) {
     const bodyText = req.body?.text as string | undefined;
     if (bodyText) {
       try {
-        const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName);
+        const reply = await coordinatorAgent(bodyText.trim(), userId, runtimeAssistantName, runtimeTone as any);
         return res.json({ transcript: bodyText.trim(), reply });
       } catch (err) {
         console.error("Voice-chat (text) error:", err);
@@ -429,6 +429,7 @@ if (process.argv.includes("--cli")) {
     filterKeywords?: string[];
     awsCostThreshold?: number;
     assistantName?: string;
+    tone?: string;
   }
 
   function loadPersistedSettings(): PersistedSettings {
@@ -451,6 +452,7 @@ if (process.argv.includes("--cli")) {
     (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
       .split(",").map(t => t.trim()).filter(Boolean);
   let runtimeAssistantName: string = _saved.assistantName ?? process.env.ASSISTANT_NAME ?? "Assistant";
+  let runtimeTone: string = _saved.tone ?? "professional";
   if (_saved.vipSenders) setVipSenders(_saved.vipSenders);
   if (_saved.filterKeywords) setFilterKeywords(_saved.filterKeywords);
   if (_saved.awsCostThreshold) setCostThreshold(_saved.awsCostThreshold);
@@ -461,6 +463,7 @@ if (process.argv.includes("--cli")) {
     res.json({
       newsTopics: runtimeNewsTopics,
       assistantName: runtimeAssistantName,
+      tone: runtimeTone,
       timezone: process.env.TIMEZONE ?? "America/New_York",
       digestEmail: process.env.DIGEST_EMAIL_TO ?? "",
       accounts: [
@@ -476,10 +479,14 @@ if (process.argv.includes("--cli")) {
   });
 
   app.post("/api/settings", (req: Request, res: Response) => {
-    const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold, assistantName } =
-      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string; vipSenders?: string[]; filterKeywords?: string[]; awsCostThreshold?: number; assistantName?: string };
+    const { newsTopics, morningBriefingTime, eveningBriefingTime, vipSenders, filterKeywords, awsCostThreshold, assistantName, tone } =
+      req.body as { newsTopics?: string[]; morningBriefingTime?: string; eveningBriefingTime?: string; vipSenders?: string[]; filterKeywords?: string[]; awsCostThreshold?: number; assistantName?: string; tone?: string };
     if (typeof assistantName === "string" && assistantName.trim()) {
       runtimeAssistantName = assistantName.trim();
+    }
+    const VALID_TONES = ["professional", "friendly", "casual", "coach", "witty"];
+    if (typeof tone === "string" && VALID_TONES.includes(tone)) {
+      runtimeTone = tone;
     }
     if (Array.isArray(newsTopics)) {
       runtimeNewsTopics = newsTopics.map((t: string) => t.trim()).filter(Boolean);
@@ -509,6 +516,7 @@ if (process.argv.includes("--cli")) {
     savePersistedSettings({
       newsTopics: runtimeNewsTopics,
       assistantName: runtimeAssistantName,
+      tone: runtimeTone,
       morningBriefingTime: process.env.MORNING_BRIEFING_TIME ?? "07:00",
       eveningBriefingTime: process.env.EVENING_BRIEFING_TIME ?? "17:00",
       vipSenders: getVipSenders(),

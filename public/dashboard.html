@@ -315,6 +315,21 @@
 
     /* ── Settings Modal ── */
     #settings-overlay {
+    /* ── Tone Picker ── */
+    .tone-option {
+      display: flex; flex-direction: column; gap: 2px;
+      padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border);
+      cursor: pointer; transition: border-color .15s, background .15s;
+      user-select: none;
+    }
+    .tone-option:has(input:checked) {
+      border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    .tone-option input[type="radio"] { display: none; }
+    .tone-label { font-size: 13px; font-weight: 600; }
+    .tone-desc  { font-size: 11px; color: var(--muted); }
+    /* ── Settings Modal ── */
+    #settings-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
       z-index: 1000; align-items: center; justify-content: center;
       backdrop-filter: blur(4px);
@@ -633,7 +648,35 @@
     </div>
 
     <div class="setting-section">
-      <div class="setting-label">🔊 Voice</div>
+      <div class="setting-label">🎭 Response Tone</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px" id="tone-options">
+        <label class="tone-option" data-tone="professional">
+          <input type="radio" name="tone" value="professional" />
+          <span class="tone-label">💼 Professional</span>
+          <span class="tone-desc">Clear, precise, structured</span>
+        </label>
+        <label class="tone-option" data-tone="friendly">
+          <input type="radio" name="tone" value="friendly" />
+          <span class="tone-label">😊 Friendly</span>
+          <span class="tone-desc">Warm, encouraging, upbeat</span>
+        </label>
+        <label class="tone-option" data-tone="casual">
+          <input type="radio" name="tone" value="casual" />
+          <span class="tone-label">😎 Casual</span>
+          <span class="tone-desc">Relaxed, like a smart friend</span>
+        </label>
+        <label class="tone-option" data-tone="coach">
+          <input type="radio" name="tone" value="coach" />
+          <span class="tone-label">🏆 Coach</span>
+          <span class="tone-desc">Motivating, energetic, goal-focused</span>
+        </label>
+        <label class="tone-option" data-tone="witty">
+          <input type="radio" name="tone" value="witty" />
+          <span class="tone-label">😄 Witty</span>
+          <span class="tone-desc">Clever, dry humor, playful</span>
+        </label>
+      </div>
+    </div>
       <select id="voice-select" class="topic-input" style="width:100%;cursor:pointer">
         <option value="">Loading voices…</option>
       </select>
@@ -1705,6 +1748,13 @@ async function openSettings() {
   if (serverName) localStorage.setItem('assistantName', serverName);
   document.getElementById('assistant-name-input').value = serverName || localStorage.getItem('assistantName') || '';
 
+  // Tone — load from server, fall back to localStorage
+  const serverTone = settings.tone || localStorage.getItem('assistantTone') || 'professional';
+  localStorage.setItem('assistantTone', serverTone);
+  document.querySelectorAll('#tone-options input[type="radio"]').forEach(r => {
+    r.checked = r.value === serverTone;
+  });
+
   // Voice picker — wait for voices to be ready
   const sel = document.getElementById('voice-select');
   const savedVoice = localStorage.getItem('ttsVoice');
@@ -1831,9 +1881,12 @@ async function saveSettings() {
   const morningTime = document.getElementById('morning-time-input').value;
   const eveningTime = document.getElementById('evening-time-input').value;
   const awsCostThreshold = parseFloat(document.getElementById('aws-cost-threshold-input').value) || 50;
+  const toneInput = document.querySelector('#tone-options input[type="radio"]:checked');
+  const toneVal = toneInput ? toneInput.value : (localStorage.getItem('assistantTone') || 'professional');
+  localStorage.setItem('assistantTone', toneVal);
   const res = await fetch('/api/settings', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime, vipSenders, filterKeywords, awsCostThreshold, assistantName: nameVal }),
+    body: JSON.stringify({ newsTopics: topics, morningBriefingTime: morningTime, eveningBriefingTime: eveningTime, vipSenders, filterKeywords, awsCostThreshold, assistantName: nameVal, tone: toneVal }),
   });
   const data = await res.json();
   if (data.ok) {

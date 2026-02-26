@@ -15,8 +15,17 @@ const openai = new OpenAI({
 });
 // In-memory conversation history per user (keyed by chat/user ID)
 const conversationHistory = new Map();
-function buildSystemPrompt(assistantName = "Assistant") {
-    return `You are ${assistantName}, a sharp, concise personal assistant AI. You help the user manage their day.
+const TONE_INSTRUCTIONS = {
+    professional: "Be professional, concise, and precise. Use clear structured responses. Keep a formal but warm tone.",
+    friendly: "Be warm, encouraging, and conversational. Feel free to use a friendly tone and light positivity.",
+    casual: "Keep it totally chill and relaxed. Short sentences, natural language, no corporate-speak. Like texting a smart friend.",
+    coach: "Be motivating and energetic like a personal productivity coach. Celebrate wins, encourage action, push the user to crush their goals.",
+    witty: "Be clever and a little funny. Add wit, dry humor, or playful observations where appropriate — but always stay helpful.",
+};
+function buildSystemPrompt(assistantName = "Assistant", tone = "professional") {
+    const toneInstruction = TONE_INSTRUCTIONS[tone] ?? TONE_INSTRUCTIONS.professional;
+    return `You are ${assistantName}, a personal assistant AI. You help the user manage their day.
+${toneInstruction}
 You have access to their morning briefing (calendar events, emails, news) and can CREATE, UPDATE, and DELETE calendar events.
 When answering questions, reference their actual data when relevant.
 Keep responses brief and actionable. Use bullet points for lists.
@@ -747,12 +756,12 @@ ${tasksSection}
 ${newsSection}
 --- END BRIEFING DATA ---`;
 }
-export async function chatAgent(userId, userMessage, briefing, assistantName = "Assistant") {
+export async function chatAgent(userId, userMessage, briefing, assistantName = "Assistant", tone = "professional") {
     if (!conversationHistory.has(userId)) {
         conversationHistory.set(userId, []);
     }
     const history = conversationHistory.get(userId);
-    const SYSTEM_PROMPT = buildSystemPrompt(assistantName);
+    const SYSTEM_PROMPT = buildSystemPrompt(assistantName, tone);
     const systemContent = briefing
         ? `${SYSTEM_PROMPT}\n\n${formatBriefingContext(briefing)}`
         : SYSTEM_PROMPT;
