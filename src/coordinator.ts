@@ -354,7 +354,7 @@ function formatMorningBriefingText(briefing: MorningBriefing): string {
       : "  No news loaded.";
 
   const usageSection = briefing.llmUsage
-    ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens used today across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(4)}`
+    ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens used today across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(2)}`
     : "  No usage data yet.";
 
   const scheduleWarning = !review.valid ? "\n⚠️ Schedule conflict detected!\n" : "";
@@ -432,7 +432,7 @@ async function formatEveningBriefingText(briefing: MorningBriefing): Promise<str
     : "  All tasks complete! 🎉";
 
   const usageSection = briefing.llmUsage
-    ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(4)}`
+    ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(2)}`
     : "  No usage data.";
 
   return [

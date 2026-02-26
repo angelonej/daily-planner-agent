@@ -383,7 +383,7 @@
     <div class="spacer"></div>
     <div class="date-time" id="clock"></div>
     <div class="top-actions">
-      <button class="icon-btn" id="notifBtn" title="Notifications">🔔 <span id="notifBadge"></span></button>
+      <button class="icon-btn" id="notifBtn" title="Notifications">🔕 <span id="notifBadge"></span></button>
       <button class="icon-btn" id="settingsBtn">⚙️ Settings</button>
       <button class="icon-btn" onclick="window.location.href='/logout'">↩ Logout</button>
     </div>
@@ -614,7 +614,7 @@
 <!-- Notification history panel -->
 <div id="notif-panel" style="display:none;position:fixed;top:50px;right:12px;width:320px;max-height:420px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px #0008;z-index:9000;padding:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <span style="font-weight:700;font-size:13px">🔔 Notifications</span>
+    <span style="font-weight:700;font-size:13px">🔕 Notifications</span>
     <button onclick="document.getElementById('notif-panel').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer">✕</button>
   </div>
   <div id="notif-panel-list"><div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">No notifications yet</div></div>
@@ -1288,7 +1288,7 @@ async function loadAwsCost(forceRefresh) {
     const forecast = d.forecastTotalUSD;
     const threshold = d.threshold || 50;
     const overBudget = ((forecast ?? mtd) >= threshold);
-    if (sidebarEl) sidebarEl.textContent = `${overBudget ? '⚠️ ' : ''}${fmt(mtd)} MTD${forecast != null ? ' · ' + fmt(forecast) + ' forecast' : ''}`;
+    if (sidebarEl) sidebarEl.textContent = `${overBudget ? '⚠️ ' : ''}${fmt(mtd)} MTD · ${forecast != null ? fmt(forecast) + ' fcst' : 'N/A'}`;  
   } catch (e) {
     if (sidebarEl) sidebarEl.textContent = 'AWS: failed';
   }

@@ -320,7 +320,7 @@ function formatMorningBriefingText(briefing) {
             .join("\n")
         : "  No news loaded.";
     const usageSection = briefing.llmUsage
-        ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens used today across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(4)}`
+        ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens used today across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(2)}`
         : "  No usage data yet.";
     const scheduleWarning = !review.valid ? "\n⚠️ Schedule conflict detected!\n" : "";
     return `
@@ -390,7 +390,7 @@ async function formatEveningBriefingText(briefing) {
         ? openTasks.map((t) => `  • ${t.title}${t.due ? ` (due ${new Date(t.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })})` : ""}`).join("\n")
         : "  All tasks complete! 🎉";
     const usageSection = briefing.llmUsage
-        ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(4)}`
+        ? `  ${briefing.llmUsage.totalTokens.toLocaleString()} tokens across ${briefing.llmUsage.calls} calls · Est. cost: $${briefing.llmUsage.estimatedCostUSD.toFixed(2)}`
         : "  No usage data.";
     return [
         `Good evening! Here's your end-of-day summary for ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: tz })}`,
