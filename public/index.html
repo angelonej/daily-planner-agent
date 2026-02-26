@@ -187,13 +187,36 @@
     }
     #drawer.open { transform: translateY(0); }
 
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 12px;
+    }
     .drawer-handle {
       width: 36px;
       height: 4px;
       background: #30363d;
       border-radius: 2px;
-      margin: 0 auto 12px;
+      cursor: pointer;
     }
+    #drawerCloseBtn {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none !important;
+      color: #8b949e;
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 8px;
+      cursor: pointer;
+      width: auto !important;
+      border-radius: 6px !important;
+    }
+    #drawerCloseBtn:active { color: #e1e4e8; }
 
     /* ── Drawer tabs ── */
     .drawer-tabs {
@@ -421,7 +444,10 @@
 <!-- Slide-up drawer overlay -->
 <div id="drawer-overlay"></div>
 <div id="drawer">
-  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-handle" id="drawerHandle"></div>
+    <button id="drawerCloseBtn" onclick="closeDrawer()" aria-label="Close">✕</button>
+  </div>
 
   <!-- Tabs -->
   <div class="drawer-tabs">
@@ -593,6 +619,7 @@
   function closeDrawer() { drawer.classList.remove('open'); drawerOverlay.classList.remove('open'); menuBtn.classList.remove('open'); }
   menuBtn.addEventListener('click', () => drawer.classList.contains('open') ? closeDrawer() : openDrawer());
   drawerOverlay.addEventListener('click', closeDrawer);
+  document.getElementById('drawerHandle').addEventListener('click', closeDrawer);
   // Close drawer only when action buttons are tapped (not tab-switcher buttons)
   drawer.querySelectorAll('button:not(.dtab)').forEach(b => b.addEventListener('click', () => setTimeout(closeDrawer, 150)));
 
