@@ -388,8 +388,8 @@
   <nav id="sidebar">
     <div class="nav-section">
       <div class="nav-label">Quick Access</div>
-      <button class="nav-btn active" onclick="sendQuick('/morning')"><span class="icon">☀️</span> Morning Briefing</button>
-      <button class="nav-btn" onclick="sendQuick('/evening')"><span class="icon">🌙</span> Evening Briefing</button>
+      <button class="nav-btn" id="morningNavBtn" onclick="setBriefingActive('morningNavBtn');sendQuick('/morning')"><span class="icon">☀️</span> Morning Briefing</button>
+      <button class="nav-btn" id="eveningNavBtn" onclick="setBriefingActive('eveningNavBtn');sendQuick('/evening')"><span class="icon">🌙</span> Evening Briefing</button>
       <button class="nav-btn" onclick="sendQuick('What is on my calendar today?')"><span class="icon">📅</span> Today's Calendar <span class="badge blue" id="calTodayBadge" style="display:none">0</span></button>
       <button class="nav-btn" onclick="sendQuick('What is on my calendar this week?')"><span class="icon">🗓</span> This Week <span class="badge blue" id="calWeekBadge" style="display:none">0</span></button>
       <button class="nav-btn" onclick="sendQuick('Check my emails')"><span class="icon">📧</span> Check Emails <span class="badge" id="emailBadge" style="display:none">0</span></button>
@@ -870,6 +870,10 @@ function sendQuick(msg) {
   if (msg.endsWith(' ')) { textInput.focus(); return; }
   sendText(msg);
 }
+function setBriefingActive(id) {
+  ['morningNavBtn','eveningNavBtn'].forEach(b => document.getElementById(b)?.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+}
 function focusInput(prefix) {
   textInput.value = prefix;
   textInput.focus();
@@ -886,7 +890,7 @@ function updateMuteBtn() {
     btn.classList.remove('active');
     btn.title = 'Click to mute voice reading';
   } else {
-    btn.textContent = '🔇 Muted';
+    btn.textContent = '🔇 Mute';
     btn.classList.add('active');
     btn.title = 'Click to enable voice reading';
   }
@@ -1918,6 +1922,8 @@ setTimeout(() => { loadTaskLists(); loadReminders(); }, 2000);
 // Auto-trigger briefing on fresh page load (no existing messages)
 if (document.getElementById('chat').children.length === 0) {
   const autoCmd = new Date().getHours() < 12 ? '/morning' : '/evening';
+  // Highlight the matching briefing nav button
+  document.getElementById(autoCmd === '/morning' ? 'morningNavBtn' : 'eveningNavBtn').classList.add('active');
   setTimeout(() => sendText(autoCmd, true), 500);
 }
 // Close modal on overlay click
