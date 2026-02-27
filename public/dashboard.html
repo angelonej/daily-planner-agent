@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -524,7 +524,7 @@
         </div>
         <!-- Tasks summary -->
         <div class="card">
-          <div class="card-title">✅ Tasks Due <button class="refresh-btn" onclick="loadBriefing(true)" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="overview-tasks" onclick="toggleCard('overview-tasks')" title="Collapse">▼</button></div>
+          <div class="card-title">✅ Tasks Due <button class="refresh-btn" onclick="refreshRightPane()" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="overview-tasks" onclick="toggleCard('overview-tasks')" title="Collapse">▼</button></div>
           <div class="card-body" id="overview-tasks-body"><div id="overview-tasks"></div></div>
         </div>
         <!-- Important emails -->
@@ -1196,6 +1196,8 @@ async function loadBriefing(forceRefresh=false) {
     if (res.status === 401) { window.location.href = '/login'; return; }
     briefingData = await res.json();
     renderWidgets();
+    // Always do a live tasks refresh after briefing loads
+    refreshRightPane().catch(() => {});
   } catch(e) { console.warn('Briefing load error:', e); }
 }
 
@@ -1865,6 +1867,7 @@ function refreshSuggestions() {
 }
 // Auto-refresh right pane cards every 5 minutes (light: tasks + calendar from live endpoints)
 async function refreshRightPane() {
+  console.log('[refresh] refreshRightPane fired at', new Date().toLocaleTimeString());
   // Tasks — live endpoint
   await renderOverviewTasks().catch(() => {});
   // Calendar — re-filter from cached briefing (fast, no server round-trip)
@@ -1886,7 +1889,8 @@ async function refreshRightPane() {
     }
   }
 }
-setInterval(refreshRightPane, 5 * 60 * 1000);
+setInterval(refreshRightPane, 2 * 60 * 1000);
+console.log('[refresh] right-pane interval registered (2 min)');
 
 // Full briefing refresh + suggestions every 15 minutes
 setInterval(() => {
