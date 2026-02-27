@@ -16,6 +16,7 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists, listTasks } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
+import { fetchEmailBody } from "./tools/gmailTools.js";
 import { getAwsCostSummary, getCostThreshold, setCostThreshold } from "./tools/awsCostTools.js";
 import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
 const __filename = fileURLToPath(import.meta.url);
@@ -622,6 +623,17 @@ else {
         if (!ok)
             return res.status(404).json({ error: "Reminder not found" });
         res.json({ ok: true });
+    });
+    // ─── Full email body ───────────────────────────────────────────────────────────
+    app.get("/api/email/:account/:id", async (req, res) => {
+        try {
+            const { account, id } = req.params;
+            const body = await fetchEmailBody(id, account);
+            res.json(body);
+        }
+        catch (err) {
+            res.status(500).json({ error: String(err) });
+        }
     });
     // ─── Package tracking ─────────────────────────────────────────────────────────
     app.get("/api/packages", async (req, res) => {

@@ -327,11 +327,59 @@ export async function fetchShippingEmails(daysBack = 7): Promise<Email[]> {
     })
   );
 
-  const emails: Email[] = [];
-  for (const result of results) {
-    if (result.status === "fulfilled") emails.push(...result.value);
-    else console.error("Shipping email fetch error:", result.reason);
-  }
+  const emails: Email[] = results
+    .filter((r): r is PromiseFulfilledResult<Email[]> => r.status === "fulfilled")
+    .flatMap(r => r.value);
 
   return emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+// ─── Fetch full email body for a single message ───────────────────────────────
+function extractBody(payload: any): { html: string; text: string } {
+  let html = "";
+  let text = "";
+
+  function walk(part: any) {
+    const mime = (part.mimeType ?? "").toLowerCase();
+    const data = part.body?.data;
+    if (data) {
+      const decoded = Buffer.from(data, "base64").toString("utf-8");
+      if (mime === "text/html") html = html || decoded;
+      else if (mime === "text/plain") text = text || decoded;
+    }
+    if (part.parts) part.parts.forEach(walk);
+  }
+
+  walk(payload);
+  return { html, text };
+}
+
+export async function fetchEmailBody(
+  messageId: string,
+  accountAlias: string
+): Promise<{ subject: string; from: string; date: string; html: string; text: string; snippet: string }> {
+  const auth = buildOAuth2Client();
+  await loadTokens(accountAlias, auth);
+  const gmail = google.gmail({ version: "v1", auth });
+
+  const msg = await gmail.users.messages.get({
+    userId: "me",
+    id: messageId,
+    format: "full",
+  });
+
+  const headers = msg.data.payload?.headers ?? [];
+  const get = (name: string) =>
+    headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+
+  const { html, text } = extractBody(msg.data.payload ?? {});
+
+  return {
+    subject: get("Subject") || "(no subject)",
+    from: get("From"),
+    date: get("Date"),
+    snippet: msg.data.snippet ?? "",
+    html,
+    text,
+  };
 }

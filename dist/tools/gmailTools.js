@@ -263,12 +263,49 @@ export async function fetchShippingEmails(daysBack = 7) {
             .filter((r) => r.status === "fulfilled")
             .map(r => r.value);
     }));
-    const emails = [];
-    for (const result of results) {
-        if (result.status === "fulfilled")
-            emails.push(...result.value);
-        else
-            console.error("Shipping email fetch error:", result.reason);
-    }
+    const emails = results
+        .filter((r) => r.status === "fulfilled")
+        .flatMap(r => r.value);
     return emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+// ─── Fetch full email body for a single message ───────────────────────────────
+function extractBody(payload) {
+    let html = "";
+    let text = "";
+    function walk(part) {
+        const mime = (part.mimeType ?? "").toLowerCase();
+        const data = part.body?.data;
+        if (data) {
+            const decoded = Buffer.from(data, "base64").toString("utf-8");
+            if (mime === "text/html")
+                html = html || decoded;
+            else if (mime === "text/plain")
+                text = text || decoded;
+        }
+        if (part.parts)
+            part.parts.forEach(walk);
+    }
+    walk(payload);
+    return { html, text };
+}
+export async function fetchEmailBody(messageId, accountAlias) {
+    const auth = buildOAuth2Client();
+    await loadTokens(accountAlias, auth);
+    const gmail = google.gmail({ version: "v1", auth });
+    const msg = await gmail.users.messages.get({
+        userId: "me",
+        id: messageId,
+        format: "full",
+    });
+    const headers = msg.data.payload?.headers ?? [];
+    const get = (name) => headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
+    const { html, text } = extractBody(msg.data.payload ?? {});
+    return {
+        subject: get("Subject") || "(no subject)",
+        from: get("From"),
+        date: get("Date"),
+        snippet: msg.data.snippet ?? "",
+        html,
+        text,
+    };
 }

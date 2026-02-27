@@ -269,6 +269,38 @@
     .task-title { font-size: 13px; line-height: 1.3; }
     .task-due { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
+    /* Email viewer modal */
+    #email-modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.75);
+      z-index: 1100; align-items: flex-start; justify-content: center;
+      backdrop-filter: blur(4px); padding: 32px 16px; overflow-y: auto;
+    }
+    #email-modal-overlay.open { display: flex; }
+    #email-modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      width: 700px; max-width: 96vw; padding: 28px; position: relative;
+      box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    }
+    #email-modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); cursor: pointer; font-size: 18px; line-height: 1;
+      padding: 4px 10px; transition: background .15s;
+    }
+    #email-modal-close:hover { background: var(--surface3,#2d333b); }
+    #email-modal-subject { font-size: 18px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; padding-right: 40px; }
+    #email-modal-meta { font-size: 12px; color: var(--muted); margin-bottom: 16px; display: flex; flex-direction: column; gap: 3px; }
+    #email-modal-body {
+      font-size: 13px; line-height: 1.65; color: var(--text);
+      border-top: 1px solid var(--border); padding-top: 16px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    #email-modal-body iframe {
+      width: 100%; border: none; border-radius: 8px; background: #fff;
+      min-height: 400px;
+    }
+    #email-modal-loading { color: var(--muted); font-size: 13px; text-align: center; padding: 40px 0; }
+
     /* Email */
     .email-item { padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
     .email-item:last-child { border-bottom: none; }
@@ -657,6 +689,15 @@
 </div>
 
 <!-- ── Settings Modal ── -->
+<div id="email-modal-overlay">
+  <div id="email-modal">
+    <button id="email-modal-close" onclick="closeEmailModal()">✕</button>
+    <div id="email-modal-subject"></div>
+    <div id="email-modal-meta"></div>
+    <div id="email-modal-body"><div id="email-modal-loading">⏳ Loading…</div></div>
+  </div>
+</div>
+
 <div id="settings-overlay">
   <div id="settings-modal">
     <h2>⚙️ Settings</h2>
@@ -1346,7 +1387,7 @@ function renderWidgets() {
   const ov_imp = document.getElementById('overview-imp');
   if (importantEmails && importantEmails.length > 0) {
     ov_imp.innerHTML = importantEmails.slice(0,4).map(e => `
-      <div class="email-item" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
+      <div class="email-item" onclick="openEmail(${JSON.stringify(e.id)},${JSON.stringify(e.account)},${JSON.stringify(e.subject)},${JSON.stringify(e.from)},${JSON.stringify(e.date||'')})">
         <div class="email-from"><span class="imp">⚠️</span><span class="acct">${escapeHtml(e.account)}</span> ${escapeHtml(e.from)}</div>
         <div class="email-subject">${escapeHtml(e.subject)}</div>
       </div>`).join('');
@@ -1358,7 +1399,7 @@ function renderWidgets() {
   const emailHtml = (emails) => {
     if (!emails || emails.length === 0) return '<div class="empty-state">Inbox clear ✅</div>';
     return emails.slice(0,15).map(e => `
-      <div class="email-item${e.isVip ? ' email-vip' : e.isHighlighted ? ' email-hl' : ''}" onclick="sendQuick('Get last email from ${e.from.replace(/"/g,'')}')">
+      <div class="email-item${e.isVip ? ' email-vip' : e.isHighlighted ? ' email-hl' : ''}" onclick="openEmail(${JSON.stringify(e.id)},${JSON.stringify(e.account)},${JSON.stringify(e.subject)},${JSON.stringify(e.from)},${JSON.stringify(e.date||'')})">
         <div class="email-from">
           ${e.isImportant ? '<span class="imp">⚠️</span>' : ''}
           ${e.isVip ? '<span class="vip-badge">⭐ VIP</span>' : e.isHighlighted ? '<span class="hl-badge">🟢</span>' : ''}
@@ -1989,6 +2030,50 @@ function closeSettings() {
   document.getElementById('settings-overlay').classList.remove('open');
 }
 
+// ── Email viewer modal ──────────────────────────────────────────────────────
+async function openEmail(id, account, subject, from, date) {
+  const overlay = document.getElementById('email-modal-overlay');
+  document.getElementById('email-modal-subject').textContent = subject || '(no subject)';
+  document.getElementById('email-modal-meta').innerHTML =
+    `<span><strong>From:</strong> ${escapeHtml(from)}</span>` +
+    (date ? `<span><strong>Date:</strong> ${escapeHtml(date)}</span>` : '') +
+    `<span><strong>Account:</strong> ${escapeHtml(account)}</span>`;
+  document.getElementById('email-modal-body').innerHTML = '<div id="email-modal-loading">⏳ Loading…</div>';
+  overlay.classList.add('open');
+  try {
+    const res = await fetch(`/api/email/${encodeURIComponent(account)}/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    const bodyEl = document.getElementById('email-modal-body');
+    if (data.html) {
+      // Render HTML email safely in a sandboxed iframe
+      const iframe = document.createElement('iframe');
+      iframe.sandbox = 'allow-same-origin';
+      iframe.style.cssText = 'width:100%;border:none;border-radius:8px;background:#fff;min-height:400px';
+      bodyEl.innerHTML = '';
+      bodyEl.appendChild(iframe);
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(data.html);
+      doc.close();
+      // Auto-resize iframe to content height
+      setTimeout(() => {
+        try { iframe.style.height = doc.body.scrollHeight + 40 + 'px'; } catch(e) {}
+      }, 300);
+    } else {
+      bodyEl.textContent = data.text || data.snippet || '(no content)';
+    }
+  } catch(e) {
+    document.getElementById('email-modal-body').innerHTML =
+      `<div style="color:var(--red)">Failed to load email: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+function closeEmailModal() {
+  document.getElementById('email-modal-overlay').classList.remove('open');
+  document.getElementById('email-modal-body').innerHTML = '';
+}
+
 function addTopicRow(value='') {
   const row = document.createElement('div');
   row.className = 'topic-row';
@@ -2111,6 +2196,12 @@ setTimeout(() => { loadTaskLists(); loadReminders(); }, 2000);
 // Close modal on overlay click
 document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();
+});
+document.getElementById('email-modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('email-modal-overlay')) closeEmailModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('email-modal-overlay').classList.contains('open')) closeEmailModal();
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────
