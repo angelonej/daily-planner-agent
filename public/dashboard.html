@@ -813,6 +813,7 @@
 const USER_ID = 'web-user';
 let briefingData = null;
 let tasksData = [];
+const _emailRegistry = {}; // id -> email object, populated when emails are rendered
 
 // ── Auth token: capture from URL after login, persist to localStorage ─────
 (function() {
@@ -1386,8 +1387,9 @@ function renderWidgets() {
   autoExpandIfNew('overview-imp', (importantEmails||[]).length, 'imp');
   const ov_imp = document.getElementById('overview-imp');
   if (importantEmails && importantEmails.length > 0) {
+    importantEmails.slice(0,4).forEach(e => { _emailRegistry[e.id] = e; });
     ov_imp.innerHTML = importantEmails.slice(0,4).map(e => `
-      <div class="email-item" onclick="openEmail(${JSON.stringify(e.id)},${JSON.stringify(e.account)},${JSON.stringify(e.subject)},${JSON.stringify(e.from)},${JSON.stringify(e.date||'')})">
+      <div class="email-item" onclick="openEmail(${JSON.stringify(e.id)})">
         <div class="email-from"><span class="imp">⚠️</span><span class="acct">${escapeHtml(e.account)}</span> ${escapeHtml(e.from)}</div>
         <div class="email-subject">${escapeHtml(e.subject)}</div>
       </div>`).join('');
@@ -1398,8 +1400,9 @@ function renderWidgets() {
   // ── Email list (tab) ──
   const emailHtml = (emails) => {
     if (!emails || emails.length === 0) return '<div class="empty-state">Inbox clear ✅</div>';
+    emails.forEach(e => { _emailRegistry[e.id] = e; });
     return emails.slice(0,15).map(e => `
-      <div class="email-item${e.isVip ? ' email-vip' : e.isHighlighted ? ' email-hl' : ''}" onclick="openEmail(${JSON.stringify(e.id)},${JSON.stringify(e.account)},${JSON.stringify(e.subject)},${JSON.stringify(e.from)},${JSON.stringify(e.date||'')})">
+      <div class="email-item${e.isVip ? ' email-vip' : e.isHighlighted ? ' email-hl' : ''}" onclick="openEmail(${JSON.stringify(e.id)})">
         <div class="email-from">
           ${e.isImportant ? '<span class="imp">⚠️</span>' : ''}
           ${e.isVip ? '<span class="vip-badge">⭐ VIP</span>' : e.isHighlighted ? '<span class="hl-badge">🟢</span>' : ''}
@@ -2031,7 +2034,10 @@ function closeSettings() {
 }
 
 // ── Email viewer modal ──────────────────────────────────────────────────────
-async function openEmail(id, account, subject, from, date) {
+async function openEmail(id) {
+  const e = _emailRegistry[id];
+  if (!e) { console.warn('openEmail: no email found for id', id); return; }
+  const { account, subject, from, date } = e;
   const overlay = document.getElementById('email-modal-overlay');
   document.getElementById('email-modal-subject').textContent = subject || '(no subject)';
   document.getElementById('email-modal-meta').innerHTML =
