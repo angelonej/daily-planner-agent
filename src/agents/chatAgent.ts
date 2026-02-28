@@ -24,10 +24,16 @@ import { getTrackedPackages } from "../tools/packageTools.js";
 import { getAwsCostSummary, formatAwsCostSummary } from "../tools/awsCostTools.js";
 import { searchContacts, formatContacts } from "../tools/contactsTools.js";
 
-const openai = new OpenAI({
-  apiKey: process.env.XAI_API_KEY,
-  baseURL: "https://api.x.ai/v1",
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      apiKey: process.env.XAI_API_KEY,
+      baseURL: "https://api.x.ai/v1",
+    });
+  }
+  return _openai;
+}
 
 // In-memory conversation history per user (keyed by chat/user ID)
 const conversationHistory = new Map<string, ChatMessage[]>();
@@ -837,7 +843,7 @@ export async function chatAgent(
   // ── Agentic loop: keep calling until no more tool calls ──────────────────
   let reply = "";
   for (let turn = 0; turn < 5; turn++) {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model,
       messages,
       tools: CALENDAR_TOOLS,
