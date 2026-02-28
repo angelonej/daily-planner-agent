@@ -510,12 +510,37 @@ async function formatEveningBriefingText(briefing: MorningBriefing): Promise<str
 
   const tz = process.env.TIMEZONE ?? "America/New_York";
 
-  // Compute tomorrow's date in the user's timezone
-  const todayLocal = new Date().toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
+  // Compute tomorrow's date in the user's timezone, then use RFC3339 date
+  // boundaries so Google Calendar receives correct midnight-to-midnight range.
+  const nowUtc = new Date();
+  // Get today's local date in the target tz (YYYY-MM-DD)
+  const todayLocal = nowUtc.toLocaleDateString("en-CA", { timeZone: tz });
   const [ty, tm, td] = todayLocal.split("-").map(Number);
-  const tmrStart = new Date(ty, tm - 1, td + 1, 0, 0, 0, 0);
-  const tmrEnd = new Date(ty, tm - 1, td + 1, 23, 59, 59, 999);
-  const tomorrowStr = tmrStart.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  // Add 1 day safely (Date.UTC handles month/year rollover)
+  const tmrDateUtc = new Date(Date.UTC(ty, tm - 1, td + 1));
+  const tmrY = tmrDateUtc.getUTCFullYear();
+  const tmrM = String(tmrDateUtc.getUTCMonth() + 1).padStart(2, "0");
+  const tmrD = String(tmrDateUtc.getUTCDate()).padStart(2, "0");
+  // Get the UTC offset for the tz on that date using Intl (handles DST correctly)
+  const anchor = new Date(`${tmrY}-${tmrM}-${tmrD}T12:00:00Z`);
+  const offsetMin = -new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, timeZoneName: "shortOffset",
+  }).formatToParts(anchor).reduce((acc, p) => {
+    if (p.type !== "timeZoneName") return acc;
+    // e.g. "GMT-5" or "GMT+5:30"
+    const m = p.value.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+    if (!m) return acc;
+    const sign = m[1] === "+" ? 1 : -1;
+    return sign * (parseInt(m[2]) * 60 + parseInt(m[3] ?? "0"));
+  }, 0);
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const absH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, "0");
+  const absM = String(Math.abs(offsetMin) % 60).padStart(2, "0");
+  const tzOffset = `${sign}${absH}:${absM}`;
+  // RFC3339 midnight boundaries for tomorrow in the user's tz
+  const tmrStart = new Date(`${tmrY}-${tmrM}-${tmrD}T00:00:00${tzOffset}`);
+  const tmrEnd   = new Date(`${tmrY}-${tmrM}-${tmrD}T23:59:59${tzOffset}`);
+  const tomorrowStr = tmrStart.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: tz });
 
   let tomorrowEvents: string;
   try {
