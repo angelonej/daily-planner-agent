@@ -156,6 +156,17 @@ export async function searchEmails(query, accountAlias, maxResults = 10) {
     }
     return emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
+// ─── Mark a single message as read by its Gmail message ID ──────────────────
+export async function markSingleEmailRead(accountAlias, messageId) {
+    const auth = buildOAuth2Client();
+    await loadTokens(accountAlias, auth);
+    const gmail = google.gmail({ version: "v1", auth });
+    await gmail.users.messages.modify({
+        userId: "me",
+        id: messageId,
+        requestBody: { removeLabelIds: ["UNREAD"] },
+    });
+}
 // ─── Mark messages as read for a given account ──────────────────────────────
 export async function markEmailsAsRead(accountAlias, query = "is:unread") {
     const auth = buildOAuth2Client();

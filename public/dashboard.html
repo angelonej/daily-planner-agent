@@ -436,6 +436,9 @@
 
     .empty-state { color: var(--muted); font-size: 12px; text-align: center; padding: 16px 0; }
 
+    .email-item { cursor: pointer; }
+    .email-item.email-read { opacity: 0.45; }
+    a.email-read { opacity: 0.45; }
     /* Scrollbar right panel */
     #right-content::-webkit-scrollbar { width: 4px; }
     #right-content::-webkit-scrollbar-track { background: transparent; }
@@ -860,10 +863,11 @@ function escapeHtml(s) {
 }
 function renderMarkdown(text) {
   const links = [];
-  // Handle open-email: links
-  let html = text.replace(/\[([^\]]+)\]\(open-email:([^:)]+):([^)]+)\)/g, (_, label, id, account) => {
+  // Handle open-email: links  (label may contain ] so match greedily up to ](open-email:)
+  let html = text.replace(/\[(.+?)\]\(open-email:([^:)\s]+):([^)\s]+)\)/g, (_, label, id, account) => {
     if (!_emailRegistry[id]) _emailRegistry[id] = { id, account, subject: label, from: '', date: '' };
-    links.push(`<a href="#" onclick="event.preventDefault();openEmail(${JSON.stringify(id)})" style="cursor:pointer;color:var(--accent2);text-decoration:underline">${escapeHtml(label)}</a>`);
+    const safeId = id.replace(/"/g, '&quot;');
+    links.push(`<a href="#" data-email-open="${safeId}" style="cursor:pointer;color:var(--accent2);text-decoration:underline">${escapeHtml(label)}</a>`);
     return '\x00L' + (links.length-1) + '\x00';
   });
   // Handle all markdown links: https://, tel:, mailto:
@@ -2056,6 +2060,10 @@ async function openEmail(id) {
     const res = await fetch(`/api/email/${encodeURIComponent(account)}/${encodeURIComponent(id)}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
+    // Mark as read silently
+    fetch(`/api/email/${encodeURIComponent(account)}/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => {});
+    // Dim the email item in the list if present
+    document.querySelectorAll(`[data-email-id="${CSS.escape(id)}"], [data-email-open="${CSS.escape(id)}"]`).forEach(el => el.classList.add('email-read'));
     const bodyEl = document.getElementById('email-modal-body');
     if (data.html) {
       // Render HTML email safely in a sandboxed iframe
@@ -2219,6 +2227,8 @@ document.addEventListener('keydown', e => {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-email-id]');
   if (el) { e.preventDefault(); openEmail(el.dataset.emailId); }
+  const eo = e.target.closest('[data-email-open]');
+  if (eo) { e.preventDefault(); openEmail(eo.dataset.emailOpen); }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────

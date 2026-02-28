@@ -17,7 +17,7 @@ import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists, listTasks } from "./tools/tasksTools.js";
 import { getReminders, addReminder, updateReminder, deleteReminder } from "./tools/remindersTools.js";
 import { getTrackedPackages } from "./tools/packageTools.js";
-import { fetchEmailBody } from "./tools/gmailTools.js";
+import { fetchEmailBody, markEmailsAsRead, markSingleEmailRead } from "./tools/gmailTools.js";
 import { getAwsCostSummary, getCostThreshold, setCostThreshold } from "./tools/awsCostTools.js";
 import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
 
@@ -663,6 +663,16 @@ if (process.argv.includes("--cli")) {
       const { account, id } = req.params;
       const body = await fetchEmailBody(id, account);
       res.json(body);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post("/api/email/:account/:id/read", async (req: Request, res: Response) => {
+    try {
+      const { account, id } = req.params;
+      await markSingleEmailRead(account, id);
+      res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

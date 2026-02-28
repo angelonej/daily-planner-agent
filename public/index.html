@@ -33,6 +33,9 @@
     }
     header h1 { font-size: 18px; font-weight: 600; }
     header .dot { width: 9px; height: 9px; border-radius: 50%; background: #3fb950; }
+    header .spacer { flex: 1; }
+    .logout-btn { background: transparent; border: 1px solid #30363d; border-radius: 8px; color: #8b949e; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: background .15s, color .15s; }
+    .logout-btn:hover { background: #21262d; color: #e1e4e8; }
 
     #chat {
       flex: 1;
@@ -572,6 +575,33 @@
       }
       .toast { max-width: 100%; }
     }
+    /* Email modal */
+    #email-modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.8);
+      z-index: 2000; align-items: flex-start; justify-content: center;
+      backdrop-filter: blur(4px); padding: 20px 12px; overflow-y: auto;
+    }
+    #email-modal-overlay.open { display: flex; }
+    #email-modal {
+      background: #161b22; border: 1px solid #30363d; border-radius: 14px;
+      width: 100%; max-width: 680px; padding: 22px; position: relative;
+      box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    }
+    #email-modal-close {
+      position: absolute; top: 14px; right: 14px;
+      background: #21262d; border: 1px solid #30363d; border-radius: 8px;
+      color: #e1e4e8; cursor: pointer; font-size: 18px; line-height: 1;
+      padding: 4px 10px;
+    }
+    #email-modal-subject { font-size: 16px; font-weight: 700; margin-bottom: 8px; line-height: 1.3; padding-right: 40px; color: #e1e4e8; }
+    #email-modal-meta { font-size: 12px; color: #8b949e; margin-bottom: 14px; display: flex; flex-direction: column; gap: 3px; }
+    #email-modal-body {
+      font-size: 13px; line-height: 1.6; color: #e1e4e8;
+      border-top: 1px solid #30363d; padding-top: 14px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    #email-modal-body iframe { width: 100%; border: none; border-radius: 8px; background: #fff; min-height: 400px; }
+    #email-modal-loading { color: #8b949e; font-size: 13px; text-align: center; padding: 40px 0; }
   </style>
 </head>
 <body>
@@ -581,6 +611,8 @@
 <header>
   <div class="dot"></div>
   <h1>🤖 Daily Planner Agent</h1>
+  <div class="spacer"></div>
+  <button class="logout-btn" onclick="window.location.href='/logout'">↩ Logout</button>
 </header>
 
 <div id="chat">
@@ -950,10 +982,64 @@
   // ── helpers ────────────────────────────────────────────────────────────
 
   // Convert a small subset of markdown to HTML (links, bold, code)
+  const _emailRegistry = {};
+
+  async function openEmail(id) {
+    const e = _emailRegistry[id];
+    if (!e) return;
+    const { account, subject, from, date } = e;
+    const overlay = document.getElementById('email-modal-overlay');
+    document.getElementById('email-modal-subject').textContent = subject || '(no subject)';
+    document.getElementById('email-modal-meta').innerHTML =
+      `<span><strong>From:</strong> ${escapeHtml(from || '')}</span>` +
+      (date ? `<span><strong>Date:</strong> ${escapeHtml(date)}</span>` : '') +
+      `<span><strong>Account:</strong> ${escapeHtml(account || '')}</span>`;
+    document.getElementById('email-modal-body').innerHTML = '<div id="email-modal-loading">⏳ Loading…</div>';
+    overlay.classList.add('open');
+    try {
+      const res = await fetch(`/api/email/${encodeURIComponent(account)}/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      // Mark as read silently
+      fetch(`/api/email/${encodeURIComponent(account)}/${encodeURIComponent(id)}/read`, { method: 'POST' }).catch(() => {});
+      // Dim the link in the chat bubble
+      document.querySelectorAll(`[data-email-open="${CSS.escape(id)}"]`).forEach(el => el.style.opacity = '0.45');
+      const bodyEl = document.getElementById('email-modal-body');
+      if (data.html) {
+        const iframe = document.createElement('iframe');
+        iframe.sandbox = 'allow-same-origin';
+        iframe.style.cssText = 'width:100%;border:none;border-radius:8px;background:#fff;min-height:400px';
+        bodyEl.innerHTML = '';
+        bodyEl.appendChild(iframe);
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open(); doc.write(data.html); doc.close();
+        setTimeout(() => { try { iframe.style.height = doc.body.scrollHeight + 40 + 'px'; } catch(e) {} }, 300);
+      } else {
+        bodyEl.textContent = data.text || data.snippet || '(no content)';
+      }
+    } catch(err) {
+      document.getElementById('email-modal-body').innerHTML =
+        `<div style="color:#f85149">Failed to load email: ${escapeHtml(String(err))}</div>`;
+    }
+  }
+
+  function closeEmailModal() {
+    document.getElementById('email-modal-overlay').classList.remove('open');
+    document.getElementById('email-modal-body').innerHTML = '';
+  }
+
   function renderMarkdown(text) {
     // Extract [label](url) links BEFORE any escaping so URLs aren't corrupted
     const linkPlaceholders = [];
-    let processed = text.replace(/\[([^\]]+)\]\(((?:https?|tel|mailto):[^)]+)\)/g, (_, label, url) => {
+    // Handle open-email: links first (bracket-safe regex: label may contain ] chars)
+    let processed = text.replace(/\[(.+?)\]\(open-email:([^:)]+):([^)]+)\)/g, (_, label, id, account) => {
+      if (!_emailRegistry[id]) _emailRegistry[id] = { id, account, subject: label, from: '', date: '' };
+      const idx = linkPlaceholders.length;
+      const safeId = id.replace(/"/g, '&quot;');
+      linkPlaceholders.push(`<a href="#" data-email-open="${safeId}" style="cursor:pointer;color:#58a6ff;text-decoration:underline">${escapeHtml(label)}</a>`);
+      return `\x00LINK${idx}\x00`;
+    });
+    processed = processed.replace(/\[(.+?)\]\(((?:https?|tel|mailto):[^)]+)\)/g, (_, label, url) => {
       const idx = linkPlaceholders.length;
       const isTel = url.startsWith('tel:');
       const isMail = url.startsWith('mailto:');
@@ -1042,6 +1128,12 @@
     chat.scrollTop = chat.scrollHeight;
     return wrap;
   }
+
+  // Delegated click handler for email links rendered inside chat bubbles
+  chat.addEventListener('click', e => {
+    const el = e.target.closest('[data-email-open]');
+    if (el) { e.preventDefault(); openEmail(el.dataset.emailOpen); }
+  });
 
   function setButtons(disabled) {
     sendBtn.disabled = disabled;
@@ -1524,6 +1616,16 @@ function connectSSE() {
   es.addEventListener('error', () => { es.close(); setTimeout(connectSSE, 5000); });
 }
 </script>
+
+<!-- Email modal -->
+<div id="email-modal-overlay" onclick="if(event.target===this)closeEmailModal()">
+  <div id="email-modal">
+    <button id="email-modal-close" onclick="closeEmailModal()">✕</button>
+    <div id="email-modal-subject"></div>
+    <div id="email-modal-meta"></div>
+    <div id="email-modal-body"><div id="email-modal-loading">⏳ Loading…</div></div>
+  </div>
+</div>
 
 </body>
 </html>

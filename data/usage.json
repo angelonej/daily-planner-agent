@@ -7,6 +7,14 @@
       "totalTokens": 308660,
       "calls": 36,
       "estimatedCostUSD": 1.073544
+    },
+    {
+      "date": "2026-02-28",
+      "promptTokens": 160364,
+      "completionTokens": 3160,
+      "totalTokens": 163524,
+      "calls": 21,
+      "estimatedCostUSD": 0.528492
     }
   ]
 }

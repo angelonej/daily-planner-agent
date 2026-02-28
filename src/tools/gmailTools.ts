@@ -198,6 +198,21 @@ export async function searchEmails(
   return emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
+// ─── Mark a single message as read by its Gmail message ID ──────────────────
+export async function markSingleEmailRead(
+  accountAlias: string,
+  messageId: string
+): Promise<void> {
+  const auth = buildOAuth2Client();
+  await loadTokens(accountAlias, auth);
+  const gmail = google.gmail({ version: "v1", auth });
+  await gmail.users.messages.modify({
+    userId: "me",
+    id: messageId,
+    requestBody: { removeLabelIds: ["UNREAD"] },
+  });
+}
+
 // ─── Mark messages as read for a given account ──────────────────────────────
 export async function markEmailsAsRead(
   accountAlias: string,

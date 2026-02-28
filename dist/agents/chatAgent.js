@@ -528,21 +528,22 @@ async function executeTool(name, args) {
                 const emails = await fetchAllAccountEmails();
                 const slice = emails.slice(0, max);
                 if (slice.length === 0)
-                    return JSON.stringify({ message: "No unread emails found." });
+                    return "No unread emails found.";
                 // Pre-format as markdown so the AI passes links through unchanged
                 const byAccount = {};
                 for (const e of slice) {
                     (byAccount[e.account ?? "personal"] ??= []).push(e);
                 }
-                const formatted = Object.entries(byAccount).map(([acct, list]) => {
+                const sections = Object.entries(byAccount).map(([acct, list]) => {
                     const header = `**${acct.charAt(0).toUpperCase() + acct.slice(1)}** (${list.length} emails)`;
                     const lines = list.map(e => {
                         const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
-                        return `- [${e.subject}](open-email:${e.id}:${e.account}) — ${e.from}${d ? ` (${d})` : ""}`;
+                        const sender = e.from.replace(/<[^>]+>/g, '').trim();
+                        return `- [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${sender}${d ? ` (${d})` : ""}`;
                     });
                     return [header, ...lines].join("\n");
                 }).join("\n\n");
-                return JSON.stringify({ formatted, total: emails.length });
+                return `${emails.length} unread emails (showing ${slice.length}):\n\n${sections}`;
             }
             case "search_emails": {
                 const q = String(args.query);
@@ -553,7 +554,8 @@ async function executeTool(name, args) {
                     return `No emails found for query: "${q}"`;
                 const rows = emails.map(e => {
                     const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
-                    return `- [${e.subject}](open-email:${e.id}:${e.account}) \u2014 ${e.from}${d ? ` (${d})` : ""}`;
+                    const sender = e.from.replace(/<[^>]+>/g, '').trim();
+                    return `- [${e.subject}](open-email:${e.id}:${e.account}) \u2014 ${sender}${d ? ` (${d})` : ""}`;
                 });
                 return `Found ${emails.length} email${emails.length === 1 ? "" : "s"}:\n\n${rows.join("\n")}`;
             }
@@ -819,14 +821,23 @@ export async function chatAgent(userId, userMessage, briefing, assistantName = "
         messages.push(assistantMsg);
         if (choice.finish_reason === "tool_calls" && assistantMsg.tool_calls) {
             // Execute each tool call and feed results back
+            let directReply = null;
             for (const toolCall of assistantMsg.tool_calls) {
                 const args = JSON.parse(toolCall.function.arguments);
                 const result = await executeTool(toolCall.function.name, args);
+                // For email list/search, return the pre-formatted result directly — skip LLM rewrite
+                if (toolCall.function.name === "list_emails" || toolCall.function.name === "search_emails") {
+                    directReply = result;
+                }
                 messages.push({
                     role: "tool",
                     tool_call_id: toolCall.id,
                     content: result,
                 });
+            }
+            if (directReply !== null) {
+                reply = directReply;
+                break;
             }
             continue; // loop again so model can compose final reply
         }

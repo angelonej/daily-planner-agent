@@ -443,7 +443,11 @@ function formatMorningBriefingText(briefing: MorningBriefing): string {
     }
     return Object.entries(byAccount).map(([acct, emails]) =>
       `  📂 ${acct.charAt(0).toUpperCase() + acct.slice(1)}\n` +
-      emails.map(e => `    ⚠️ [${e.subject}](open-email:${e.id}:${e.account ?? "personal"})\n       From: ${e.from}\n       ${e.snippet}`).join("\n\n")
+      emails.map(e => {
+        const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+        const sender = e.from.replace(/<[^>]+>/g, '').trim();
+        return `    - [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${sender}${d ? ` (${d})` : ""}`;
+      }).join("\n")
     ).join("\n\n");
   })();
 
@@ -456,7 +460,11 @@ function formatMorningBriefingText(briefing: MorningBriefing): string {
     }
     return Object.entries(byAccount).map(([acct, emails]) =>
       `  📂 ${acct.charAt(0).toUpperCase() + acct.slice(1)}\n` +
-      emails.map(e => `    • [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${e.from}`).join("\n")
+      emails.map(e => {
+        const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+        const sender = e.from.replace(/<[^>]+>/g, '').trim();
+        return `    - [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${sender}${d ? ` (${d})` : ""}`;
+      }).join("\n")
     ).join("\n\n");
   })();
 
