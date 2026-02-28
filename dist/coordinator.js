@@ -404,15 +404,28 @@ function formatMorningBriefingText(briefing) {
     const calSection = briefing.calendar.length > 0
         ? briefing.calendar.map((e) => `  ${e.start}–${e.end}  ${e.title}${e.location ? ` @ ${e.location}` : ""}`).join("\n")
         : "  No events today.";
-    const importantSection = briefing.importantEmails.length > 0
-        ? briefing.importantEmails.map((e) => `  ⚠️ [${e.account}] ${e.subject}\n     From: ${e.from}\n     ${e.snippet}`).join("\n\n")
-        : "  None.";
-    const emailSection = briefing.emails.length > 0
-        ? briefing.emails
-            .slice(0, 8)
-            .map((e) => `  • [${e.account}] ${e.subject} — ${e.from}`)
-            .join("\n")
-        : "  Inbox is clear.";
+    const importantSection = (() => {
+        if (briefing.importantEmails.length === 0)
+            return "  None.";
+        const byAccount = {};
+        for (const e of briefing.importantEmails) {
+            const key = e.account ?? "personal";
+            (byAccount[key] ??= []).push(e);
+        }
+        return Object.entries(byAccount).map(([acct, emails]) => `  📂 ${acct.charAt(0).toUpperCase() + acct.slice(1)}\n` +
+            emails.map(e => `    ⚠️ [${e.subject}](open-email:${e.id}:${e.account ?? "personal"})\n       From: ${e.from}\n       ${e.snippet}`).join("\n\n")).join("\n\n");
+    })();
+    const emailSection = (() => {
+        if (briefing.emails.length === 0)
+            return "  Inbox is clear.";
+        const byAccount = {};
+        for (const e of briefing.emails.slice(0, 10)) {
+            const key = e.account ?? "personal";
+            (byAccount[key] ??= []).push(e);
+        }
+        return Object.entries(byAccount).map(([acct, emails]) => `  📂 ${acct.charAt(0).toUpperCase() + acct.slice(1)}\n` +
+            emails.map(e => `    • [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${e.from}`).join("\n")).join("\n\n");
+    })();
     const taskSection = briefing.googleTasks.length > 0
         ? briefing.googleTasks
             .map((t) => `  • ${t.title}${t.due ? ` (due ${new Date(t.due).toLocaleDateString("en-US", { month: "short", day: "numeric" })})` : ""}`)

@@ -860,8 +860,14 @@ function escapeHtml(s) {
 }
 function renderMarkdown(text) {
   const links = [];
+  // Handle open-email: links
+  let html = text.replace(/\[([^\]]+)\]\(open-email:([^:)]+):([^)]+)\)/g, (_, label, id, account) => {
+    if (!_emailRegistry[id]) _emailRegistry[id] = { id, account, subject: label, from: '', date: '' };
+    links.push(`<a href="#" onclick="event.preventDefault();openEmail(${JSON.stringify(id)})" style="cursor:pointer;color:var(--accent2);text-decoration:underline">${escapeHtml(label)}</a>`);
+    return '\x00L' + (links.length-1) + '\x00';
+  });
   // Handle all markdown links: https://, tel:, mailto:
-  let html = text.replace(/\[([^\]]+)\]\(((?:https?|tel|mailto):[^)]+)\)/g, (_, label, url) => {
+  html = html.replace(/\[([^\]]+)\]\(((?:https?|tel|mailto):[^)]+)\)/g, (_, label, url) => {
     const isTel = url.startsWith('tel:');
     const isMail = url.startsWith('mailto:');
     const icon = isTel ? '📞\u202f' : isMail ? '✉️\u202f' : '';
@@ -1389,7 +1395,7 @@ function renderWidgets() {
   if (importantEmails && importantEmails.length > 0) {
     importantEmails.slice(0,4).forEach(e => { _emailRegistry[e.id] = e; });
     ov_imp.innerHTML = importantEmails.slice(0,4).map(e => `
-      <div class="email-item" onclick="openEmail(${JSON.stringify(e.id)})">
+      <div class="email-item" data-email-id="${escapeHtml(e.id)}" style="cursor:pointer">
         <div class="email-from"><span class="imp">⚠️</span><span class="acct">${escapeHtml(e.account)}</span> ${escapeHtml(e.from)}</div>
         <div class="email-subject">${escapeHtml(e.subject)}</div>
       </div>`).join('');
@@ -1402,7 +1408,7 @@ function renderWidgets() {
     if (!emails || emails.length === 0) return '<div class="empty-state">Inbox clear ✅</div>';
     emails.forEach(e => { _emailRegistry[e.id] = e; });
     return emails.slice(0,15).map(e => `
-      <div class="email-item${e.isVip ? ' email-vip' : e.isHighlighted ? ' email-hl' : ''}" onclick="openEmail(${JSON.stringify(e.id)})">
+      <div class="email-item${e.isVip ? ' email-vip' : e.isHighlighted ? ' email-hl' : ''}" data-email-id="${escapeHtml(e.id)}" style="cursor:pointer">
         <div class="email-from">
           ${e.isImportant ? '<span class="imp">⚠️</span>' : ''}
           ${e.isVip ? '<span class="vip-badge">⭐ VIP</span>' : e.isHighlighted ? '<span class="hl-badge">🟢</span>' : ''}
@@ -2208,6 +2214,11 @@ document.getElementById('email-modal-overlay').addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.getElementById('email-modal-overlay').classList.contains('open')) closeEmailModal();
+});
+// Delegated click handler for email cards (data-email-id avoids inline onclick quoting issues)
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-email-id]');
+  if (el) { e.preventDefault(); openEmail(el.dataset.emailId); }
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────

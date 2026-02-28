@@ -59,6 +59,7 @@ When the user asks to send the daily digest, morning summary, or briefing email,
 When the user asks about weather (today, tomorrow, this week, will it rain, forecast, etc.), ALWAYS call get_weather with the appropriate number of days.
 When the user asks to check emails, show today's emails, list unread emails, or get recent emails, ALWAYS call list_emails.
 When the user asks for the last email from someone, emails about a topic, or to search emails, ALWAYS call search_emails with the appropriate Gmail query.
+When list_emails or search_emails returns a result, output it VERBATIM — do NOT rewrite, reformat, or summarize it. The result already contains properly formatted clickable markdown links that must be preserved exactly.
 When the user asks to mark emails as read, clear unread, or mark today's emails as read, ALWAYS call mark_emails_read.
 When the user asks about token usage, LLM usage, API cost, how many tokens used, or AI usage stats, ALWAYS call get_llm_usage.
 When the user asks to set a reminder — whether one-time ("remind me tonight", "remind me tomorrow at 3") or recurring ("every Monday", "every month on the 15th") — ALWAYS call add_reminder. For one-time reminders use frequency="once" and set fireDate to the specific YYYY-MM-DD date. For recurring use daily/weekly/monthly/yearly.
@@ -546,29 +547,30 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const emails = await fetchAllAccountEmails();
         const slice = emails.slice(0, max);
         if (slice.length === 0) return JSON.stringify({ message: "No unread emails found." });
-        return JSON.stringify(slice.map((e) => ({
-          subject: e.subject,
-          from: e.from,
-          date: e.date,
-          snippet: e.snippet,
-          account: e.account,
-          isImportant: e.isImportant,
-        })));
+        // Pre-format as markdown so the AI passes links through unchanged
+        const byAccount: Record<string, typeof slice> = {};
+        for (const e of slice) { (byAccount[e.account ?? "personal"] ??= []).push(e); }
+        const formatted = Object.entries(byAccount).map(([acct, list]) => {
+          const header = `**${acct.charAt(0).toUpperCase() + acct.slice(1)}** (${list.length} emails)`;
+          const lines = list.map(e => {
+            const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+            return `- [${e.subject}](open-email:${e.id}:${e.account}) — ${e.from}${d ? ` (${d})` : ""}`;
+          });
+          return [header, ...lines].join("\n");
+        }).join("\n\n");
+        return JSON.stringify({ formatted, total: emails.length });
       }
       case "search_emails": {
         const q = String(args.query);
         const acct = args.account ? String(args.account) : undefined;
         const max = args.maxResults ? Number(args.maxResults) : 5;
         const emails = await searchEmails(q, acct, max);
-        if (emails.length === 0) return JSON.stringify({ message: `No emails found for query: "${q}"` });
-        return JSON.stringify(emails.map((e) => ({
-          subject: e.subject,
-          from: e.from,
-          date: e.date,
-          snippet: e.snippet,
-          account: e.account,
-          isImportant: e.isImportant,
-        })));
+        if (emails.length === 0) return `No emails found for query: "${q}"`;
+        const rows = emails.map(e => {
+          const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+          return `- [${e.subject}](open-email:${e.id}:${e.account}) \u2014 ${e.from}${d ? ` (${d})` : ""}`;
+        });
+        return `Found ${emails.length} email${emails.length === 1 ? "" : "s"}:\n\n${rows.join("\n")}`;
       }
       case "get_llm_usage": {
         const days = args.days ? Number(args.days) : 1;

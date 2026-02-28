@@ -1,0 +1,12 @@
+{
+  "days": [
+    {
+      "date": "2026-02-27",
+      "promptTokens": 296363,
+      "completionTokens": 12297,
+      "totalTokens": 308660,
+      "calls": 36,
+      "estimatedCostUSD": 1.073544
+    }
+  ]
+}
