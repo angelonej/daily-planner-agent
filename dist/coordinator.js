@@ -476,25 +476,19 @@ async function formatEveningBriefingText(briefing) {
     const tmrD = String(tmrDateUtc.getUTCDate()).padStart(2, "0");
     // Get the UTC offset for the tz on that date using Intl (handles DST correctly)
     const anchor = new Date(`${tmrY}-${tmrM}-${tmrD}T12:00:00Z`);
-    const offsetMin = -new Intl.DateTimeFormat("en-US", {
+    const tzPart = new Intl.DateTimeFormat("en-US", {
         timeZone: tz, timeZoneName: "shortOffset",
-    }).formatToParts(anchor).reduce((acc, p) => {
-        if (p.type !== "timeZoneName")
-            return acc;
-        // e.g. "GMT-5" or "GMT+5:30"
-        const m = p.value.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
-        if (!m)
-            return acc;
-        const sign = m[1] === "+" ? 1 : -1;
-        return sign * (parseInt(m[2]) * 60 + parseInt(m[3] ?? "0"));
-    }, 0);
-    const sign = offsetMin >= 0 ? "+" : "-";
-    const absH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, "0");
-    const absM = String(Math.abs(offsetMin) % 60).padStart(2, "0");
-    const tzOffset = `${sign}${absH}:${absM}`;
+    }).formatToParts(anchor).find(p => p.type === "timeZoneName")?.value ?? "GMT+0";
+    // tzPart is e.g. "GMT-5" or "GMT+5:30"
+    const tzMatch = tzPart.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+    const offsetSign = tzMatch ? tzMatch[1] : "+";
+    const offsetH = tzMatch ? String(tzMatch[2]).padStart(2, "0") : "00";
+    const offsetM = tzMatch ? String(tzMatch[3] ?? "0").padStart(2, "0") : "00";
+    const tzOffset = `${offsetSign}${offsetH}:${offsetM}`;
     // RFC3339 midnight boundaries for tomorrow in the user's tz
     const tmrStart = new Date(`${tmrY}-${tmrM}-${tmrD}T00:00:00${tzOffset}`);
     const tmrEnd = new Date(`${tmrY}-${tmrM}-${tmrD}T23:59:59${tzOffset}`);
+    console.log(`[evening] tz=${tz} offset=${tzOffset} tmrStart=${tmrStart.toISOString()} tmrEnd=${tmrEnd.toISOString()}`);
     const tomorrowStr = tmrStart.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: tz });
     let tomorrowEvents;
     try {

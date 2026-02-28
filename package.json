@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node --max-old-space-size=768 -r dotenv/config dist/index.js",
-    "dev": "node --loader ts-node/esm -r dotenv/config src/index.ts",
+    "dev": "tsx --env-file=.env src/index.ts",
     "cli": "node -r dotenv/config dist/index.js --cli",
     "auth": "node --loader ts-node/esm src/auth/setupGoogle.ts",
     "deploy": "bash scripts/deploy.sh",
@@ -36,6 +36,7 @@
     "@types/session-file-store": "^1.2.6",
     "@types/web-push": "^3.6.4",
     "ts-node": "^10.9.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   }
 }
