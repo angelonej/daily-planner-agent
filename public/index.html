@@ -604,13 +604,13 @@
 
   <!-- Tabs -->
   <div class="drawer-tabs">
-    <button class="dtab active" id="tab-actions" onclick="switchDrawerTab('actions')">⚡ Actions</button>
-    <button class="dtab" id="tab-ask" onclick="switchDrawerTab('ask')">💬 Ask</button>
+    <button class="dtab active" id="tab-ask" onclick="switchDrawerTab('ask')">💬 Ask</button>
+    <button class="dtab" id="tab-actions" onclick="switchDrawerTab('actions')">⚡ Actions</button>
     <button class="dtab" id="tab-tools" onclick="switchDrawerTab('tools')">🛠 Tools</button>
   </div>
 
   <!-- Actions panel -->
-  <div class="drawer-panel active" id="panel-actions">
+  <div class="drawer-panel" id="panel-actions">
     <div class="drawer-grid">
       <button id="morningBtn" class="drawer-btn">
         <span class="btn-icon">☀️</span><span class="btn-label">Morning Briefing</span>
@@ -637,7 +637,7 @@
   </div>
 
   <!-- Quick Ask panel -->
-  <div class="drawer-panel" id="panel-ask">
+  <div class="drawer-panel active" id="panel-ask">
     <div class="chip-grid" style="margin-bottom:8px">
       <button class="chip-btn" style="background:#1a3a2a;border-color:#2ea043 !important" onclick="quickAsk('Look at my calendar, tasks, and emails and give me a smart plan for today. Suggest what I should work on, what to defer, and anything I might be missing.')"><span class="ci">🧠</span><span class="cl">Plan My Day</span></button>
       <button class="chip-btn" style="background:#2d1f5e;border-color:#6e40c9 !important" onclick="quickAsk('What are the 3 most important things I should focus on right now based on my calendar, tasks, and emails?')"><span class="ci">👀</span><span class="cl">What Matters</span></button>
