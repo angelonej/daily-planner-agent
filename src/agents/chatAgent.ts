@@ -866,7 +866,7 @@ export async function chatAgent(
       for (const toolCall of assistantMsg.tool_calls) {
         const args = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
         const result = await executeTool(toolCall.function.name, args);
-        // For email list/search, return the pre-formatted result directly — skip LLM rewrite
+        // For email list/search, capture result and return directly — never let LLM reformat
         if (toolCall.function.name === "list_emails" || toolCall.function.name === "search_emails") {
           directReply = result;
         }
@@ -878,7 +878,7 @@ export async function chatAgent(
       }
       if (directReply !== null) {
         reply = directReply;
-        break;
+        break; // skip LLM entirely — return pre-formatted markdown with open-email links intact
       }
       continue; // loop again so model can compose final reply
     }

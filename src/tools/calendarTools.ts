@@ -136,11 +136,16 @@ export async function getCalendarEventsByRange(startIso: string, endIso: string)
 export async function getCalendarEvents(daysAhead = 1): Promise<CalendarEvent[]> {
   const calendar = await buildCalendarClient();
 
+  const tz = process.env.TIMEZONE || "America/New_York";
   const now = new Date();
-  const timeMin = new Date(now);
-  timeMin.setHours(0, 0, 0, 0);
+  // Compute midnight and end-of-range in the configured timezone
+  const tzDate = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const timeMin = new Date(`${tzDate}T00:00:00`);
+  // Adjust for timezone offset so the ISO string lands at local midnight
+  const offsetMs = now.getTime() - new Date(now.toLocaleString("en-US", { timeZone: tz })).getTime();
+  const timeMinAdj = new Date(timeMin.getTime() + offsetMs);
 
-  const timeMax = new Date(timeMin);
+  const timeMax = new Date(timeMinAdj);
   timeMax.setDate(timeMax.getDate() + daysAhead);
 
   // Fetch all calendars the user has access to
@@ -239,8 +244,12 @@ export async function deleteCalendarEvent(eventId: string): Promise<void> {
 export async function findEventsByTitle(query: string, daysToSearch = 14): Promise<Array<CalendarEvent & { eventId?: string }>> {
   const calendar = await buildCalendarClient();
 
-  const timeMin = new Date();
-  timeMin.setHours(0, 0, 0, 0);
+  const tz = process.env.TIMEZONE || "America/New_York";
+  const now2 = new Date();
+  const tzDate2 = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now2);
+  const timeMinBase = new Date(`${tzDate2}T00:00:00`);
+  const offsetMs2 = now2.getTime() - new Date(now2.toLocaleString("en-US", { timeZone: tz })).getTime();
+  const timeMin = new Date(timeMinBase.getTime() + offsetMs2);
   const timeMax = new Date(timeMin);
   timeMax.setDate(timeMax.getDate() + daysToSearch);
 
