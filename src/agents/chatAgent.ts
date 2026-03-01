@@ -559,7 +559,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const sections = Object.entries(byAccount).map(([acct, list]) => {
           const header = `**${acct.charAt(0).toUpperCase() + acct.slice(1)}** (${list.length} emails)`;
           const lines = list.map(e => {
-            const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+            const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: process.env.TIMEZONE || "America/New_York" }) : "";
             const sender = e.from.replace(/<[^>]+>/g, '').trim();
             return `- [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${sender}${d ? ` (${d})` : ""}`;
           });
@@ -574,7 +574,7 @@ async function executeTool(name: string, args: Record<string, unknown>): Promise
         const emails = await searchEmails(q, acct, max);
         if (emails.length === 0) return `No emails found for query: "${q}"`;
         const rows = emails.map(e => {
-          const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+          const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: process.env.TIMEZONE || "America/New_York" }) : "";
           const sender = e.from.replace(/<[^>]+>/g, '').trim();
           return `- [${e.subject}](open-email:${e.id}:${e.account}) \u2014 ${sender}${d ? ` (${d})` : ""}`;
         });

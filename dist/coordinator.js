@@ -414,7 +414,7 @@ function formatMorningBriefingText(briefing) {
         }
         return Object.entries(byAccount).map(([acct, emails]) => `  📂 ${acct.charAt(0).toUpperCase() + acct.slice(1)}\n` +
             emails.map(e => {
-                const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+                const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: process.env.TIMEZONE || "America/New_York" }) : "";
                 const sender = e.from.replace(/<[^>]+>/g, '').trim();
                 return `    - [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${sender}${d ? ` (${d})` : ""}`;
             }).join("\n")).join("\n\n");
@@ -429,7 +429,7 @@ function formatMorningBriefingText(briefing) {
         }
         return Object.entries(byAccount).map(([acct, emails]) => `  📂 ${acct.charAt(0).toUpperCase() + acct.slice(1)}\n` +
             emails.map(e => {
-                const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+                const d = e.date ? new Date(e.date).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: process.env.TIMEZONE || "America/New_York" }) : "";
                 const sender = e.from.replace(/<[^>]+>/g, '').trim();
                 return `    - [${e.subject}](open-email:${e.id}:${e.account ?? "personal"}) — ${sender}${d ? ` (${d})` : ""}`;
             }).join("\n")).join("\n\n");
