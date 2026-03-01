@@ -479,7 +479,13 @@ if (process.argv.includes("--cli")) {
   let runtimeTone: string = "professional";
 
   function applySettings(s: PersistedSettings): void {
-    if (s.newsTopics?.length)     runtimeNewsTopics = s.newsTopics;
+    if (s.newsTopics?.length) {
+      // Clear cache for any topics not already in the runtime list
+      const newTopics = s.newsTopics.filter(t => !runtimeNewsTopics.includes(t));
+      if (newTopics.length > 0) clearNewsCache(newTopics);
+      runtimeNewsTopics = s.newsTopics;
+      process.env.NEWS_TOPICS = s.newsTopics.join(",");
+    }
     if (s.assistantName)          runtimeAssistantName = s.assistantName;
     if (s.tone)                   runtimeTone = s.tone;
     if (s.vipSenders)             setVipSenders(s.vipSenders);

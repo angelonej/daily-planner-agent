@@ -444,8 +444,14 @@ else {
     let runtimeAssistantName = process.env.ASSISTANT_NAME ?? "Assistant";
     let runtimeTone = "professional";
     function applySettings(s) {
-        if (s.newsTopics?.length)
+        if (s.newsTopics?.length) {
+            // Clear cache for any topics not already in the runtime list
+            const newTopics = s.newsTopics.filter(t => !runtimeNewsTopics.includes(t));
+            if (newTopics.length > 0)
+                clearNewsCache(newTopics);
             runtimeNewsTopics = s.newsTopics;
+            process.env.NEWS_TOPICS = s.newsTopics.join(",");
+        }
         if (s.assistantName)
             runtimeAssistantName = s.assistantName;
         if (s.tone)
