@@ -530,8 +530,22 @@ async function executeTool(name, args) {
             case "delete_calendar_event": {
                 const evId = String(args.eventId);
                 const calId = args.calendarId ? String(args.calendarId) : "primary";
-                await deleteEvent(evId, calId);
+                try {
+                    await deleteEvent(evId, calId);
+                }
+                catch (delErr) {
+                    const msg = delErr instanceof Error ? delErr.message : String(delErr);
+                    console.error(`❌ delete_calendar_event failed: eventId=${evId} calendarId=${calId}:`, delErr);
+                    // If 410/404, treat as already deleted (success)
+                    if (msg.includes("410") || msg.includes("404") || msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("gone")) {
+                        console.warn(`⚠️  Event ${evId} already gone from Google Calendar — treating as deleted`);
+                    }
+                    else {
+                        return JSON.stringify({ error: `Google Calendar delete failed: ${msg}. The event may not have been deleted.` });
+                    }
+                }
                 patchCacheRemoveEvent(evId);
+                invalidateDashboardCache();
                 return JSON.stringify({ success: true });
             }
             case "list_calendar_events": {

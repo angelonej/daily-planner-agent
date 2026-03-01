@@ -192,13 +192,18 @@ export async function updateCalendarEvent(params) {
 // ─── Delete an event by ID ────────────────────────────────────────────────
 export async function deleteCalendarEvent(eventId, calendarId = "primary") {
     const calendar = await buildCalendarClient();
+    console.log(`🗑️  deleteCalendarEvent: eventId=${eventId} calendarId=${calendarId}`);
     try {
         await calendar.events.delete({ calendarId, eventId });
+        console.log(`✅ deleteCalendarEvent: deleted ${eventId} from ${calendarId}`);
     }
     catch (err) {
+        console.error(`❌ deleteCalendarEvent failed on ${calendarId}:`, err.message);
         // If the provided calendarId failed and it wasn't already primary, try primary
         if (calendarId !== "primary") {
+            console.log(`🔁 Retrying delete on primary calendar for ${eventId}`);
             await calendar.events.delete({ calendarId: "primary", eventId });
+            console.log(`✅ deleteCalendarEvent: deleted ${eventId} from primary (fallback)`);
         }
         else {
             throw err;
