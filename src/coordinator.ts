@@ -26,6 +26,24 @@ export function invalidateDashboardCache(): void {
   dashboardCache = null;
 }
 
+/** Remove a deleted calendar event from the cache without a full refetch */
+export function patchCacheRemoveEvent(eventId: string): void {
+  if (!dashboardCache) return;
+  dashboardCache.data.calendar = dashboardCache.data.calendar.filter(
+    (e: { eventId?: string }) => e.eventId !== eventId
+  );
+}
+
+/** Remove one or more emails from the cached briefing (by id+account or just id) */
+export function patchCacheRemoveEmails(ids: string[]): void {
+  if (!dashboardCache || ids.length === 0) return;
+  const idSet = new Set(ids);
+  dashboardCache.data.emails = dashboardCache.data.emails.filter((e) => !idSet.has(e.id));
+  dashboardCache.data.importantEmails = (dashboardCache.data.importantEmails ?? []).filter(
+    (e) => !idSet.has(e.id)
+  );
+}
+
 export function dashboardCacheFetchedAt(): string | null {
   return dashboardCache ? new Date(dashboardCache.fetchedAt).toISOString() : null;
 }

@@ -11,7 +11,7 @@ import fs from "fs";
 import path from "path";
 import webpush from "web-push";
 import { fileURLToPath } from "url";
-import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs, generateAiSuggestions, pushSuggestionsNow } from "./coordinator.js";
+import { coordinatorAgent, buildMorningBriefing, getCachedBriefing, invalidateDashboardCache, patchCacheRemoveEmails, dashboardCacheFetchedAt, startScheduledJobs, rescheduleBriefingJobs, generateAiSuggestions, pushSuggestionsNow } from "./coordinator.js";
 import { addNotificationClient, updateUserLocation, addPushSubscription } from "./tools/notificationTools.js";
 import { sendDailyDigestEmail } from "./tools/digestEmail.js";
 import { completeTask as completeGoogleTask, createTask as createGoogleTask, getTaskLists, listTasks } from "./tools/tasksTools.js";
@@ -20,6 +20,7 @@ import { getTrackedPackages } from "./tools/packageTools.js";
 import { fetchEmailBody, markEmailsAsRead, markSingleEmailRead } from "./tools/gmailTools.js";
 import { getAwsCostSummary, getCostThreshold, setCostThreshold } from "./tools/awsCostTools.js";
 import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
+import { getSettingsFromDynamo, saveSettingsToDynamo, isDynamoConfigured } from "./tools/dynamoTools.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -153,7 +154,11 @@ if (process.argv.includes("--cli")) {
       const proto = req.headers['x-forwarded-proto'] as string || req.protocol;
       const host  = req.headers['x-forwarded-host'] as string || req.headers.host || '';
       const base  = `${proto}://${host}`;
-      return req.session.save(() => res.redirect(303, `${base}/?tok=${tok}`));
+      // Detect mobile — send to index.html (mobile chat view), desktop to dashboard.html
+      const ua = req.headers['user-agent'] || '';
+      const isMobile = /Mobile|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(ua);
+      const dest = isMobile ? `${base}/?tok=${tok}` : `${base}/dashboard.html?tok=${tok}`;
+      return req.session.save(() => res.redirect(303, dest));
     }
     res.send(`<!DOCTYPE html><html lang="en">
 <head>
@@ -443,22 +448,45 @@ if (process.argv.includes("--cli")) {
   }
 
   function savePersistedSettings(s: PersistedSettings): void {
+    // Always write local file as backup
     try { fs.writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2)); }
     catch (e) { console.error("Failed to save settings.json:", e); }
+    // Also write to DynamoDB if configured (async — don't block response)
+    if (isDynamoConfigured()) {
+      saveSettingsToDynamo(s).catch(e => console.error("DynamoDB saveSettings failed:", e));
+    }
   }
 
-  // Apply persisted settings on startup
-  const _saved = loadPersistedSettings();
-  let runtimeNewsTopics: string[] = _saved.newsTopics ??
-    (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
-      .split(",").map(t => t.trim()).filter(Boolean);
-  let runtimeAssistantName: string = _saved.assistantName ?? process.env.ASSISTANT_NAME ?? "Assistant";
-  let runtimeTone: string = _saved.tone ?? "professional";
-  if (_saved.vipSenders) setVipSenders(_saved.vipSenders);
-  if (_saved.filterKeywords) setFilterKeywords(_saved.filterKeywords);
-  if (_saved.awsCostThreshold) setCostThreshold(_saved.awsCostThreshold);
-  if (_saved.morningBriefingTime) process.env.MORNING_BRIEFING_TIME = _saved.morningBriefingTime;
-  if (_saved.eveningBriefingTime) process.env.EVENING_BRIEFING_TIME = _saved.eveningBriefingTime;
+  // Apply persisted settings on startup — prefer DynamoDB, fall back to file
+  async function initSettings(): Promise<PersistedSettings> {
+    if (isDynamoConfigured()) {
+      const dynamo = await getSettingsFromDynamo().catch(() => null);
+      if (dynamo && Object.keys(dynamo).length > 0) {
+        console.log("⚙️  Settings loaded from DynamoDB");
+        // Keep local file in sync
+        try { fs.writeFileSync(SETTINGS_FILE, JSON.stringify(dynamo, null, 2)); } catch {}
+        return dynamo;
+      }
+    }
+    return loadPersistedSettings();
+  }
+
+  // Runtime settings — populated by initSettings() before server starts listening
+  let runtimeNewsTopics: string[] = (process.env.NEWS_TOPICS ?? "Artificial Intelligence,AWS Cloud,Florida real estate market")
+    .split(",").map(t => t.trim()).filter(Boolean);
+  let runtimeAssistantName: string = process.env.ASSISTANT_NAME ?? "Assistant";
+  let runtimeTone: string = "professional";
+
+  function applySettings(s: PersistedSettings): void {
+    if (s.newsTopics?.length)     runtimeNewsTopics = s.newsTopics;
+    if (s.assistantName)          runtimeAssistantName = s.assistantName;
+    if (s.tone)                   runtimeTone = s.tone;
+    if (s.vipSenders)             setVipSenders(s.vipSenders);
+    if (s.filterKeywords)         setFilterKeywords(s.filterKeywords);
+    if (s.awsCostThreshold)       setCostThreshold(s.awsCostThreshold);
+    if (s.morningBriefingTime)    process.env.MORNING_BRIEFING_TIME = s.morningBriefingTime;
+    if (s.eveningBriefingTime)    process.env.EVENING_BRIEFING_TIME = s.eveningBriefingTime;
+  }
 
   app.get("/api/settings", (_req: Request, res: Response) => {
     res.json({
@@ -535,6 +563,51 @@ if (process.argv.includes("--cli")) {
       filterKeywords: getFilterKeywords(),
       awsCostThreshold: getCostThreshold(),
     });
+  });
+
+  // ─── Agent Memory API ──────────────────────────────────────────────────
+  app.get("/api/memory", async (_req: Request, res: Response) => {
+    try {
+      const { getMemoryFacts } = await import("./tools/dynamoTools.js");
+      const facts = await getMemoryFacts();
+      res.json({ facts, configured: isDynamoConfigured() });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post("/api/memory", async (req: Request, res: Response) => {
+    const { facts } = req.body as { facts?: string[] };
+    if (!Array.isArray(facts)) return res.status(400).json({ error: "facts must be an array of strings" });
+    try {
+      const { appendMemoryFacts } = await import("./tools/dynamoTools.js");
+      const merged = await appendMemoryFacts(facts.map((f: string) => f.trim()).filter(Boolean));
+      res.json({ ok: true, facts: merged });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.delete("/api/memory", async (_req: Request, res: Response) => {
+    try {
+      const { clearMemoryFacts } = await import("./tools/dynamoTools.js");
+      await clearMemoryFacts();
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.delete("/api/memory/:index", async (req: Request, res: Response) => {
+    const idx = parseInt(req.params.index);
+    if (isNaN(idx)) return res.status(400).json({ error: "Invalid index" });
+    try {
+      const { removeMemoryFacts } = await import("./tools/dynamoTools.js");
+      const remaining = await removeMemoryFacts([idx]);
+      res.json({ ok: true, facts: remaining });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   // ─── Live briefing JSON for dashboard widgets ──────────────────────────
@@ -672,6 +745,7 @@ if (process.argv.includes("--cli")) {
     try {
       const { account, id } = req.params;
       await markSingleEmailRead(account, id);
+      patchCacheRemoveEmails([id]);
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: String(err) });
@@ -734,19 +808,25 @@ if (process.argv.includes("--cli")) {
   });
 
   const PORT = Number(process.env.PORT ?? 3000);
-  app.listen(PORT, () => {
-    console.log(`🤖 Daily Planner Agent running on port ${PORT}`);
-    console.log(`   Web UI           → http://localhost:${PORT}`);
-    console.log(`   Voice API        → POST /voice-chat`);
-    console.log(`   Notifications    → GET  /notifications  (SSE)`);
-    console.log(`   Digest Email     → POST /send-digest`);
-    console.log(`   Telegram         → POST /webhook`);
-    console.log(`   WhatsApp         → POST /whatsapp  (Twilio)`);
-    console.log(`   Voice            → POST /voice/incoming  (Twilio)`);
-    console.log(`   Health           → GET  /health`);
 
-    // Start cron jobs and notification polling
-    startScheduledJobs();
+  // Load settings from DynamoDB (or fall back to file) before starting
+  initSettings().then(saved => {
+    applySettings(saved);
+    app.listen(PORT, () => {
+      console.log(`🤖 Daily Planner Agent running on port ${PORT}`);
+      console.log(`   Web UI           → http://localhost:${PORT}`);
+      console.log(`   Voice API        → POST /voice-chat`);
+      console.log(`   Notifications    → GET  /notifications  (SSE)`);
+      console.log(`   Digest Email     → POST /send-digest`);
+      console.log(`   Telegram         → POST /webhook`);
+      console.log(`   WhatsApp         → POST /whatsapp  (Twilio)`);
+      console.log(`   Voice            → POST /voice/incoming  (Twilio)`);
+      console.log(`   Health           → GET  /health`);
+      console.log(`   DynamoDB         → ${isDynamoConfigured() ? process.env.DYNAMO_TABLE : "not configured (using settings.json)"}`);
+
+      // Start cron jobs and notification polling
+      startScheduledJobs();
+    });
   });
 }
 

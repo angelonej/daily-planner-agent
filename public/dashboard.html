@@ -533,6 +533,8 @@
   <aside id="right">
     <div id="right-tabs">
       <button class="rtab active" data-panel="overview" onclick="switchTab('overview')" title="Overview">🏠</button>
+      <button class="rtab" data-panel="calendar" onclick="switchTab('calendar')" title="Calendar">📅</button>
+      <button class="rtab" data-panel="tasks" onclick="switchTab('tasks')" title="Tasks">✅</button>
       <button class="rtab" data-panel="reminders" onclick="switchTab('reminders')" title="Reminders">🔔</button>
       <button class="rtab" data-panel="email" onclick="switchTab('email')" title="Email">✉️</button>
       <button class="rtab" data-panel="news" onclick="switchTab('news')" title="News">📰</button>
@@ -559,7 +561,7 @@
         </div>
         <!-- Tasks summary -->
         <div class="card">
-          <div class="card-title">✅ Tasks Due <button class="refresh-btn" onclick="refreshRightPane()" title="Refresh">⟳</button><button class="collapse-btn has-refresh" data-collapse="overview-tasks" onclick="toggleCard('overview-tasks')" title="Collapse">▼</button></div>
+          <div class="card-title">✅ Tasks Due <button class="refresh-btn" onclick="refreshRightPane()" title="Refresh">⟳</button><button style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;padding:2px 6px" onclick="switchTab('tasks')" title="View all tasks">All ▶</button><button class="collapse-btn" data-collapse="overview-tasks" onclick="toggleCard('overview-tasks')" title="Collapse">▼</button></div>
           <div class="card-body" id="overview-tasks-body"><div id="overview-tasks"></div></div>
         </div>
         <!-- Important emails -->
@@ -579,6 +581,41 @@
         <div class="card">
           <div class="card-title">📅 Today <button class="refresh-btn" onclick="loadBriefing(true)">⟳</button></div>
           <div id="cal-today"></div>
+        </div>
+        <div class="card" style="margin-top:10px">
+          <div class="card-title">➕ Add Event</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input id="evt-title" class="topic-input" placeholder="Event title" style="font-size:13px"/>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:3px">Date</div>
+                <input id="evt-date" type="date" class="topic-input" style="font-size:12px;width:100%"/>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:3px">Time</div>
+                <input id="evt-time" type="time" class="topic-input" value="09:00" style="font-size:12px;width:100%"/>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:3px">Duration</div>
+                <select id="evt-duration" class="topic-input" style="font-size:12px;width:100%;cursor:pointer">
+                  <option value="30">30 min</option>
+                  <option value="60" selected>1 hour</option>
+                  <option value="90">1.5 hours</option>
+                  <option value="120">2 hours</option>
+                  <option value="180">3 hours</option>
+                  <option value="240">4 hours</option>
+                  <option value="480">All day (8h)</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--muted);margin-bottom:3px">Location (opt)</div>
+                <input id="evt-location" class="topic-input" placeholder="Location" style="font-size:12px;width:100%"/>
+              </div>
+            </div>
+            <button class="btn-primary" style="padding:8px;font-size:13px" onclick="addCalendarEvent()">+ Add Event</button>
+          </div>
         </div>
       </div>
 
@@ -856,6 +893,38 @@ function switchTab(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
   if (name === 'reminders') loadReminders();
   if (name === 'packages') loadPackages();
+  if (name === 'tasks') { loadTaskLists(); renderTasks(); }
+  if (name === 'calendar') {
+    // Pre-fill today's date
+    const d = document.getElementById('evt-date');
+    if (d && !d.value) d.value = new Date().toISOString().slice(0,10);
+  }
+}
+
+async function addCalendarEvent() {
+  const title    = document.getElementById('evt-title').value.trim();
+  const date     = document.getElementById('evt-date').value;
+  const time     = document.getElementById('evt-time').value;
+  const duration = parseInt(document.getElementById('evt-duration').value);
+  const location = document.getElementById('evt-location').value.trim();
+  if (!title) { showToast('❌', 'Enter an event title'); return; }
+  if (!date)  { showToast('❌', 'Pick a date'); return; }
+  // Build a natural-language command for the chat agent
+  const [h, m]   = time.split(':').map(Number);
+  const ampm     = h >= 12 ? 'PM' : 'AM';
+  const h12      = h % 12 === 0 ? 12 : h % 12;
+  const timeStr  = `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+  const dateObj  = new Date(date + 'T12:00:00');
+  const dateStr  = dateObj.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+  const durStr   = duration < 60 ? `${duration} minutes` : duration === 60 ? '1 hour' : `${duration/60} hours`;
+  const locStr   = location ? ` at ${location}` : '';
+  const msg      = `Schedule "${title}"${locStr} on ${dateStr} at ${timeStr} for ${durStr}`;
+  // Clear form
+  document.getElementById('evt-title').value = '';
+  document.getElementById('evt-location').value = '';
+  // Send via chat
+  switchTab('overview');
+  sendMessage(msg);
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────

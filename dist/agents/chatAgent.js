@@ -10,7 +10,18 @@ import { getReminders, addReminder, deleteReminder, describeReminder } from "../
 import { getTrackedPackages } from "../tools/packageTools.js";
 import { getAwsCostSummary, formatAwsCostSummary } from "../tools/awsCostTools.js";
 import { searchContacts, formatContacts } from "../tools/contactsTools.js";
+import { invalidateDashboardCache, patchCacheRemoveEvent, patchCacheRemoveEmails } from "../coordinator.js";
+import { getMemoryFacts, appendMemoryFacts, removeMemoryFacts, clearMemoryFacts } from "../tools/dynamoTools.js";
 let _openai = null;
+// In-process cache of memory facts — loaded once on first use, updated on write
+let _memoryFacts = null;
+async function getCachedMemory() {
+    if (_memoryFacts === null) {
+        _memoryFacts = await getMemoryFacts();
+    }
+    return _memoryFacts;
+}
+function invalidateMemoryCache() { _memoryFacts = null; }
 function getOpenAI() {
     if (!_openai) {
         _openai = new OpenAI({
@@ -29,9 +40,12 @@ const TONE_INSTRUCTIONS = {
     coach: "Be motivating and energetic like a personal productivity coach. Celebrate wins, encourage action, push the user to crush their goals.",
     witty: "Be clever and a little funny. Add wit, dry humor, or playful observations where appropriate — but always stay helpful.",
 };
-function buildSystemPrompt(assistantName = "Assistant", tone = "professional") {
+function buildSystemPrompt(assistantName = "Assistant", tone = "professional", memoryFacts = []) {
     const toneInstruction = TONE_INSTRUCTIONS[tone] ?? TONE_INSTRUCTIONS.professional;
-    return `You are ${assistantName}, a personal assistant AI. You help the user manage their day.
+    const memoryBlock = memoryFacts.length > 0
+        ? `\n\n🧠 REMEMBERED CONTEXT (facts you know about this user — always factor these in):\n${memoryFacts.map((f, i) => `  ${i + 1}. ${f}`).join("\n")}`
+        : "";
+    return `You are ${assistantName}, a personal assistant AI. You help the user manage their day.${memoryBlock}
 ${toneInstruction}
 You have access to their morning briefing (calendar events, emails, news) and can CREATE, UPDATE, and DELETE calendar events.
 When answering questions, reference their actual data when relevant.
@@ -62,6 +76,9 @@ When showing a phone number, ALWAYS format it as a markdown tel: link: [+1555555
 When showing an address or location, ALWAYS format it as a clickable Maps link: [123 Main St, City ST](https://maps.google.com/?q=123+Main+St+City+ST) — encode spaces as +.
 For ambiguous requests (e.g. 'move my dentist'), use search_calendar_events first to find the event ID.
 Always confirm the action taken with the event title and time.
+When the user tells you something to remember ("remember that...", "my wife's name is...", "I prefer...", "don't forget..."), ALWAYS call save_memory to store it.
+When the user asks what you remember or to show memory, ALWAYS call show_memory.
+When the user asks you to forget something or clear memory, ALWAYS call forget_memory.
 Today's date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: process.env.TIMEZONE ?? "America/New_York" })}. Today's YYYY-MM-DD: ${new Date().toLocaleDateString("en-CA", { timeZone: process.env.TIMEZONE ?? "America/New_York" })}. User timezone: ${process.env.TIMEZONE ?? "America/New_York"}. When setting fireDate for a "once" reminder, always use the YYYY-MM-DD date in the user's timezone above.`;
 }
 // ─── OpenAI tool definitions for calendar actions ──────────────────────────
@@ -438,6 +455,50 @@ const CALENDAR_TOOLS = [
             },
         },
     },
+    {
+        type: "function",
+        function: {
+            name: "save_memory",
+            description: "Save one or more facts to long-term memory so the agent remembers them across sessions. Use when the user says 'remember that', 'my name is', 'I prefer', 'don't forget', or tells you personal context to keep.",
+            parameters: {
+                type: "object",
+                properties: {
+                    facts: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Array of fact strings to remember, e.g. [\"User's daughter is named Emma\", \"User prefers oat milk\"]",
+                    },
+                },
+                required: ["facts"],
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "show_memory",
+            description: "Show all facts currently stored in long-term memory. Use when the user asks what you remember, show memory, or list remembered facts.",
+            parameters: { type: "object", properties: {}, required: [] },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "forget_memory",
+            description: "Delete one or more facts from memory, or clear all memory. Use when the user says 'forget that', 'clear memory', 'don't remember X', or references a specific fact number to delete.",
+            parameters: {
+                type: "object",
+                properties: {
+                    indices: {
+                        type: "array",
+                        items: { type: "number" },
+                        description: "0-based indices of facts to remove. Omit or pass empty array to clear ALL memory.",
+                    },
+                },
+                required: [],
+            },
+        },
+    },
 ];
 // ─── Execute a tool call returned by the model ────────────────────────────
 async function executeTool(name, args) {
@@ -466,7 +527,9 @@ async function executeTool(name, args) {
                 return JSON.stringify({ success: true });
             }
             case "delete_calendar_event": {
-                await deleteEvent(String(args.eventId));
+                const evId = String(args.eventId);
+                await deleteEvent(evId);
+                patchCacheRemoveEvent(evId);
                 return JSON.stringify({ success: true });
             }
             case "list_calendar_events": {
@@ -586,16 +649,23 @@ async function executeTool(name, args) {
                 const query = args.query ? String(args.query) : "is:unread";
                 let totalMarked = 0;
                 const details = [];
+                const markedIds = [];
                 for (const alias of accounts) {
                     try {
-                        const { marked } = await markEmailsAsRead(alias, query);
+                        const { marked, ids } = await markEmailsAsRead(alias, query);
                         totalMarked += marked;
+                        if (ids)
+                            markedIds.push(...ids);
                         details.push(`${alias}: ${marked} marked`);
                     }
                     catch (e) {
                         details.push(`${alias}: failed (${e.message})`);
                     }
                 }
+                if (markedIds.length > 0)
+                    patchCacheRemoveEmails(markedIds);
+                else if (totalMarked > 0)
+                    invalidateDashboardCache(); // fallback: full refresh
                 return JSON.stringify({ totalMarked, details });
             }
             case "add_reminder": {
@@ -737,6 +807,33 @@ async function executeTool(name, args) {
                     return JSON.stringify({ error: "Traffic data unavailable. Check that GOOGLE_MAPS_API_KEY is set." });
                 return JSON.stringify(result);
             }
+            case "save_memory": {
+                const facts = Array.isArray(args.facts) ? args.facts.map(String).filter(Boolean) : [];
+                if (facts.length === 0)
+                    return JSON.stringify({ error: "No facts provided." });
+                const merged = await appendMemoryFacts(facts);
+                invalidateMemoryCache();
+                return JSON.stringify({ ok: true, saved: facts, totalFacts: merged.length });
+            }
+            case "show_memory": {
+                const facts = await getCachedMemory();
+                if (facts.length === 0)
+                    return "I don't have anything stored in memory yet.";
+                return `**I remember the following about you:**\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}`;
+            }
+            case "forget_memory": {
+                const indices = Array.isArray(args.indices) ? args.indices : [];
+                if (indices.length === 0) {
+                    await clearMemoryFacts();
+                    invalidateMemoryCache();
+                    return JSON.stringify({ ok: true, message: "All memory cleared." });
+                }
+                // Convert 1-based user-facing numbers to 0-based indices if needed
+                const zeroIdx = indices.map((i) => (i > 0 ? i - 1 : i));
+                const remaining = await removeMemoryFacts(zeroIdx);
+                invalidateMemoryCache();
+                return JSON.stringify({ ok: true, remaining: remaining.length });
+            }
             default:
                 return JSON.stringify({ error: `Unknown tool: ${name}` });
         }
@@ -798,7 +895,9 @@ export async function chatAgent(userId, userMessage, briefing, assistantName = "
         conversationHistory.set(userId, []);
     }
     const history = conversationHistory.get(userId);
-    const SYSTEM_PROMPT = buildSystemPrompt(assistantName, tone);
+    // Load persisted memory facts and inject into system prompt
+    const memoryFacts = await getCachedMemory();
+    const SYSTEM_PROMPT = buildSystemPrompt(assistantName, tone, memoryFacts);
     const systemContent = briefing
         ? `${SYSTEM_PROMPT}\n\n${formatBriefingContext(briefing)}`
         : SYSTEM_PROMPT;

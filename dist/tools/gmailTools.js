@@ -173,6 +173,7 @@ export async function markEmailsAsRead(accountAlias, query = "is:unread") {
     await loadTokens(accountAlias, auth);
     const gmail = google.gmail({ version: "v1", auth });
     let totalMarked = 0;
+    const allIds = [];
     let pageToken;
     // Loop through all pages — batchModify max is 1000 ids but list max is 500
     do {
@@ -185,18 +186,20 @@ export async function markEmailsAsRead(accountAlias, query = "is:unread") {
         const messages = listRes.data.messages ?? [];
         if (messages.length === 0)
             break;
+        const ids = messages.map((m) => m.id);
         // batchModify accepts up to 1000 ids per call
         await gmail.users.messages.batchModify({
             userId: "me",
             requestBody: {
-                ids: messages.map((m) => m.id),
+                ids,
                 removeLabelIds: ["UNREAD"],
             },
         });
+        allIds.push(...ids);
         totalMarked += messages.length;
         pageToken = listRes.data.nextPageToken ?? undefined;
     } while (pageToken);
-    return { marked: totalMarked };
+    return { marked: totalMarked, ids: allIds };
 }
 // ─── Fetch from BOTH configured Gmail accounts ───────────────────────────────
 export async function fetchAllAccountEmails() {
