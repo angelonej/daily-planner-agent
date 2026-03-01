@@ -754,10 +754,10 @@ export function formatBriefingContext(briefing) {
             .join("\n")
         : "  No events today.";
     const importantEmails = briefing.importantEmails.length > 0
-        ? briefing.importantEmails.map((e) => `  ⚠️ [${e.account}] ${e.subject} — from ${e.from}`).join("\n")
+        ? `  ${briefing.importantEmails.length} important email(s) flagged. Call list_emails to show them with clickable links.`
         : "  None.";
     const allEmails = briefing.emails.length > 0
-        ? briefing.emails.slice(0, 10).map((e) => `  • [${e.account}] ${e.subject} — from ${e.from}`).join("\n")
+        ? `  ${briefing.emails.length} unread email(s). ALWAYS call list_emails tool to display them — never list from this context.`
         : "  No unread emails.";
     const newsSection = briefing.news.length > 0
         ? briefing.news
