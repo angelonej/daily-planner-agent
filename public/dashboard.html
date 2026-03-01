@@ -2406,7 +2406,11 @@ document.addEventListener('click', (e) => {
     panel.style.display = 'none';
   }
 });
-registerPush();
+// Only register push on load if permission already granted AND VAPID is configured
+// (avoids 503 console errors when VAPID keys are not set up)
+if (Notification.permission === 'granted') {
+  fetch('/vapid-public-key').then(r => { if (r.ok) registerPush(); }).catch(() => {});
+}
 </script>
 </body>
 </html>

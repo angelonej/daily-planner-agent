@@ -96,6 +96,7 @@ export function addNotificationClient(res: Response): void {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // disable nginx buffering
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.flushHeaders();
 
@@ -104,7 +105,19 @@ export function addNotificationClient(res: Response): void {
 
   sseClients.add(res);
 
+  // Send a keepalive comment every 30s to prevent proxies/load balancers
+  // from closing idle SSE connections (ERR_INCOMPLETE_CHUNKED_ENCODING)
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": keepalive\n\n");
+    } catch {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    }
+  }, 30_000);
+
   res.on("close", () => {
+    clearInterval(heartbeat);
     sseClients.delete(res);
   });
 }
