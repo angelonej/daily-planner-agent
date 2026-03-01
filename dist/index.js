@@ -19,6 +19,7 @@ import { getTrackedPackages } from "./tools/packageTools.js";
 import { fetchEmailBody, markSingleEmailRead } from "./tools/gmailTools.js";
 import { getAwsCostSummary, getCostThreshold, setCostThreshold } from "./tools/awsCostTools.js";
 import { getVipSenders, setVipSenders, getFilterKeywords, setFilterKeywords } from "./tools/notificationTools.js";
+import { clearNewsCache } from "./tools/newsTools.js";
 import { getSettingsFromDynamo, saveSettingsToDynamo, isDynamoConfigured } from "./tools/dynamoTools.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -488,8 +489,13 @@ else {
             runtimeTone = tone;
         }
         if (Array.isArray(newsTopics)) {
+            const oldTopics = [...runtimeNewsTopics];
             runtimeNewsTopics = newsTopics.map((t) => t.trim()).filter(Boolean);
             process.env.NEWS_TOPICS = runtimeNewsTopics.join(",");
+            // Clear cache for any new topics so they fetch fresh on next briefing
+            const newTopics = runtimeNewsTopics.filter(t => !oldTopics.includes(t));
+            if (newTopics.length > 0)
+                clearNewsCache(newTopics);
         }
         if (Array.isArray(vipSenders)) {
             setVipSenders(vipSenders.map((s) => s.trim().toLowerCase()).filter(Boolean));

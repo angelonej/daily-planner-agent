@@ -6,6 +6,15 @@ import { NewsArticle } from "../types.js";
 const newsCache = new Map<string, { articles: NewsArticle[]; fetchedAt: number }>();
 const NEWS_CACHE_TTL_MS = 30 * 60 * 1000;
 
+/** Bust the news cache for specific topics (or all topics if none given) */
+export function clearNewsCache(topics?: string[]): void {
+  if (!topics || topics.length === 0) {
+    newsCache.clear();
+  } else {
+    for (const t of topics) newsCache.delete(t);
+  }
+}
+
 // Paid / paywalled sites to exclude from every news search
 const EXCLUDED_NEWS_SITES = [
   "wsj.com", "ft.com", "nytimes.com", "bloomberg.com",

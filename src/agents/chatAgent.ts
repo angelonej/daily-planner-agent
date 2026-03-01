@@ -883,7 +883,10 @@ export function formatBriefingContext(briefing: MorningBriefing): string {
             (n) =>
               `  ${n.topic}:\n` +
               (n.articles.length > 0
-                ? n.articles.map((a) => `    - [${a.title}](${a.url}) — ${a.source}`).join("\n")
+                ? n.articles.map((a) => {
+                    const title = a.title.length > 80 ? a.title.slice(0, 77) + "..." : a.title;
+                    return `    - [${title}](${a.url}) — ${a.source}`;
+                  }).join("\n")
                 : "    No articles found.")
           )
           .join("\n")

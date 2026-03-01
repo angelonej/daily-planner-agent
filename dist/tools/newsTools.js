@@ -3,6 +3,16 @@ import fetch from "node-fetch";
 // and this prevents re-fetching on every briefing cache miss
 const newsCache = new Map();
 const NEWS_CACHE_TTL_MS = 30 * 60 * 1000;
+/** Bust the news cache for specific topics (or all topics if none given) */
+export function clearNewsCache(topics) {
+    if (!topics || topics.length === 0) {
+        newsCache.clear();
+    }
+    else {
+        for (const t of topics)
+            newsCache.delete(t);
+    }
+}
 // Paid / paywalled sites to exclude from every news search
 const EXCLUDED_NEWS_SITES = [
     "wsj.com", "ft.com", "nytimes.com", "bloomberg.com",
