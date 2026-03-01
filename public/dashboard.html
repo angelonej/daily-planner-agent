@@ -495,7 +495,7 @@
   <!-- ── Center: Chat ── -->
   <main id="center">
     <div id="chat-header">
-      <img src="/lyra-avatar.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
+      <img src="/lyra-avatar.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.onerror=null" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">
       <span style="font-size:28px;display:none;width:36px;height:36px;align-items:center;justify-content:center;flex-shrink:0">🤖</span>
       <div>
         <div id="chat-title" style="font-size:14px;font-weight:600">Assistant</div>
@@ -1497,6 +1497,15 @@ async function loadAwsCost(forceRefresh) {
     const res = await fetch(url);
     const d = await res.json();
     if (!res.ok) {
+      // 403 = IAM not configured — hide the widget silently, no console spam
+      if (res.status === 403) {
+        const widget = document.getElementById('aws-cost-widget');
+        if (widget) widget.style.display = 'none';
+        const btn = document.getElementById('aws-sidebar-btn');
+        if (btn) btn.style.display = 'none';
+        awsCostLoaded = true; // don't retry
+        return;
+      }
       if (sidebarEl) sidebarEl.textContent = 'AWS: error';
       return;
     }
