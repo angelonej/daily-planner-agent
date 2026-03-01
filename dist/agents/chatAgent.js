@@ -38,7 +38,7 @@ When answering questions, reference their actual data when relevant.
 Keep responses brief and actionable. Use bullet points for lists.
 When including links, always use markdown format: [View Event](https://...) — never paste raw URLs.
 Do NOT include Google Calendar event links in responses — just confirm the event title and time.
-If asked about news, what's in the news, today's headlines, or any news topic, ALWAYS use the 📰 Morning News section from the briefing data provided — never say you cannot access news.
+If asked about news, what's in the news, today's headlines, or any news topic, ALWAYS use the 📰 Morning News section from the briefing data provided — never say you cannot access news. When listing news articles, ALWAYS format each as a markdown link: [Article Title](url) — Source. Never strip the URL or output plain text article titles.
 When the user asks to add, create, schedule, move, reschedule, cancel, or delete a calendar event, use the appropriate calendar tool.
 When the user asks WHEN something is, WHERE an event is, WHAT TIME an event starts, or ANY question about upcoming events on their calendar (e.g. "when does X play", "is Y scheduled", "do I have Z coming up"), ALWAYS call search_calendar_events — NEVER answer from memory or make up dates.
 When the user asks about recurring events, patterns, or regular meetings, use suggest_recurring_events.
@@ -763,7 +763,7 @@ export function formatBriefingContext(briefing) {
         ? briefing.news
             .map((n) => `  ${n.topic}:\n` +
             (n.articles.length > 0
-                ? n.articles.map((a) => `    - ${a.title} (${a.source})`).join("\n")
+                ? n.articles.map((a) => `    - [${a.title}](${a.url}) — ${a.source}`).join("\n")
                 : "    No articles found."))
             .join("\n")
         : "  No news loaded.";
