@@ -17,7 +17,8 @@ export function tagEmails(emails) {
             (filterKeywords.length > 0 &&
                 filterKeywords.some((kw) => subjectLower.includes(kw) || snippetLower.includes(kw) || fromLower.includes(kw)));
         if (isVip || isHighlighted) {
-            return { ...email, isVip, isHighlighted };
+            // Also mark as important so it surfaces in importantEmails regardless of Gmail's label
+            return { ...email, isVip, isHighlighted, isImportant: true };
         }
         return email;
     });

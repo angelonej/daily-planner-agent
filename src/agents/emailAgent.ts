@@ -26,7 +26,8 @@ export function tagEmails(emails: Email[]): Email[] {
         ));
 
     if (isVip || isHighlighted) {
-      return { ...email, isVip, isHighlighted };
+      // Also mark as important so it surfaces in importantEmails regardless of Gmail's label
+      return { ...email, isVip, isHighlighted, isImportant: true };
     }
     return email;
   });
