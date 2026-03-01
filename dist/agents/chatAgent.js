@@ -124,11 +124,12 @@ const CALENDAR_TOOLS = [
         type: "function",
         function: {
             name: "delete_calendar_event",
-            description: "Delete a calendar event by its ID. Use search_calendar_events first if you don't have the ID.",
+            description: "Delete a calendar event by its ID. ALWAYS call search_calendar_events first to get the eventId and calendarId — never guess them. search_calendar_events searches past and future events.",
             parameters: {
                 type: "object",
                 properties: {
-                    eventId: { type: "string", description: "Google Calendar event ID to delete" },
+                    eventId: { type: "string", description: "Google Calendar event ID to delete (from search_calendar_events result)" },
+                    calendarId: { type: "string", description: "Calendar ID the event belongs to (from search_calendar_events result). Defaults to 'primary' if omitted." },
                 },
                 required: ["eventId"],
             },
@@ -153,7 +154,7 @@ const CALENDAR_TOOLS = [
         type: "function",
         function: {
             name: "search_calendar_events",
-            description: "Search for calendar events by title keyword, returns events with their IDs. Use this before update/delete, and ALWAYS use this to answer any question about when/where an event is — never guess. For questions about upcoming events, use daysToSearch=180 or more to look several months ahead.",
+            description: "Search for calendar events by title keyword, returns events with their eventId and calendarId. ALWAYS call this before delete/update — never guess IDs. Searches 7 days back AND daysToSearch days forward, so it finds past events too. For upcoming events months away, use daysToSearch=180+.",
             parameters: {
                 type: "object",
                 properties: {
@@ -528,7 +529,8 @@ async function executeTool(name, args) {
             }
             case "delete_calendar_event": {
                 const evId = String(args.eventId);
-                await deleteEvent(evId);
+                const calId = args.calendarId ? String(args.calendarId) : "primary";
+                await deleteEvent(evId, calId);
                 patchCacheRemoveEvent(evId);
                 return JSON.stringify({ success: true });
             }

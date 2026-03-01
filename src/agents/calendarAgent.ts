@@ -26,8 +26,8 @@ export async function updateEvent(params: UpdateEventParams) {
   return updateCalendarEvent(params);
 }
 
-export async function deleteEvent(eventId: string) {
-  return deleteCalendarEvent(eventId);
+export async function deleteEvent(eventId: string, calendarId?: string) {
+  return deleteCalendarEvent(eventId, calendarId ?? "primary");
 }
 
 export async function searchEvents(query: string, daysToSearch = 14) {

@@ -235,13 +235,22 @@ export async function updateCalendarEvent(params: UpdateEventParams): Promise<vo
 }
 
 // ─── Delete an event by ID ────────────────────────────────────────────────
-export async function deleteCalendarEvent(eventId: string): Promise<void> {
+export async function deleteCalendarEvent(eventId: string, calendarId = "primary"): Promise<void> {
   const calendar = await buildCalendarClient();
-  await calendar.events.delete({ calendarId: "primary", eventId });
+  try {
+    await calendar.events.delete({ calendarId, eventId });
+  } catch (err) {
+    // If the provided calendarId failed and it wasn't already primary, try primary
+    if (calendarId !== "primary") {
+      await calendar.events.delete({ calendarId: "primary", eventId });
+    } else {
+      throw err;
+    }
+  }
 }
 
 // ─── Find events by title keyword across ALL calendars ────────────────────
-export async function findEventsByTitle(query: string, daysToSearch = 14): Promise<Array<CalendarEvent & { eventId?: string }>> {
+export async function findEventsByTitle(query: string, daysToSearch = 14, daysBack = 7): Promise<Array<CalendarEvent & { eventId?: string; calendarId?: string }>> {
   const calendar = await buildCalendarClient();
 
   const tz = process.env.TIMEZONE || "America/New_York";
@@ -249,12 +258,15 @@ export async function findEventsByTitle(query: string, daysToSearch = 14): Promi
   const tzDate2 = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now2);
   const timeMinBase = new Date(`${tzDate2}T00:00:00`);
   const offsetMs2 = now2.getTime() - new Date(now2.toLocaleString("en-US", { timeZone: tz })).getTime();
-  const timeMin = new Date(timeMinBase.getTime() + offsetMs2);
-  const timeMax = new Date(timeMin);
+  const todayStart = new Date(timeMinBase.getTime() + offsetMs2);
+  // Search backwards too so recently-passed events (e.g. yesterday) can be found and deleted
+  const timeMin = new Date(todayStart);
+  timeMin.setDate(timeMin.getDate() - daysBack);
+  const timeMax = new Date(todayStart);
   timeMax.setDate(timeMax.getDate() + daysToSearch);
 
   const calendarIds = await getAllCalendarIds(calendar);
-  const allEvents: Array<CalendarEvent & { eventId?: string }> = [];
+  const allEvents: Array<CalendarEvent & { eventId?: string; calendarId?: string }> = [];
 
   await Promise.all(
     calendarIds.map(async ({ id }) => {
@@ -274,13 +286,14 @@ export async function findEventsByTitle(query: string, daysToSearch = 14): Promi
           const end   = event.end?.dateTime   ?? event.end?.date   ?? "";
           // Strip description to avoid HTML/noise confusing the LLM
           allEvents.push({
-            start:    fmtEventTime(start),
-            end:      fmtEventTime(end),
-            startIso: start,
-            endIso:   end,
-            title:    event.summary  ?? "(no title)",
-            location: event.location ?? undefined,
-            eventId:  event.id       ?? undefined,
+            start:      fmtEventTime(start),
+            end:        fmtEventTime(end),
+            startIso:   start,
+            endIso:     end,
+            title:      event.summary  ?? "(no title)",
+            location:   event.location ?? undefined,
+            eventId:    event.id       ?? undefined,
+            calendarId: id,
           });
         }
       } catch (err) {

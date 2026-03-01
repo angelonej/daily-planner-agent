@@ -11,8 +11,8 @@ export async function createEvent(params) {
 export async function updateEvent(params) {
     return updateCalendarEvent(params);
 }
-export async function deleteEvent(eventId) {
-    return deleteCalendarEvent(eventId);
+export async function deleteEvent(eventId, calendarId) {
+    return deleteCalendarEvent(eventId, calendarId ?? "primary");
 }
 export async function searchEvents(query, daysToSearch = 14) {
     return findEventsByTitle(query, daysToSearch);

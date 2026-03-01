@@ -191,20 +191,34 @@ export async function updateCalendarEvent(params) {
     });
 }
 // ─── Delete an event by ID ────────────────────────────────────────────────
-export async function deleteCalendarEvent(eventId) {
+export async function deleteCalendarEvent(eventId, calendarId = "primary") {
     const calendar = await buildCalendarClient();
-    await calendar.events.delete({ calendarId: "primary", eventId });
+    try {
+        await calendar.events.delete({ calendarId, eventId });
+    }
+    catch (err) {
+        // If the provided calendarId failed and it wasn't already primary, try primary
+        if (calendarId !== "primary") {
+            await calendar.events.delete({ calendarId: "primary", eventId });
+        }
+        else {
+            throw err;
+        }
+    }
 }
 // ─── Find events by title keyword across ALL calendars ────────────────────
-export async function findEventsByTitle(query, daysToSearch = 14) {
+export async function findEventsByTitle(query, daysToSearch = 14, daysBack = 7) {
     const calendar = await buildCalendarClient();
     const tz = process.env.TIMEZONE || "America/New_York";
     const now2 = new Date();
     const tzDate2 = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now2);
     const timeMinBase = new Date(`${tzDate2}T00:00:00`);
     const offsetMs2 = now2.getTime() - new Date(now2.toLocaleString("en-US", { timeZone: tz })).getTime();
-    const timeMin = new Date(timeMinBase.getTime() + offsetMs2);
-    const timeMax = new Date(timeMin);
+    const todayStart = new Date(timeMinBase.getTime() + offsetMs2);
+    // Search backwards too so recently-passed events (e.g. yesterday) can be found and deleted
+    const timeMin = new Date(todayStart);
+    timeMin.setDate(timeMin.getDate() - daysBack);
+    const timeMax = new Date(todayStart);
     timeMax.setDate(timeMax.getDate() + daysToSearch);
     const calendarIds = await getAllCalendarIds(calendar);
     const allEvents = [];
@@ -231,6 +245,7 @@ export async function findEventsByTitle(query, daysToSearch = 14) {
                     title: event.summary ?? "(no title)",
                     location: event.location ?? undefined,
                     eventId: event.id ?? undefined,
+                    calendarId: id,
                 });
             }
         }
