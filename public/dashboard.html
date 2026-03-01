@@ -631,10 +631,13 @@
             <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Add task to list:</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <input id="new-task-input" class="topic-input" placeholder="Task title…" style="font-size:12px;padding:6px 10px;flex:1;min-width:0" />
-              <select id="new-task-list" class="topic-input" style="font-size:12px;padding:6px 8px;cursor:pointer;max-width:130px" title="Choose list">
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+              <select id="new-task-list" class="topic-input" style="font-size:12px;padding:6px 8px;cursor:pointer;flex:1;min-width:0" title="Choose list">
                 <option value="">Default list</option>
               </select>
-              <button class="btn-primary" style="padding:6px 12px;font-size:12px" onclick="addTask()">Add</button>
+              <input id="new-task-due" type="date" class="topic-input" style="font-size:12px;padding:6px 8px;flex:1;min-width:0" title="Due date (optional)" />
+              <button class="btn-primary" style="padding:6px 14px;font-size:12px" onclick="addTask()">Add</button>
             </div>
           </div>
           </div><!-- /card-body -->
@@ -1899,11 +1902,14 @@ async function completeTask(taskId, listId, el) {
 async function addTask() {
   const input = document.getElementById('new-task-input');
   const listSel = document.getElementById('new-task-list');
+  const dueSel = document.getElementById('new-task-due');
   const title = input.value.trim();
-  if (!title) return;
+  if (!title) { showToast('❌', 'Enter a task title'); return; }
   input.value = '';
+  const due = dueSel?.value || undefined;
+  if (dueSel) dueSel.value = '';
   try {
-    const body = { title, listId: listSel.value || undefined };
+    const body = { title, listId: listSel.value || undefined, due: due || undefined };
     const res = await fetch('/api/create-task', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1911,8 +1917,12 @@ async function addTask() {
     });
     const data = await res.json();
     if (data.ok) {
-      showToast('✅ Task added', title);
-      setTimeout(() => loadBriefing(false), 600);
+      showToast('✅ Task added', `${title}${due ? ' · Due ' + new Date(due + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''}`);
+      // Refresh tasks panel directly
+      try {
+        const r = await fetch('/api/tasks');
+        if (r.ok) { const d = await r.json(); if (d.tasks) { tasksData = d.tasks; renderTasks(); } }
+      } catch(e) { /* fallback to briefing reload */ setTimeout(() => loadBriefing(false), 600); }
     } else {
       showToast('❌ Error', data.error || 'Could not add task');
     }
