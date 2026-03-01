@@ -1497,12 +1497,13 @@ async function loadAwsCost(forceRefresh) {
     const res = await fetch(url);
     const d = await res.json();
     if (!res.ok) {
-      // 403 = IAM not configured — hide the widget silently, no console spam
+      // 403 = IAM not configured — disable the button/widget but keep visible
       if (res.status === 403) {
         const widget = document.getElementById('aws-cost-widget');
-        if (widget) widget.style.display = 'none';
+        if (widget) { widget.style.opacity = '0.4'; widget.style.pointerEvents = 'none'; widget.title = 'AWS Cost Explorer not configured'; }
         const btn = document.getElementById('aws-sidebar-btn');
-        if (btn) btn.style.display = 'none';
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; btn.style.cursor = 'not-allowed'; btn.title = 'AWS Cost Explorer not configured'; }
+        if (sidebarEl) sidebarEl.textContent = 'AWS: not configured';
         awsCostLoaded = true; // don't retry
         return;
       }
