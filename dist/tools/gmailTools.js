@@ -74,8 +74,8 @@ export async function fetchUnreadEmails(accountAlias, maxResults = 20) {
     const messages = listRes.data.messages ?? [];
     if (messages.length === 0)
         return [];
-    // Fetch each message in parallel (up to 10 at once)
-    const batch = messages.slice(0, 10);
+    // Fetch each message in parallel (up to 20 at once)
+    const batch = messages.slice(0, 20);
     const emails = await Promise.all(batch.map(async (msg) => {
         const detail = await gmail.users.messages.get({
             userId: "me",
@@ -209,12 +209,37 @@ export async function fetchAllAccountEmails() {
     ];
     const results = await Promise.allSettled(accounts.map((alias) => fetchUnreadEmails(alias)));
     const emails = [];
+    const seenIds = new Set();
     for (const result of results) {
         if (result.status === "fulfilled") {
-            emails.push(...result.value);
+            for (const e of result.value) {
+                emails.push(e);
+                seenIds.add(e.id);
+            }
         }
         else {
             console.error("Gmail fetch error:", result.reason);
+        }
+    }
+    // Supplemental pass: explicitly search for unread VIP sender emails from the
+    // past 3 days so they always surface even when buried past the top-20 inbox.
+    const { getVipSenders } = await import("./notificationTools.js");
+    const vipSenders = getVipSenders();
+    if (vipSenders.length > 0) {
+        const after = new Date();
+        after.setDate(after.getDate() - 3);
+        const afterStr = after.toISOString().slice(0, 10).replace(/-/g, "/");
+        const vipQuery = `is:unread (${vipSenders.map(v => `from:${v}`).join(" OR ")}) after:${afterStr}`;
+        const vipResults = await Promise.allSettled(accounts.map((alias) => searchEmails(vipQuery, alias, 10)));
+        for (const result of vipResults) {
+            if (result.status === "fulfilled") {
+                for (const e of result.value) {
+                    if (!seenIds.has(e.id)) {
+                        emails.push(e);
+                        seenIds.add(e.id);
+                    }
+                }
+            }
         }
     }
     // Sort: important first, then by date descending
