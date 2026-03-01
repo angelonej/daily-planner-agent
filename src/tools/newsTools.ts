@@ -6,9 +6,18 @@ import { NewsArticle } from "../types.js";
 const newsCache = new Map<string, { articles: NewsArticle[]; fetchedAt: number }>();
 const NEWS_CACHE_TTL_MS = 30 * 60 * 1000;
 
+// Paid / paywalled sites to exclude from every news search
+const EXCLUDED_NEWS_SITES = [
+  "wsj.com", "ft.com", "nytimes.com", "bloomberg.com",
+  "washingtonpost.com", "theathletic.com", "barrons.com",
+  "economist.com", "thetimes.co.uk", "telegraph.co.uk",
+];
+const SITE_EXCLUSIONS = EXCLUDED_NEWS_SITES.map(s => `-site:${s}`).join(" ");
+
 /**
  * Fetch news from Google News RSS (no API key, no rate limits).
  * Cached 30 min. Falls back to empty array on error.
+ * Paywalled sources are excluded via -site: operators.
  */
 export async function searchNews(topic: string, maxResults = 3): Promise<NewsArticle[]> {
   const cached = newsCache.get(topic);
@@ -17,9 +26,10 @@ export async function searchNews(topic: string, maxResults = 3): Promise<NewsArt
   }
 
   try {
+    const query = `${topic} ${SITE_EXCLUSIONS}`;
     const url =
       `https://news.google.com/rss/search` +
-      `?q=${encodeURIComponent(topic)}` +
+      `?q=${encodeURIComponent(query)}` +
       `&hl=en-US&gl=US&ceid=US:en`;
 
     const res = await fetch(url, {

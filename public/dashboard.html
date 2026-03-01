@@ -590,10 +590,11 @@
           <!-- List filter tabs -->
           <div id="task-list-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
           <div id="tasks-list"></div>
-          <div style="margin-top:10px">
+          <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:5px">Add task to list:</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <input id="new-task-input" class="topic-input" placeholder="Add task…" style="font-size:12px;padding:6px 10px;flex:1;min-width:0" />
-              <select id="new-task-list" class="topic-input" style="font-size:12px;padding:6px 8px;cursor:pointer;max-width:130px">
+              <input id="new-task-input" class="topic-input" placeholder="Task title…" style="font-size:12px;padding:6px 10px;flex:1;min-width:0" />
+              <select id="new-task-list" class="topic-input" style="font-size:12px;padding:6px 8px;cursor:pointer;max-width:130px" title="Choose list">
                 <option value="">Default list</option>
               </select>
               <button class="btn-primary" style="padding:6px 12px;font-size:12px" onclick="addTask()">Add</button>
@@ -1578,6 +1579,14 @@ function renderTasks() {
 function setTaskListFilter(list) {
   activeTaskList = list;
   renderTasks();
+  // Sync the Add Task dropdown to the selected list
+  const sel = document.getElementById('new-task-list');
+  if (!sel) return;
+  if (list === 'all') { sel.selectedIndex = 0; return; }
+  // Match by option text (listTitle) since we may not have the id here
+  for (const opt of sel.options) {
+    if (opt.text === list) { sel.value = opt.value; return; }
+  }
 }
 
 // Load task lists into the Add Task selector

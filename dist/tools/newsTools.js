@@ -3,9 +3,17 @@ import fetch from "node-fetch";
 // and this prevents re-fetching on every briefing cache miss
 const newsCache = new Map();
 const NEWS_CACHE_TTL_MS = 30 * 60 * 1000;
+// Paid / paywalled sites to exclude from every news search
+const EXCLUDED_NEWS_SITES = [
+    "wsj.com", "ft.com", "nytimes.com", "bloomberg.com",
+    "washingtonpost.com", "theathletic.com", "barrons.com",
+    "economist.com", "thetimes.co.uk", "telegraph.co.uk",
+];
+const SITE_EXCLUSIONS = EXCLUDED_NEWS_SITES.map(s => `-site:${s}`).join(" ");
 /**
  * Fetch news from Google News RSS (no API key, no rate limits).
  * Cached 30 min. Falls back to empty array on error.
+ * Paywalled sources are excluded via -site: operators.
  */
 export async function searchNews(topic, maxResults = 3) {
     const cached = newsCache.get(topic);
@@ -13,8 +21,9 @@ export async function searchNews(topic, maxResults = 3) {
         return cached.articles;
     }
     try {
+        const query = `${topic} ${SITE_EXCLUSIONS}`;
         const url = `https://news.google.com/rss/search` +
-            `?q=${encodeURIComponent(topic)}` +
+            `?q=${encodeURIComponent(query)}` +
             `&hl=en-US&gl=US&ceid=US:en`;
         const res = await fetch(url, {
             headers: { "User-Agent": "Mozilla/5.0 (compatible; DailyPlannerBot/1.0)" },
