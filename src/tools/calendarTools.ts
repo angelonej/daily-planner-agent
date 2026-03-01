@@ -138,14 +138,12 @@ export async function getCalendarEvents(daysAhead = 1): Promise<CalendarEvent[]>
 
   const tz = process.env.TIMEZONE || "America/New_York";
   const now = new Date();
-  // Compute midnight and end-of-range in the configured timezone
+  // Get today's date string in the target timezone (e.g. "2026-03-01")
   const tzDate = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
-  const timeMin = new Date(`${tzDate}T00:00:00`);
-  // Adjust for timezone offset so the ISO string lands at local midnight
-  const offsetMs = now.getTime() - new Date(now.toLocaleString("en-US", { timeZone: tz })).getTime();
-  const timeMinAdj = new Date(timeMin.getTime() + offsetMs);
-
-  const timeMax = new Date(timeMinAdj);
+  // Build "midnight in that timezone" as a real UTC instant by computing the offset
+  const tzOffset = now.getTime() - new Date(now.toLocaleString("en-US", { timeZone: tz })).getTime();
+  const timeMin = new Date(new Date(`${tzDate}T00:00:00`).getTime() + tzOffset);
+  const timeMax = new Date(timeMin);
   timeMax.setDate(timeMax.getDate() + daysAhead);
 
   // Fetch all calendars the user has access to
